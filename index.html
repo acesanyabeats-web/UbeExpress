@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Ube Express</title>
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<!-- Shared icon sprite sheet: simple line-drawn glassware/equipment icons, no external assets -->
+<svg style="display:none">
+  <defs>
+    <symbol id="icon-glass_coupe" viewBox="0 0 100 100"><path d="M20 15 Q20 55 50 55 Q80 55 80 15 Z" fill="none" stroke="currentColor" stroke-width="4"/><line x1="50" y1="55" x2="50" y2="85" stroke="currentColor" stroke-width="4"/><line x1="30" y1="85" x2="70" y2="85" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_martini" viewBox="0 0 100 100"><path d="M15 15 L50 55 L85 15 Z" fill="none" stroke="currentColor" stroke-width="4"/><line x1="50" y1="55" x2="50" y2="85" stroke="currentColor" stroke-width="4"/><line x1="30" y1="85" x2="70" y2="85" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_rocks" viewBox="0 0 100 100"><rect x="25" y="30" width="50" height="55" rx="4" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="42" cy="55" r="9" fill="none" stroke="currentColor" stroke-width="3"/></symbol>
+    <symbol id="icon-glass_highball" viewBox="0 0 100 100"><rect x="32" y="12" width="36" height="76" rx="3" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_collins" viewBox="0 0 100 100"><rect x="35" y="8" width="30" height="82" rx="2" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_copper_mug" viewBox="0 0 100 100"><rect x="22" y="25" width="48" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="4"/><path d="M70 38 Q92 38 92 55 Q92 72 70 72" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_wine" viewBox="0 0 100 100"><path d="M22 15 Q22 48 50 48 Q78 48 78 15" fill="none" stroke="currentColor" stroke-width="4"/><line x1="50" y1="48" x2="50" y2="85" stroke="currentColor" stroke-width="4"/><line x1="32" y1="85" x2="68" y2="85" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-glass_shot" viewBox="0 0 100 100"><path d="M32 20 L68 20 L62 80 L38 80 Z" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-shaker" viewBox="0 0 100 100"><rect x="30" y="10" width="40" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="4"/><path d="M25 28 L75 28 L68 90 L32 90 Z" fill="none" stroke="currentColor" stroke-width="4"/><line x1="28" y1="50" x2="72" y2="50" stroke="currentColor" stroke-width="3"/></symbol>
+    <symbol id="icon-jigger" viewBox="0 0 100 100"><path d="M35 15 L65 15 L58 48 L42 48 Z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M42 48 L58 48 L70 88 L30 88 Z" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-strainer" viewBox="0 0 100 100"><circle cx="50" cy="45" r="32" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="38" cy="35" r="3" fill="currentColor"/><circle cx="52" cy="30" r="3" fill="currentColor"/><circle cx="64" cy="38" r="3" fill="currentColor"/><circle cx="42" cy="50" r="3" fill="currentColor"/><circle cx="58" cy="52" r="3" fill="currentColor"/><path d="M18 45 Q10 45 10 60 M82 45 Q90 45 90 60" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-muddler" viewBox="0 0 100 100"><rect x="44" y="10" width="12" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><ellipse cx="50" cy="82" rx="16" ry="10" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-bar_spoon" viewBox="0 0 100 100"><line x1="50" y1="20" x2="50" y2="80" stroke="currentColor" stroke-width="4"/><ellipse cx="50" cy="15" rx="10" ry="7" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+    <symbol id="icon-blender" viewBox="0 0 100 100"><path d="M30 20 L70 20 L62 60 L38 60 Z" fill="none" stroke="currentColor" stroke-width="4"/><rect x="30" y="60" width="40" height="25" rx="4" fill="none" stroke="currentColor" stroke-width="4"/></symbol>
+  </defs>
+</svg>
+
+<div id="login-screen" class="screen">
+  <div class="login-card">
+    <h1>🍸 Ube Express</h1>
+    <p class="login-sub">Enter the shared bar password to look up specs.</p>
+    <input type="password" id="login-pw" placeholder="Password" autocomplete="off">
+    <button id="login-btn" class="btn btn-primary">Enter</button>
+    <div id="login-error" class="login-error" hidden></div>
+  </div>
+</div>
+
+<div id="app" class="screen" hidden>
+  <header id="app-header">
+    <button id="nav-back-btn" class="icon-btn" hidden>&larr;</button>
+    <h2 id="app-title">Menu</h2>
+    <button id="admin-btn" class="icon-btn" hidden>+</button>
+  </header>
+  <main id="app-main"></main>
+</div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>

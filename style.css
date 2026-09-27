@@ -1,0 +1,252 @@
+:root {
+  --bg: #14110f;
+  --card: #201b17;
+  --card2: #2a231d;
+  --text: #f3ede6;
+  --muted: #a89a8c;
+  --accent: #d8a34d;
+  --accent2: #7fae7f;
+  --danger: #c9564f;
+  --new-badge: #d8a34d;
+  --border: #3a322a;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen { min-height: 100vh; }
+
+/* ---- Login ---- */
+#login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.login-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+.login-card h1 { margin: 0 0 8px; font-size: 1.5rem; }
+.login-sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+#login-pw {
+  width: 100%;
+  padding: 14px;
+  font-size: 1.1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.login-error { color: var(--danger); margin-top: 10px; font-size: 0.9rem; }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  min-height: 52px;
+}
+.btn-primary { background: var(--accent); color: #1a1512; }
+.btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: var(--danger); color: #fff; }
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.4rem;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+
+/* ---- App shell ---- */
+#app-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+}
+#app-header h2 { margin: 0; font-size: 1.15rem; flex: 1; text-align: center; }
+#app-main { padding: 16px; max-width: 640px; margin: 0 auto; padding-bottom: 60px; }
+
+/* ---- Search ---- */
+#menu-search {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  margin-bottom: 18px;
+}
+
+/* ---- Section headers ---- */
+.section-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 20px 0 8px;
+}
+
+/* ---- Cocktail list cards ---- */
+.cocktail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.cocktail-row .glass-icon { width: 34px; height: 34px; color: var(--accent); flex-shrink: 0; }
+.cocktail-row .name { flex: 1; font-size: 1.05rem; font-weight: 600; }
+.new-badge {
+  background: var(--new-badge);
+  color: #1a1512;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+/* ---- Detail view ---- */
+.detail-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+}
+.detail-hero .glass-icon { width: 90px; height: 90px; color: var(--accent); }
+.detail-hero h1 { margin: 10px 0 2px; }
+.detail-hero .meta { color: var(--muted); font-size: 0.95rem; }
+
+.ingredient-list { list-style: none; padding: 0; margin: 0 0 20px; }
+.ingredient-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.02rem;
+}
+.ingredient-list .amt { color: var(--accent); font-weight: 600; }
+
+.method-list { padding: 0 0 0 20px; margin: 0 0 20px; }
+.method-list li { margin-bottom: 10px; line-height: 1.4; }
+
+.action-row { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+
+/* ---- Live Build Mode ---- */
+#build-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+}
+.build-progress {
+  display: flex;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
+.build-progress .dot { flex: 1; height: 5px; border-radius: 3px; background: var(--border); }
+.build-progress .dot.done { background: var(--accent); }
+.build-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+}
+.build-step .equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
+.build-step .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.build-step .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
+.build-step .step-ingredients { color: var(--accent2); font-size: 1.05rem; margin-bottom: 4px; }
+.build-nav {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.build-nav .btn { flex: 1; }
+
+/* ---- Admin editor ---- */
+.field-group { margin-bottom: 16px; }
+.field-group label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+.field-group input, .field-group select, .field-group textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 1rem;
+}
+.field-group textarea { min-height: 70px; resize: vertical; }
+.repeat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.repeat-row > * { flex: 1; }
+.repeat-row .remove-btn {
+  flex: 0 0 40px;
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  height: 44px;
+  cursor: pointer;
+}
+.add-row-btn {
+  background: var(--card2);
+  border: 1px dashed var(--border);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 10px;
+  width: 100%;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.toggle-row input[type=checkbox] { width: 24px; height: 24px; }
+
+/* ---- Batch calculator ---- */
+.batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+.batch-input-row .field-group { flex: 1; margin-bottom: 0; }
