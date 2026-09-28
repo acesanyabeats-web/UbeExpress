@@ -131,6 +131,12 @@ module.exports = async function handler(req, res) {
           headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
           body: JSON.stringify({ name: payload.ingredient_name, photo_url: photoUrl, updated_at: new Date().toISOString() })
         });
+      } else if (payload.target === 'cocktail') {
+        await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+          method: 'PATCH',
+          headers: sbHeaders(),
+          body: JSON.stringify({ photo_url: photoUrl, updated_at: new Date().toISOString() })
+        });
       } else {
         res.status(400).json({ error: 'Bad target' });
         return;

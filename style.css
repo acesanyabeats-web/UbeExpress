@@ -164,6 +164,26 @@ body {
 }
 .ingredient-list .amt { color: var(--accent); font-weight: 600; }
 
+.finished-photo-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto 20px;
+}
+.finished-photo { width: 100%; border-radius: 14px; display: block; object-fit: cover; }
+.finished-photo-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.finished-photo-btn { position: absolute; top: 8px; right: 8px; }
+
 .method-list { padding: 0 0 0 20px; margin: 0 0 20px; }
 .method-list li { margin-bottom: 10px; line-height: 1.4; }
 
@@ -195,6 +215,17 @@ body {
   text-align: center;
 }
 .build-step .equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
+.step-media-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.step-media-row .equip-icon { margin-bottom: 0; }
+.step-ing-photo {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid var(--accent2);
+  margin-bottom: 12px;
+}
+.step-ing-photo[hidden] { display: none; }
 .build-step .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
 .build-step .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
 .build-step .step-ingredient-list {
@@ -216,6 +247,10 @@ body {
 .build-step .step-ingredient-list li:last-child { border-bottom: none; }
 .build-step .step-ingredient-list .ing-name { color: var(--text); }
 .build-step .step-ingredient-list .ing-amt { color: var(--accent2); font-weight: 600; white-space: nowrap; }
+.build-step .step-ingredient-list li.clickable { cursor: pointer; }
+.build-step .step-ingredient-list li.clickable .ing-name { color: var(--accent2); text-decoration: underline dotted; }
+.build-step .step-ingredient-list li.active { border-color: var(--accent2); }
+.build-step .step-ingredient-list li.active .ing-name { color: var(--accent); }
 .build-nav {
   display: flex;
   gap: 10px;

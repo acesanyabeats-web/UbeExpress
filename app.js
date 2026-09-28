@@ -256,6 +256,13 @@
       '<div class="meta">' + escapeHtml(c.build_method || '') + (c.garnish ? ' &middot; garnish: ' + escapeHtml(c.garnish) : '') + '</div>' +
       '</div>';
 
+    if (c.photo_url || state.role === 'admin') {
+      html += '<div class="finished-photo-wrap">' +
+        (c.photo_url ? '<img class="finished-photo" src="' + escapeHtml(c.photo_url) + '">' : '<div class="finished-photo-placeholder">No finished photo yet</div>') +
+        (state.role === 'admin' ? '<button type="button" id="cocktail-photo-btn" class="photo-btn finished-photo-btn' + (c.photo_url ? ' has-photo' : '') + '" title="Photo of the finished, garnished drink">' + iconSvg('camera') + '</button>' : '') +
+        '</div>';
+    }
+
     html += '<div class="section-label">Ingredients</div><ul class="ingredient-list">' +
       ings.map(function (i) {
         var photo = state.ingredientPhotos[String(i.name || '').toLowerCase()];
@@ -284,6 +291,20 @@
 
     Array.prototype.forEach.call(main.querySelectorAll('[data-view-photo]'), function (btn) {
       btn.addEventListener('click', function () { showPhotoModal(btn.getAttribute('data-view-photo')); });
+    });
+
+    var cocktailPhotoBtn = document.getElementById('cocktail-photo-btn');
+    if (cocktailPhotoBtn) cocktailPhotoBtn.addEventListener('click', function () {
+      cocktailPhotoBtn.classList.add('uploading');
+      pickPhotoAndUpload(function (base64) {
+        apiUploadPhoto(base64, 'cocktail', { cocktail_id: c.id }).then(function (res) {
+          c.photo_url = res.photo_url;
+          return loadAllData();
+        }).then(function () { openDetail(id); }).catch(function (e) {
+          cocktailPhotoBtn.classList.remove('uploading');
+          alert('Photo upload failed: ' + e.message);
+        });
+      });
     });
 
     var startBtn = document.getElementById('start-build-btn');
@@ -343,7 +364,9 @@
       var match = ingByName[String(name).toLowerCase()];
       var amt = match ? fmtAmt(match.amount) : '';
       var amtLabel = amt ? amt + (match.unit ? ' ' + match.unit : '') : '';
-      return '<li><span class="ing-name">' + escapeHtml(name) + '</span>' +
+      var photo = state.ingredientPhotos[String(name).toLowerCase()];
+      return '<li' + (photo ? ' class="clickable" data-ing-view="' + escapeHtml(photo) + '"' : '') + '>' +
+        '<span class="ing-name">' + escapeHtml(name) + '</span>' +
         (amtLabel ? '<span class="ing-amt">' + escapeHtml(amtLabel) + '</span>' : '') + '</li>';
     }
 
@@ -359,7 +382,7 @@
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        mediaHtml +
+        '<div class="step-media-row">' + mediaHtml + '<img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
         ingList +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
@@ -376,6 +399,23 @@
       if (nextBtn) nextBtn.addEventListener('click', function () { idx++; render(); });
       var doneBtn = document.getElementById('build-done');
       if (doneBtn) doneBtn.addEventListener('click', close);
+
+      var preview = document.getElementById('step-ing-preview');
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-ing-view]'), function (li) {
+        li.addEventListener('click', function () {
+          var url = li.getAttribute('data-ing-view');
+          var alreadyActive = li.classList.contains('active');
+          Array.prototype.forEach.call(overlay.querySelectorAll('.step-ingredient-list li.active'), function (o) { o.classList.remove('active'); });
+          if (alreadyActive) {
+            preview.hidden = true;
+            preview.removeAttribute('src');
+          } else {
+            preview.src = url;
+            preview.hidden = false;
+            li.classList.add('active');
+          }
+        });
+      });
     }
 
     function close() { overlay.remove(); }
