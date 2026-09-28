@@ -17,6 +17,28 @@ async function sbFetch(path, options) {
   return r;
 }
 
+async function uploadPhotoToStorage(base64, contentType, targetLabel) {
+  var ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+  var objectPath = (targetLabel || 'misc') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
+  var bytes = Buffer.from(base64, 'base64');
+
+  var r = await fetch(SUPABASE_URL + '/storage/v1/object/photos/' + objectPath, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY,
+      'Content-Type': contentType,
+      'x-upsert': 'true'
+    },
+    body: bytes
+  });
+  if (!r.ok) {
+    var text = await r.text();
+    throw new Error('Photo upload failed (' + r.status + '): ' + text);
+  }
+  return SUPABASE_URL + '/storage/v1/object/public/photos/' + objectPath;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
 
@@ -86,6 +108,35 @@ module.exports = async function handler(req, res) {
     if (action === 'delete_cocktail') {
       await sbFetch('cocktails?id=eq.' + payload.id, { method: 'DELETE', headers: sbHeaders() });
       res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'upload_photo') {
+      var photoUrl = await uploadPhotoToStorage(payload.image_base64, payload.content_type || 'image/jpeg', payload.target);
+
+      if (payload.target === 'step') {
+        var getRes = await sbFetch('cocktails?id=eq.' + payload.cocktail_id + '&select=method_steps', { headers: sbHeaders() });
+        var rows = await getRes.json();
+        var steps = (rows[0] && rows[0].method_steps) || [];
+        if (!steps[payload.step_index]) { res.status(400).json({ error: 'Bad step index' }); return; }
+        steps[payload.step_index].photo_url = photoUrl;
+        await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+          method: 'PATCH',
+          headers: sbHeaders(),
+          body: JSON.stringify({ method_steps: steps, updated_at: new Date().toISOString() })
+        });
+      } else if (payload.target === 'ingredient') {
+        await sbFetch('ingredient_photos?on_conflict=name', {
+          method: 'POST',
+          headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+          body: JSON.stringify({ name: payload.ingredient_name, photo_url: photoUrl, updated_at: new Date().toISOString() })
+        });
+      } else {
+        res.status(400).json({ error: 'Bad target' });
+        return;
+      }
+
+      res.status(200).json({ ok: true, photo_url: photoUrl });
       return;
     }
 

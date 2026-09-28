@@ -13,6 +13,7 @@
     role: null,          // 'staff' | 'admin'
     cocktails: [],
     ingredients: {},     // cocktail_id -> [ingredient rows]
+    ingredientPhotos: {}, // lowercase ingredient name -> photo_url
     seen: readSeen()
   };
 
@@ -42,7 +43,8 @@
   function loadAllData() {
     return Promise.all([
       sbSelect('cocktails', 'select=*&order=created_at.desc'),
-      sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc')
+      sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc'),
+      sbSelect('ingredient_photos', 'select=*')
     ]).then(function (results) {
       state.cocktails = results[0];
       state.ingredients = {};
@@ -50,7 +52,71 @@
         if (!state.ingredients[row.cocktail_id]) state.ingredients[row.cocktail_id] = [];
         state.ingredients[row.cocktail_id].push(row);
       });
+      state.ingredientPhotos = {};
+      results[2].forEach(function (row) {
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = row.photo_url;
+      });
     });
+  }
+
+  // ---------- photo capture/upload helpers ----------
+  function compressImageFile(file, maxDim, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        cb(dataUrl.split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function pickPhotoAndUpload(onDone) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', function () {
+      var file = input.files[0];
+      if (input.parentNode) input.parentNode.removeChild(input);
+      if (!file) return;
+      compressImageFile(file, 1280, onDone);
+    });
+    input.click();
+  }
+
+  function apiUploadPhoto(imageBase64, target, extra) {
+    var payload = { image_base64: imageBase64, content_type: 'image/jpeg', target: target };
+    extra = extra || {};
+    for (var k in extra) { if (extra.hasOwnProperty(k)) payload[k] = extra[k]; }
+    return fetch('/api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+      body: JSON.stringify({ action: 'upload_photo', payload: payload })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('upload failed: ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function showPhotoModal(url) {
+    var overlay = document.createElement('div');
+    overlay.id = 'photo-modal-overlay';
+    overlay.innerHTML = '<button class="close-btn">&times;</button><img src="' + escapeHtml(url) + '">';
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay || e.target.classList.contains('close-btn')) overlay.remove();
+    });
+    document.body.appendChild(overlay);
   }
 
   // ---------- admin write API ----------
@@ -192,7 +258,11 @@
 
     html += '<div class="section-label">Ingredients</div><ul class="ingredient-list">' +
       ings.map(function (i) {
-        return '<li><span>' + escapeHtml(i.name) + '</span><span class="amt">' + fmtAmt(i.amount) + ' ' + escapeHtml(i.unit || '') + '</span></li>';
+        var photo = state.ingredientPhotos[String(i.name || '').toLowerCase()];
+        var nameHtml = photo ?
+          '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo) + '">' + escapeHtml(i.name) + '</button>' :
+          '<span>' + escapeHtml(i.name) + '</span>';
+        return '<li>' + nameHtml + '<span class="amt">' + fmtAmt(i.amount) + ' ' + escapeHtml(i.unit || '') + '</span></li>';
       }).join('') + '</ul>';
 
     var steps = Array.isArray(c.method_steps) ? c.method_steps : [];
@@ -212,8 +282,12 @@
 
     main.innerHTML = html;
 
+    Array.prototype.forEach.call(main.querySelectorAll('[data-view-photo]'), function (btn) {
+      btn.addEventListener('click', function () { showPhotoModal(btn.getAttribute('data-view-photo')); });
+    });
+
     var startBtn = document.getElementById('start-build-btn');
-    if (startBtn) startBtn.addEventListener('click', function () { openBuildMode(c); });
+    if (startBtn) startBtn.addEventListener('click', function () { openBuildMode(c, ings); });
     var batchBtn = document.getElementById('batch-calc-btn');
     if (batchBtn) batchBtn.addEventListener('click', function () { openBatchCalc(c, ings); });
     var editBtn = document.getElementById('edit-cocktail-btn');
@@ -248,7 +322,7 @@
   }
 
   // ---------- LIVE BUILD MODE ----------
-  function openBuildMode(c) {
+  function openBuildMode(c, ings) {
     var steps = Array.isArray(c.method_steps) ? c.method_steps : [];
     if (!steps.length) return;
     var idx = 0;
@@ -256,21 +330,34 @@
     overlay.id = 'build-overlay';
     document.body.appendChild(overlay);
 
+    var ingByName = {};
+    (ings || []).forEach(function (i) { ingByName[String(i.name || '').toLowerCase()] = i; });
+
     function iconForStep(s) {
       if (s.equipment === 'glass') return c.glass ? 'glass_' + c.glass : 'glass_rocks';
       if (EQUIPMENT_OPTIONS.indexOf(s.equipment) !== -1) return s.equipment;
       return c.glass ? 'glass_' + c.glass : 'glass_rocks';
     }
 
+    function ingredientLabel(name) {
+      var match = ingByName[String(name).toLowerCase()];
+      if (!match) return name;
+      var amt = fmtAmt(match.amount);
+      return name + (amt ? ' ' + amt + (match.unit ? ' ' + match.unit : '') : '');
+    }
+
     function render() {
       var s = steps[idx];
       var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
-      var ingList = (s.ingredient_names || []).join(', ');
+      var ingList = (s.ingredient_names || []).map(ingredientLabel).join(', ');
+      var mediaHtml = s.photo_url ?
+        '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">' :
+        iconSvg(iconForStep(s), 'equip-icon');
       overlay.innerHTML =
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        iconSvg(iconForStep(s), 'equip-icon') +
+        mediaHtml +
         (ingList ? '<div class="step-ingredients">' + escapeHtml(ingList) + '</div>' : '') +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
@@ -339,17 +426,21 @@
     }) : [{ instruction: '', equipment: 'shaker', ingredient_names: '' }];
 
     function ingRowHtml(ing, idx) {
+      var hasPhoto = ing.name && state.ingredientPhotos[String(ing.name).toLowerCase()];
       return '<div class="repeat-row" data-idx="' + idx + '">' +
         '<input type="text" class="ing-name" placeholder="Name" value="' + escapeHtml(ing.name) + '">' +
         '<input type="number" step="0.1" class="ing-amount" placeholder="Amt" value="' + escapeHtml(ing.amount) + '">' +
         '<select class="ing-unit">' + UNIT_OPTIONS.map(function (u) { return '<option value="' + u + '"' + (u === ing.unit ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>' +
+        '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-ing-photo="1" title="Photo for new starters">' + iconSvg('camera') + '</button>' +
         '<button class="remove-btn" data-remove-ing="' + idx + '">✕</button>' +
         '</div>';
     }
-    function stepRowHtml(s, idx) {
+    function stepRowHtml(s, idx, allowPhoto) {
+      var hasPhoto = !!s.photo_url;
       return '<div class="repeat-row" data-idx="' + idx + '" style="flex-direction:column;align-items:stretch;">' +
         '<div style="display:flex;gap:8px;">' +
         '<select class="step-equipment" style="flex:1;">' + EQUIPMENT_OPTIONS.map(function (e) { return '<option value="' + e + '"' + (e === s.equipment ? ' selected' : '') + '>' + e.replace('_', ' ') + '</option>'; }).join('') + '</select>' +
+        (allowPhoto ? '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-step-photo="1" title="Photo of this step\'s final result">' + iconSvg('camera') + '</button>' : '') +
         '<button class="remove-btn" data-remove-step="' + idx + '">✕</button>' +
         '</div>' +
         '<input type="text" class="step-instruction" placeholder="Instruction (e.g. Shake hard for 12 seconds)" value="' + escapeHtml(s.instruction) + '" style="margin-top:6px;">' +
@@ -368,7 +459,7 @@
       '<button id="add-ing-btn" class="add-row-btn">+ Add ingredient</button>' +
 
       '<div class="section-label">Method steps</div>' +
-      '<div id="step-rows">' + steps.map(stepRowHtml).join('') + '</div>' +
+      '<div id="step-rows">' + steps.map(function (s, idx) { return stepRowHtml(s, idx, !!existing); }).join('') + '</div>' +
       '<button id="add-step-btn" class="add-row-btn">+ Add step</button>' +
 
       '<div class="toggle-row"><label>Batchable (pre-batched bottle)</label><input type="checkbox" id="f-batchable"' + (existing && existing.batchable ? ' checked' : '') + '></div>' +
@@ -379,15 +470,17 @@
     document.getElementById('add-ing-btn').addEventListener('click', function () {
       document.getElementById('ing-rows').insertAdjacentHTML('beforeend', ingRowHtml({ name: '', amount: '', unit: 'oz' }, Date.now()));
       wireRemoveButtons();
+      wirePhotoButtons();
     });
     document.getElementById('add-step-btn').addEventListener('click', function () {
-      document.getElementById('step-rows').insertAdjacentHTML('beforeend', stepRowHtml({ instruction: '', equipment: 'shaker', ingredient_names: '' }, Date.now()));
+      document.getElementById('step-rows').insertAdjacentHTML('beforeend', stepRowHtml({ instruction: '', equipment: 'shaker', ingredient_names: '' }, Date.now(), false));
       wireRemoveButtons();
     });
     document.getElementById('f-batchable').addEventListener('change', function (e) {
       document.getElementById('batch-target-group').style.display = e.target.checked ? '' : 'none';
     });
     wireRemoveButtons();
+    wirePhotoButtons();
 
     function wireRemoveButtons() {
       Array.prototype.forEach.call(main.querySelectorAll('[data-remove-ing]'), function (btn) {
@@ -395,6 +488,45 @@
       });
       Array.prototype.forEach.call(main.querySelectorAll('[data-remove-step]'), function (btn) {
         btn.onclick = function () { btn.closest('.repeat-row').remove(); };
+      });
+    }
+
+    function wirePhotoButtons() {
+      Array.prototype.forEach.call(main.querySelectorAll('[data-ing-photo]'), function (btn) {
+        btn.onclick = function () {
+          var row = btn.closest('.repeat-row');
+          var name = row.querySelector('.ing-name').value.trim();
+          if (!name) { alert('Enter the ingredient name first.'); return; }
+          btn.classList.add('uploading');
+          pickPhotoAndUpload(function (base64) {
+            apiUploadPhoto(base64, 'ingredient', { ingredient_name: name }).then(function (res) {
+              state.ingredientPhotos[name.toLowerCase()] = res.photo_url;
+              btn.classList.remove('uploading');
+              btn.classList.add('has-photo');
+            }).catch(function (e) {
+              btn.classList.remove('uploading');
+              alert('Photo upload failed: ' + e.message);
+            });
+          });
+        };
+      });
+      Array.prototype.forEach.call(main.querySelectorAll('[data-step-photo]'), function (btn) {
+        btn.onclick = function () {
+          if (!existing) { alert('Save the cocktail first, then edit it to add step photos.'); return; }
+          var row = btn.closest('.repeat-row');
+          var stepIndex = Array.prototype.indexOf.call(document.querySelectorAll('#step-rows .repeat-row'), row);
+          btn.classList.add('uploading');
+          pickPhotoAndUpload(function (base64) {
+            apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex }).then(function () {
+              btn.classList.remove('uploading');
+              btn.classList.add('has-photo');
+              return loadAllData();
+            }).catch(function (e) {
+              btn.classList.remove('uploading');
+              alert('Photo upload failed: ' + e.message);
+            });
+          });
+        };
       });
     }
 

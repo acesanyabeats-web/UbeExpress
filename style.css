@@ -248,6 +248,55 @@ body {
 .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .toggle-row input[type=checkbox] { width: 24px; height: 24px; }
 
+/* ---- Photo capture (admin) + photo display (build mode / detail) ---- */
+.photo-btn {
+  flex: 0 0 44px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 8px;
+  height: 44px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-btn.has-photo { color: var(--accent2); border-color: var(--accent2); }
+.photo-btn svg { width: 20px; height: 20px; }
+.photo-btn.uploading { opacity: 0.5; pointer-events: none; }
+
+.build-step .equip-icon.is-photo {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.ingredient-list li .name-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.ingredient-list li .name-btn.has-photo { color: var(--accent2); text-decoration: underline dotted; }
+
+#photo-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#photo-modal-overlay img { max-width: 100%; max-height: 80vh; border-radius: 10px; }
+#photo-modal-overlay .close-btn { position: absolute; top: 16px; right: 16px; background: var(--card); color: var(--text); border: none; width: 44px; height: 44px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; }
+
 /* ---- Batch calculator ---- */
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
 .batch-input-row .field-group { flex: 1; margin-bottom: 0; }
