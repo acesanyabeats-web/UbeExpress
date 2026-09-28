@@ -339,17 +339,19 @@
       return c.glass ? 'glass_' + c.glass : 'glass_rocks';
     }
 
-    function ingredientLabel(name) {
+    function ingredientRowHtml(name) {
       var match = ingByName[String(name).toLowerCase()];
-      if (!match) return name;
-      var amt = fmtAmt(match.amount);
-      return name + (amt ? ' ' + amt + (match.unit ? ' ' + match.unit : '') : '');
+      var amt = match ? fmtAmt(match.amount) : '';
+      var amtLabel = amt ? amt + (match.unit ? ' ' + match.unit : '') : '';
+      return '<li><span class="ing-name">' + escapeHtml(name) + '</span>' +
+        (amtLabel ? '<span class="ing-amt">' + escapeHtml(amtLabel) + '</span>' : '') + '</li>';
     }
 
     function render() {
       var s = steps[idx];
       var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
-      var ingList = (s.ingredient_names || []).map(ingredientLabel).join(', ');
+      var names = s.ingredient_names || [];
+      var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(ingredientRowHtml).join('') + '</ul>' : '';
       var mediaHtml = s.photo_url ?
         '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">' :
         iconSvg(iconForStep(s), 'equip-icon');
@@ -358,7 +360,7 @@
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
         mediaHtml +
-        (ingList ? '<div class="step-ingredients">' + escapeHtml(ingList) + '</div>' : '') +
+        ingList +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
         '<div class="build-nav">' +

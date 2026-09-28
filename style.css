@@ -197,7 +197,25 @@ body {
 .build-step .equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
 .build-step .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
 .build-step .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
-.build-step .step-ingredients { color: var(--accent2); font-size: 1.05rem; margin-bottom: 4px; }
+.build-step .step-ingredient-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  width: 100%;
+  max-width: 320px;
+  text-align: left;
+}
+.build-step .step-ingredient-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.02rem;
+}
+.build-step .step-ingredient-list li:last-child { border-bottom: none; }
+.build-step .step-ingredient-list .ing-name { color: var(--text); }
+.build-step .step-ingredient-list .ing-amt { color: var(--accent2); font-weight: 600; white-space: nowrap; }
 .build-nav {
   display: flex;
   gap: 10px;
