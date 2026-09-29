@@ -118,6 +118,40 @@ body {
   margin: 20px 0 8px;
 }
 
+/* ---- Home screen ---- */
+.home-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.home-card-emoji { font-size: 2.4rem; flex-shrink: 0; }
+.home-card-text h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.home-card-text p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+/* ---- Fruit Prep checklist ---- */
+.prep-list { margin-bottom: 8px; }
+.prep-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.prep-row input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+.prep-row span { font-size: 1rem; }
+.prep-row.checked { opacity: 0.55; }
+.prep-row.checked span { text-decoration: line-through; }
+
 /* ---- Cocktail list cards ---- */
 .cocktail-row {
   display: flex;

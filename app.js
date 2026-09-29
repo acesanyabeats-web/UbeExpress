@@ -9,12 +9,46 @@
   var UNIT_OPTIONS = ['oz', 'ml', 'g', 'each', 'dash', 'barspoon', 'splash', 'rinse', 'whole', 'wedge', 'leaf', 'sprig', 'scoop', 'to taste'];
   var OZ_TO_ML = 29.5735;
 
+  // Fruit Prep / Sweets Garnish Stock classification. Fresh fruit/herbs + the
+  // 2 house-made batch items need daily portioning; candy/novelty/dried/tinned
+  // garnish consumables need stock replenishment. Branded bottled syrups,
+  // purees, cordials, spirits, dairy, sorbet/gelato, sodas and bottled juices
+  // are deliberately excluded from both — they're poured to spec, not prepped
+  // or restocked as garnish, and are out of scope for this feature.
+  var FRUIT_SYRUP_ITEMS = [
+    'lemon', 'lime', 'lime juice - fresh', 'oranges', 'orange zest', 'cucumber',
+    'strawberries', 'raspberries', 'blackberry', 'pineapple', 'passion fruit',
+    'lychee', 'grapefruit pink', 'cherries', 'birds eye chillies',
+    'mint - fresh', 'mint', 'homemade lemonade', 'homemade raspberry lemonade - batch'
+  ];
+  var SWEETS_GARNISH_ITEMS = [
+    'popping candy - wizz fizz', 'popping balls - lychee', 'popping balls - passionfruit',
+    'popping balls - raspberry', 'popping balls - strawberry', 'sweetzone candy floss',
+    'vimto chew bar', 'vimto chew bon bon', 'skittles', 'sprinkles (hundreds&thousands)',
+    'jaffa cakes', 'strawberry laces', 'cherry pencils', 'jacks pencil sweet',
+    'chocolate digestives', 'giant marshmallows', 'percy pigs', 'tuck shop foam banana',
+    'edible glitter', 'drip icing - blue', 'freeze dried raspberries - new',
+    'dried dragonfruit', 'dried lime slices', 'dried orange slices', 'glace cherries',
+    'tinned lychee', 'peach hearts', 'chai seeds', 'birthday tassel stick',
+    'mini disco ball', 'mini cherry blossom tree', 'yellow bathtub ducks',
+    'mermaid tails', 'ping pong balls', 'rocket lollie', 'cocktail umbrellas',
+    '7.75" red/white striped paper straw', '7.75" green/white striped paper straw',
+    'food colouring - green'
+  ];
+  function ingredientCategory(name) {
+    var n = String(name || '').toLowerCase();
+    if (FRUIT_SYRUP_ITEMS.indexOf(n) !== -1) return 'fruit_syrup';
+    if (SWEETS_GARNISH_ITEMS.indexOf(n) !== -1) return 'sweets_garnish';
+    return null;
+  }
+
   var state = {
     role: null,          // 'staff' | 'admin'
     cocktails: [],
     ingredients: {},     // cocktail_id -> [ingredient rows]
     ingredientPhotos: {}, // lowercase ingredient name -> photo_url
-    seen: readSeen()
+    seen: readSeen(),
+    backTarget: null     // fn the nav-back-btn calls; set by setHeader
   };
 
   // ---------- storage helpers ----------
@@ -189,26 +223,47 @@
     document.getElementById('admin-btn').hidden = (state.role !== 'admin');
     document.getElementById('admin-btn').textContent = '+';
     document.getElementById('admin-btn').addEventListener('click', function () { openAdminEditor(null); });
-    document.getElementById('nav-back-btn').addEventListener('click', goToMenu);
-    loadAllData().then(renderMenu).catch(function (e) {
+    document.getElementById('nav-back-btn').addEventListener('click', function () { state.backTarget(); });
+    loadAllData().then(renderHome).catch(function (e) {
       document.getElementById('app-main').innerHTML = '<p>Could not load cocktails: ' + escapeHtml(e.message) + '</p>';
     });
   }
 
   function goToMenu() {
-    setHeader('Menu', false);
     renderMenu();
   }
 
-  function setHeader(title, showBack) {
+  // title/showBack as before; backFn is what the nav-back-btn calls when
+  // shown (defaults to returning to the Cocktail Spec menu, matching every
+  // existing call site's prior behaviour — only Home-level screens need to
+  // pass a different target).
+  function setHeader(title, showBack, backFn) {
     document.getElementById('app-title').textContent = title;
     document.getElementById('nav-back-btn').hidden = !showBack;
+    state.backTarget = backFn || goToMenu;
   }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  // ---------- HOME ----------
+  function renderHome() {
+    setHeader('🍸 Ube Express', false);
+    var main = document.getElementById('app-main');
+    main.innerHTML =
+      '<div class="home-card" id="home-cocktail-spec">' +
+        '<div class="home-card-emoji">🍸</div>' +
+        '<div class="home-card-text"><h3>Cocktail Spec</h3><p>Browse the full menu, ingredients and build steps</p></div>' +
+      '</div>' +
+      '<div class="home-card" id="home-fruit-prep">' +
+        '<div class="home-card-emoji">🍋</div>' +
+        '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
+      '</div>';
+    document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
+    document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
   }
 
   // ---------- MENU VIEW ----------
@@ -235,7 +290,7 @@
   }
 
   function renderMenu() {
-    setHeader('Menu', false);
+    setHeader('🍸 Cocktail Spec', true, renderHome);
     var main = document.getElementById('app-main');
     var displayList = computeMenuDisplayList();
     var newOnes = displayList.filter(function (item) {
@@ -307,6 +362,116 @@
     Array.prototype.forEach.call(document.querySelectorAll('.cocktail-row'), function (row) {
       var name = row.getAttribute('data-name') || '';
       row.style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
+    });
+  }
+
+  // ---------- FRUIT PREP ----------
+  // Distinct fruit/syrup and sweets-garnish ingredient names actually used
+  // across the live menu right now (so this stays in sync as cocktails are
+  // added/removed, with no separate list to hand-maintain).
+  function computePrepLists() {
+    var seen = {};
+    var fruitSyrup = [];
+    var sweetsGarnish = [];
+    Object.keys(state.ingredients).forEach(function (cocktailId) {
+      state.ingredients[cocktailId].forEach(function (ing) {
+        var key = String(ing.name || '').toLowerCase();
+        if (seen[key]) return;
+        var cat = ingredientCategory(key);
+        if (!cat) return;
+        seen[key] = true;
+        (cat === 'fruit_syrup' ? fruitSyrup : sweetsGarnish).push(ing.name);
+      });
+    });
+    fruitSyrup.sort(function (a, b) { return a.localeCompare(b); });
+    sweetsGarnish.sort(function (a, b) { return a.localeCompare(b); });
+    return { fruitSyrup: fruitSyrup, sweetsGarnish: sweetsGarnish };
+  }
+
+  function fetchPrepCheckState() {
+    return sbSelect('prep_checklist_state', 'select=item_name,checked');
+  }
+
+  // Direct anon-key write, deliberately bypassing the admin-secret-gated
+  // /api/write proxy: any logged-in staff member should be able to tick a
+  // prep item off, not just admin (see the migration's own RLS comment).
+  function setPrepChecked(itemName, category, checked) {
+    return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?on_conflict=item_name', {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        item_name: itemName,
+        category: category,
+        checked: checked,
+        checked_at: checked ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
+      })
+    }).then(function (r) { if (!r.ok) throw new Error('Save failed: ' + r.status); });
+  }
+
+  function resetPrepChecklist() {
+    return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?item_name=not.is.null', {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+    }).then(function (r) { if (!r.ok) throw new Error('Reset failed: ' + r.status); });
+  }
+
+  function prepRowHtml(name, checked) {
+    var key = String(name).toLowerCase().replace(/"/g, '&quot;');
+    return '<label class="prep-row' + (checked ? ' checked' : '') + '" data-item="' + escapeHtml(name) + '">' +
+      '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
+      '<span>' + escapeHtml(name) + '</span>' +
+      '</label>';
+  }
+
+  function renderFruitPrep() {
+    setHeader('🍋 Fruit Prep', true, renderHome);
+    var main = document.getElementById('app-main');
+    main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    var lists = computePrepLists();
+
+    fetchPrepCheckState().then(function (rows) {
+      var checkedMap = {};
+      rows.forEach(function (r) { checkedMap[String(r.item_name).toLowerCase()] = !!r.checked; });
+
+      var html = '<button id="prep-reset-btn" class="btn btn-secondary" style="margin-bottom:18px;">🔄 Reset for new day</button>';
+
+      html += '<div class="section-label">🍓 Fruit &amp; Syrups to Portion</div>';
+      html += '<div class="prep-list">' + (lists.fruitSyrup.length ?
+        lists.fruitSyrup.map(function (n) { return prepRowHtml(n, checkedMap[n.toLowerCase()]); }).join('') :
+        '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
+
+      html += '<div class="section-label">🍬 Sweets Garnish Stock to Replenish</div>';
+      html += '<div class="prep-list">' + (lists.sweetsGarnish.length ?
+        lists.sweetsGarnish.map(function (n) { return prepRowHtml(n, checkedMap[n.toLowerCase()]); }).join('') :
+        '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
+
+      main.innerHTML = html;
+
+      Array.prototype.forEach.call(main.querySelectorAll('.prep-row'), function (row) {
+        var checkbox = row.querySelector('input');
+        checkbox.addEventListener('change', function () {
+          var name = row.getAttribute('data-item');
+          var cat = ingredientCategory(name);
+          row.classList.toggle('checked', checkbox.checked);
+          setPrepChecked(name, cat, checkbox.checked).catch(function (e) {
+            checkbox.checked = !checkbox.checked;
+            row.classList.toggle('checked', checkbox.checked);
+            alert('Could not save: ' + e.message);
+          });
+        });
+      });
+
+      wireArmConfirm(document.getElementById('prep-reset-btn'), 'Tap again to reset', function () {
+        resetPrepChecklist().then(renderFruitPrep).catch(function (e) { alert('Reset failed: ' + e.message); });
+      });
+    }).catch(function (e) {
+      main.innerHTML = '<p>Could not load the prep list: ' + escapeHtml(e.message) + '</p>';
     });
   }
 
