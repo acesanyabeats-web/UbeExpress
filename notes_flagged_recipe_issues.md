@@ -167,6 +167,159 @@ per-drink classification and the new admin "Mocktail (no alcohol)" checkbox
 are both live.
 
 ---
+
+## Real physical menu cross-check (10 photos, Sep 29) — 8 new drinks entered,
+## a real batch of discrepancies found against what's already live. Nothing
+## already-entered was silently changed — only flagged below, per the same
+## discipline as every prior batch.
+
+### 8 new drinks entered (no method steps or amounts — this printed menu
+### never shows quantities or build instructions, only names/prices/blurbs)
+- **Grapefruit Bliss** (cocktail, £11.00) — Grapefruit Gin, St Germaine
+  Elderflower Liqueur, Elderflower Cordial, Elderflower & Rose Cordial,
+  Grapefruit Soda, Grapefruit Pink (garnish). **Real oddity, not
+  resolved**: the menu lists THREE separate elderflower-family products in
+  one drink (a liqueur + a cordial + an "elderflower & rose" cordial) — an
+  unusually large ingredient count for one item; worth a quick sanity check
+  that this isn't a menu-writing duplication rather than 3 real bottles.
+  "Grapefruit Gin"/"Grapefruit Soda" have no exact match in the tracked
+  ingredient vocabulary — entered under those literal names, real brand
+  unconfirmed (guessed Fever Tree for the soda based on the house pattern
+  elsewhere, not stated on the menu).
+- **Electric Reef** (cocktail, £8.00) — Take Tequila - Blanco (menu just
+  says "tequila," blanco assumed as the base/default), Blend Melon Liquor,
+  Finest Call Blue Curacao, Kulana Pineapple Juice, Lemon Sorbet, Soda
+  Water, Gimber, Lime Cordial (new, no existing match), Lemon, Oranges.
+- **The Purple One** (cocktail, £8.50) — Boe - Violet Gin, Monin Violette
+  Syrup, Peach Schnapps, Edible Glitter, Soda Water, Post Mix Lemonade.
+  Garnish: lavender sprig (not edible).
+- **Cookie Monster Shake** (mocktail, £5.00) — Milk Semi Skimmed, Squirty
+  Cream, Finest Call Blue Curacao, Chocolate Chip Cookie (new), Ping Pong
+  Balls (eyeballs, reused from the existing tracked item).
+- **Minion** (mocktail, £5.00) — Finest Call Blue Curacao, Monin Banana
+  Syrup (new, brand guessed to match the house Monin convention), Homemade
+  Lemonade, Double Cream + Milk Semi Skimmed (the "banana cold foam,"
+  broken into base components the same way Ube Cloud's cold foam already
+  is).
+- **Peach Crumble** (mocktail, £6.00) — Real - Peach Puree, Homemade
+  Lemonade + Monin Vanilla (a real interpretive call: the menu says "vanilla
+  lemonade," which isn't a separately tracked product — assumed it's
+  Homemade Lemonade flavoured with the existing Monin Vanilla syrup rather
+  than a genuinely distinct SKU; flagging since this is a real assumption,
+  not a transcription), Vanilla Gelato, Peach Hearts, Crumbled Shortbread
+  (new), Mint - Fresh.
+- **Orange + Passionfruit Soda** (mocktail, £5.00) — Kulana Orange Juice,
+  Finest Call Passionfruit Puree, Finest Call Blue Curacao, Soda Water,
+  Dried Orange Slices, Mint - Fresh.
+- **Hugo Spritz** (cocktail, £8.00 assumed — matches every sibling spritz's
+  price, the digit itself was glare-obscured on the photo) — built per your
+  direct clarification (same as Aperol Spritz, elderflower liqueur instead
+  of Aperol): St Germaine Elderflower Liqueur, Da Luca Prosecco, Soda
+  Water. Grouped into the existing "Spritz Cocktails" family. **Garnish
+  deliberately left blank** — Aperol Spritz's own garnish (orange slice)
+  may not suit an elderflower drink; didn't want to guess.
+- `chocolate chip cookie` / `crumbled shortbread` added to the Sweets
+  Garnish Stock classification list so they show up in Fruit Prep.
+
+### Real discrepancies found between the LIVE app and the physical menu
+(nothing changed — flagged for your own correction pass)
+- **Dancing Queen** — the app tracks "Freeze Dried Raspberries" (in both
+  the ingredient list AND the garnish field, so it's consistent internally)
+  but the physical menu explicitly says "freeze-dried **strawberry**
+  pieces." A real fruit-type conflict between the two sources, not a typo
+  in one field — worth checking which is actually correct.
+- **Galaxy Soda** — same shape of conflict: the app consistently tracks
+  "Popping Balls - Strawberry" (ingredient row AND garnish both say
+  strawberry) but the physical menu says "Blueberry + **raspberry** boba."
+  Real fruit-type conflict, not resolved.
+- **Baby Bathtub** (menu name) / "Baby Bath" (app name) — a real 3-way
+  mismatch: the app's ingredient list says the boba flavour is
+  Passionfruit, the app's own garnish field separately says "mango
+  bubbles," and the physical menu says "passionfruit boba bubbles." Three
+  different claims for what should be one fact.
+- **Mad Scientist** — the app's recipe is missing "fresh lemon juice" and
+  "soda water," both explicitly listed on the physical menu.
+- **Witching Hour** — the app tracks Lemon Sorbet, Lime Juice, Mixed Berry
+  Coulis and Soda Water, none of which appear on the physical menu's
+  ingredient list; the menu lists "sugar syrup" which isn't tracked at all
+  (edible glitter IS already captured, just in the garnish field, not
+  ingredients — that part's fine).
+- **Coco Loco** — the app tracks "Tails Porn-star Martini Mix," an
+  ingredient with no connection to this drink on the physical menu at all
+  (Coco Loco is coconut/pineapple/passionfruit, not a Porn Star Martini
+  variant) — worth double-checking this isn't a copy-paste leftover.
+- **Pornstar Martini** — the app is missing "Mexican lime juice" and a
+  separate "passionfruit juice" (distinct from the passionfruit puree
+  already tracked), both listed on the physical menu.
+- **Mermaid Shake** — the app tracks "Ube Extract," not mentioned anywhere
+  on the physical menu for this drink (Ube Cloud/Witching Hour are the
+  real Ube drinks); the menu also says "double chocolate syrup," which
+  isn't tracked (only white chocolate syrup is).
+- **Give me S'mores** — the app is missing "marshmallow paste," explicitly
+  the FIRST ingredient listed on the physical menu.
+- **Sweet Shop** — the app tracks "Post Mix Lemonade," not mentioned on the
+  physical menu's ingredient list.
+- **Pick Me Up** — the app tracks "Sugar - Granulated"; the physical menu
+  says "sugar syrup" — same unit/form-mismatch pattern already flagged for
+  other drinks in earlier batches.
+- **Pink Gin Sling** — the app's gin is tracked as "Chilled Raspberry Pink
+  Gin"; the physical menu names the real product "Chilled Pub's Lychee &
+  Raspberry Gin" — possibly a different real bottle, not just a shortened
+  name (lychee isn't in the tracked name at all).
+- **Key Lime Pie** — the app tracks "Vanilla Gelato," which does NOT appear
+  anywhere in this drink's ingredient list on the physical menu — a real
+  conflict between this menu and whatever the original screenshot source
+  (Batch 4) showed.
+- **"Raspberry, Passionfruit & Lemon Cooler"** (physical menu, £4.50) vs.
+  the app's existing **"Passionfruit Cooler"** — genuinely unclear whether
+  these are the same drink under two different names, or two different
+  drinks. The app's version uses "Belvoir Raspberry n Lemon" + a separate
+  passionfruit puree; the menu names a single combined product, "Belvoir
+  Raspberry, Passionfruit and Lemon cordial," and adds soda water + crushed
+  ice which the app's version doesn't have. **Not inserted as new and not
+  merged** — genuinely need your call on this one.
+
+### Real naming-only mismatches (ingredients match fine, just the display name differs)
+- "Apple Cooler" (app) vs. "Apple N Raspberry Cooler" (menu) — raspberry IS
+  a tracked ingredient, just missing from the name.
+- "Strawberry Wizz Fizz" (app) vs. "Baby Wizz Fizz" (menu) — completely
+  different name, same recipe.
+- "Homemade Ginger-ade" (app) vs. "Homemade Lemon N Gingerade" (menu).
+- "Bathtub" (app, no boba/popping-ball ingredient tracked at all, garnish
+  says just "rubber duck, mint sprig, lemon/lime slices") vs. "Chilled
+  Bathtub" (menu, £14, explicitly "for 2 to share," has passionfruit boba
+  balls). Given the price/serving-size framing and the real ingredient
+  difference, these might genuinely be two different real menu items (an
+  older single-serve version vs. a newer £14 sharer), not just a renamed
+  duplicate — worth confirming rather than assuming either way.
+
+### One systemic naming question, worth a single answer covering all of them
+The physical menu consistently says **"boba balls"** wherever the app
+tracks an ingredient as **"Popping Balls - [flavour]"** — Double Dutch, Pop
+Stars, Chilled Bathtub, Baby Bathtub, and the flavour/boba garnish on
+several Homemade Sodas all show this same pattern. Popping boba (bursts
+with flavoured liquid when bitten) and standard tapioca-style boba (just
+chewy) are genuinely different real products behind a bar — worth
+confirming once whether the tracked "Popping Balls" ingredient is actually
+correct, or whether it should be renamed/split to match what's really
+stocked, rather than leaving the app's internal name silently different
+from what's printed for customers.
+
+### Real, structural gap: there's no price field anywhere in the app
+Every photo in this batch was full of real prices, and the app currently
+has nowhere to store them (`cocktails` has no price column at all). Not
+added in this pass — a real schema/scope decision, not guessed at. Let me
+know if you want prices tracked going forward; if so I'd need either your
+say-so to add the column now (I only have prices for the drinks in this
+batch, not the other ~78 already entered) or a plan for backfilling the
+rest.
+
+### Deliberately skipped, per your direct instruction
+The Iced Coffees, Iced Lattes, Iced Matcha, Sweet Iced Tea and Soft Drinks
+pages (2 of the 10 photos) were not entered — flagged for later, not
+forgotten.
+
+---
 Saved so nothing gets lost while other work (spec sections, fruit prep,
 garnish stock) proceeds. Nothing above has been corrected in the live data —
 still exactly as entered.

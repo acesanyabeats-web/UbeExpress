@@ -35,7 +35,7 @@
     'mini disco ball', 'mini cherry blossom tree', 'yellow bathtub ducks',
     'mermaid tails', 'ping pong balls', 'rocket lollie', 'cocktail umbrellas',
     '7.75" red/white striped paper straw', '7.75" green/white striped paper straw',
-    'food colouring - green'
+    'food colouring - green', 'chocolate chip cookie', 'crumbled shortbread'
   ];
   // Butterfly Pea (flavourless natural blue colour extract, ~0.05-0.5g/drop
   // doses) deliberately left uncategorized: it isn't fresh produce needing
