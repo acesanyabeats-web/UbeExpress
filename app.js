@@ -18,23 +18,29 @@
   var FRUIT_SYRUP_ITEMS = [
     'lemon', 'lime', 'lime juice - fresh', 'oranges', 'orange zest', 'cucumber',
     'strawberries', 'raspberries', 'blackberry', 'pineapple', 'passion fruit',
-    'lychee', 'grapefruit pink', 'cherries', 'birds eye chillies',
-    'mint - fresh', 'mint', 'homemade lemonade', 'homemade raspberry lemonade - batch'
+    'lychee', 'grapefruit pink', 'cherries', 'birds eye chillies', 'peach',
+    'pomegranate seeds', 'mint - fresh', 'mint', 'homemade lemonade',
+    'homemade raspberry lemonade - batch'
   ];
   var SWEETS_GARNISH_ITEMS = [
     'popping candy - wizz fizz', 'popping balls - lychee', 'popping balls - passionfruit',
-    'popping balls - raspberry', 'popping balls - strawberry', 'sweetzone candy floss',
-    'vimto chew bar', 'vimto chew bon bon', 'skittles', 'sprinkles (hundreds&thousands)',
-    'jaffa cakes', 'strawberry laces', 'cherry pencils', 'jacks pencil sweet',
-    'chocolate digestives', 'giant marshmallows', 'percy pigs', 'tuck shop foam banana',
-    'edible glitter', 'drip icing - blue', 'freeze dried raspberries - new',
-    'dried dragonfruit', 'dried lime slices', 'dried orange slices', 'glace cherries',
-    'tinned lychee', 'peach hearts', 'chai seeds', 'birthday tassel stick',
+    'popping balls - raspberry', 'popping balls - strawberry', 'popping balls - blueberry',
+    'sweetzone candy floss', 'vimto chew bar', 'vimto chew bon bon', 'skittles',
+    'sprinkles (hundreds&thousands)', 'jaffa cakes', 'strawberry laces', 'cherry pencils',
+    'jacks pencil sweet', 'chocolate digestives', 'giant marshmallows', 'percy pigs',
+    'tuck shop foam banana', 'edible glitter', 'drip icing - blue',
+    'freeze dried raspberries - new', 'dried dragonfruit', 'dried lime slices',
+    'dried orange slices', 'glace cherries', 'tinned lychee', 'peach hearts',
+    'chai seeds', 'coconut shaved', 'coconut dessicated', 'birthday tassel stick',
     'mini disco ball', 'mini cherry blossom tree', 'yellow bathtub ducks',
     'mermaid tails', 'ping pong balls', 'rocket lollie', 'cocktail umbrellas',
     '7.75" red/white striped paper straw', '7.75" green/white striped paper straw',
     'food colouring - green'
   ];
+  // Butterfly Pea (flavourless natural blue colour extract, ~0.05-0.5g/drop
+  // doses) deliberately left uncategorized: it isn't fresh produce needing
+  // daily portioning, and it isn't a "sweets" garnish either — a genuine
+  // classification gap, flagged rather than forced into either list.
   function ingredientCategory(name) {
     var n = String(name || '').toLowerCase();
     if (FRUIT_SYRUP_ITEMS.indexOf(n) !== -1) return 'fruit_syrup';

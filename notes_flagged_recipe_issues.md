@@ -78,6 +78,63 @@ factor), confirmed by Alex on an earlier pass.
   spelling errors, not real ambiguity about what to do.
 
 ---
+
+## Batch 4 (13 new cocktails: Peach Iced Tea, Ube Cloud, Coconut Cloud, Dragon
+Fruit Cloud, Key Lime Pie, Mango Smooth, Honey and Lemon Soda, Berry
+Butterfly, Lychee and Ube Soda, Galaxy Soda, Pomegranate and Peach Soda, Pink
+and Purple Soda, Dragon Fruit and Lychee Soda). Same discipline: entered
+faithfully from screenshots, nothing silently "fixed."
+
+- **Homemade Lemonade 501ml** — appears identically in both Key Lime Pie and
+  Mango Smooth, an oddly precise, implausible value for a single serve. Same
+  number in two unrelated recipes suggests a systemic copy-paste error in the
+  source (perhaps meant to be 50ml or 150ml) for whatever shaken
+  Homemade-Lemonade-based template these two were built from. Entered as
+  shown (501ml) in both.
+- **Real - Mango Syrup 50g** (Mango Smooth) — gram unit for what's almost
+  certainly a syrup normally measured in ml, same class as the earlier
+  Lemon-in-grams errors below. Entered as shown.
+- **Coconut Dessicated** (Coconut Cloud ingredient row) vs. "desiccated"
+  (correctly spelled in that same recipe's method text) — real spelling
+  inconsistency between the ingredient name and the method. Transcribed the
+  ingredient name exactly as the source system shows it ("Dessicated"); the
+  same spelling was used for the matching entry in app.js's garnish-stock
+  list so the two stay consistent with each other, even though it's the
+  "wrong" spelling relative to the method text.
+- **Lemon 0.05 gram** (Honey and Lemon Soda) — another instance of the
+  "Lemon in grams" unit-error class already flagged in Batch 1 (there it was
+  0.25 gram → likely 0.25 each); this one is suspiciously tiny at 0.05. The
+  method text mentions "lemon slices" (plural), which doesn't square with
+  0.05g of anything. Entered as shown.
+- **Butterfly Pea** — a genuinely new ingredient, not fitting either
+  classification list in app.js: it's a flavourless natural blue colour
+  extract used in tiny doses (~0.05-0.5g/drop), not fresh produce needing
+  daily portioning (Fruit & Syrups) and not a sweets/novelty garnish
+  consumable (Sweets Garnish Stock). Left uncategorized on purpose rather
+  than forced into either list — flagged for Alex to decide where (if
+  anywhere) it should be tracked for prep/restock purposes.
+- **Dragon Fruit and Lychee Soda** — the method text was cut off below the
+  screenshot viewport in both images provided for this cocktail; only the
+  ingredients were visible. Inserted with the real ingredient list but an
+  empty method (`method_steps: []`) and no garnish, rather than guessing
+  steps from the similar "Soda" family pattern used by the other soda
+  cocktails in this batch. Needs Alex to supply the real method text.
+- **Mango Smooth** — the method text calls for "mango puree," but the
+  tracked ingredient row is named "Real - Mango Syrup." Likely the same
+  product referred to two different ways — a naming variance, not
+  necessarily a real data error.
+- **Dragon Fruit Cloud** — the garnish text says "freeze-dried dragon
+  fruit," but the tracked ingredient (reused from the existing "Dried
+  Dragonfruit" garnish-stock item) is named "Dried Dragonfruit." Minor
+  phrasing variance only — no new categorization gap, since it reuses an
+  ingredient name already established in an earlier batch.
+- **Glass icon gap, continued** — Key Lime Pie and Mango Smooth both specify
+  "handled glass" in their method text; no dedicated icon exists for this
+  vessel (same open gap as Batch 1's handled jar/mason mug list). Mapped to
+  'highball' per the established fallback convention — recipe DATA is
+  correct, only the glass ICON may not match the real vessel.
+
+---
 Saved so nothing gets lost while other work (spec sections, fruit prep,
 garnish stock) proceeds. Nothing above has been corrected in the live data —
 still exactly as entered.
