@@ -6,7 +6,7 @@
 
   var GLASS_OPTIONS = ['coupe', 'martini', 'rocks', 'highball', 'collins', 'copper_mug', 'wine', 'shot'];
   var EQUIPMENT_OPTIONS = ['shaker', 'jigger', 'strainer', 'muddler', 'bar_spoon', 'blender', 'glass'];
-  var UNIT_OPTIONS = ['oz', 'ml', 'g', 'each', 'dash', 'barspoon', 'splash', 'rinse', 'whole', 'wedge', 'leaf', 'sprig'];
+  var UNIT_OPTIONS = ['oz', 'ml', 'g', 'each', 'dash', 'barspoon', 'splash', 'rinse', 'whole', 'wedge', 'leaf', 'sprig', 'scoop', 'to taste'];
   var OZ_TO_ML = 29.5735;
 
   var state = {
@@ -277,7 +277,7 @@
           '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo) + '">' + escapeHtml(i.name) + '</button>' :
           '<span>' + escapeHtml(i.name) + '</span>';
         var isSplit = splitAcrossSteps[String(i.name || '').toLowerCase()];
-        return '<li>' + nameHtml + '<span class="amt">' + fmtAmt(i.amount) + ' ' + escapeHtml(i.unit || '') +
+        return '<li>' + nameHtml + '<span class="amt">' + escapeHtml(fmtAmtUnit(i.amount, i.unit)) +
           (isSplit ? ' <span class="total-tag">total</span>' : '') + '</span></li>';
       }).join('') + '</ul>';
 
@@ -335,6 +335,15 @@
     return (Math.round(num * 100) / 100).toString();
   }
 
+  // amount+unit display, e.g. "50 ml", "1 scoop", or a unit-only label like "to taste"
+  // when there's no fixed amount to show (never a stray leading space either way)
+  function fmtAmtUnit(amount, unit) {
+    var amt = fmtAmt(amount);
+    unit = unit || '';
+    if (amt && unit) return amt + ' ' + unit;
+    return amt || unit;
+  }
+
   // two-click arm/confirm delete pattern, matching the project's standard convention
   function wireArmConfirm(btn, armedLabel, onConfirm) {
     var idleLabel = btn.textContent;
@@ -370,9 +379,9 @@
 
     function ingredientRowHtml(name, overrideAmt) {
       var match = ingByName[String(name).toLowerCase()];
-      var amt = overrideAmt != null ? fmtAmt(overrideAmt) : (match ? fmtAmt(match.amount) : '');
+      var amtVal = overrideAmt != null ? overrideAmt : (match ? match.amount : null);
       var unit = match ? match.unit : '';
-      var amtLabel = amt ? amt + (unit ? ' ' + unit : '') : '';
+      var amtLabel = fmtAmtUnit(amtVal, unit);
       var photo = state.ingredientPhotos[String(name).toLowerCase()];
       return '<li' + (photo ? ' class="clickable" data-ing-view="' + escapeHtml(photo) + '"' : '') + '>' +
         '<span class="ing-name">' + escapeHtml(name) + '</span>' +
@@ -452,7 +461,7 @@
       var mult = targetMl / baseMl;
       return '<ul class="ingredient-list">' + ings.map(function (i) {
         var scaled = (Number(i.amount) || 0) * mult;
-        return '<li><span>' + escapeHtml(i.name) + '</span><span class="amt">' + fmtAmt(scaled) + ' ' + escapeHtml(i.unit || '') + '</span></li>';
+        return '<li><span>' + escapeHtml(i.name) + '</span><span class="amt">' + escapeHtml(fmtAmtUnit(scaled, i.unit)) + '</span></li>';
       }).join('') + '</ul><p style="color:var(--muted)">Base single-serve liquid volume: ' + fmtAmt(baseMl) + ' ml. Scaled to ' + fmtAmt(targetMl) + ' ml (&times;' + fmtAmt(mult) + ').</p>';
     }
 
