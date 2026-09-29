@@ -224,7 +224,7 @@
     document.getElementById('admin-btn').textContent = '+';
     document.getElementById('admin-btn').addEventListener('click', function () { openAdminEditor(null); });
     document.getElementById('nav-back-btn').addEventListener('click', function () { state.backTarget(); });
-    loadAllData().then(renderHome).catch(function (e) {
+    loadAllData().then(renderMenu).catch(function (e) {
       document.getElementById('app-main').innerHTML = '<p>Could not load cocktails: ' + escapeHtml(e.message) + '</p>';
     });
   }
