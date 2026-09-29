@@ -131,7 +131,16 @@ body {
   border: 1px solid var(--border);
 }
 .cocktail-row .glass-icon { width: 34px; height: 34px; color: var(--accent); flex-shrink: 0; }
-.cocktail-row .name { flex: 1; font-size: 1.05rem; font-weight: 600; }
+.cocktail-row .name { flex: 1; font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.variant-count {
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
 .new-badge {
   background: var(--new-badge);
   color: #1a1512;
@@ -326,6 +335,7 @@ body {
   justify-content: center;
 }
 .photo-btn.has-photo { color: var(--accent2); border-color: var(--accent2); }
+.photo-btn.is-stock { color: var(--accent); border-color: var(--accent); }
 .photo-btn svg { width: 20px; height: 20px; }
 .photo-btn.uploading { opacity: 0.5; pointer-events: none; }
 

@@ -54,7 +54,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = row.photo_url;
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { photo_url: row.photo_url, is_stock: !!row.is_stock };
       });
     });
   }
@@ -105,6 +105,17 @@
       body: JSON.stringify({ action: 'upload_photo', payload: payload })
     }).then(function (r) {
       if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('upload failed: ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function apiFetchStockPhoto(ingredientName) {
+    return fetch('/api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+      body: JSON.stringify({ action: 'fetch_stock_photo', payload: { ingredient_name: ingredientName } })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('search failed: ' + r.status)); });
       return r.json();
     });
   }
@@ -201,10 +212,37 @@
   }
 
   // ---------- MENU VIEW ----------
+  // Cocktails sharing a variant_group (e.g. "Double Dutch") collapse into one
+  // menu row; picking it opens a flavour picker before the normal detail view.
+  function computeMenuDisplayList() {
+    var seenGroups = {};
+    var list = [];
+    state.cocktails.forEach(function (c) {
+      if (c.variant_group) {
+        if (seenGroups[c.variant_group]) return;
+        seenGroups[c.variant_group] = true;
+        list.push({
+          isGroup: true,
+          variant_group: c.variant_group,
+          glass: c.glass,
+          members: state.cocktails.filter(function (x) { return x.variant_group === c.variant_group; })
+        });
+      } else {
+        list.push(c);
+      }
+    });
+    return list;
+  }
+
   function renderMenu() {
     setHeader('Menu', false);
     var main = document.getElementById('app-main');
-    var newOnes = state.cocktails.filter(function (c) { return state.seen.indexOf(c.id) === -1; });
+    var displayList = computeMenuDisplayList();
+    var newOnes = displayList.filter(function (item) {
+      return item.isGroup ?
+        item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; }) :
+        state.seen.indexOf(item.id) === -1;
+    });
     var html = '<input type="text" id="menu-search" placeholder="Search cocktails...">';
 
     if (newOnes.length) {
@@ -212,26 +250,57 @@
       html += '<div id="new-list">' + newOnes.map(cocktailRowHtml).join('') + '</div>';
     }
     html += '<div class="section-label">Full menu</div>';
-    html += '<div id="full-list">' + state.cocktails.map(cocktailRowHtml).join('') + '</div>';
+    html += '<div id="full-list">' + displayList.map(cocktailRowHtml).join('') + '</div>';
     if (!state.cocktails.length) html += '<p style="color:var(--muted)">No cocktails yet' + (state.role === 'admin' ? ' — tap + to add one.' : '.') + '</p>';
 
     main.innerHTML = html;
 
     Array.prototype.forEach.call(main.querySelectorAll('.cocktail-row'), function (row) {
-      row.addEventListener('click', function () { openDetail(row.getAttribute('data-id')); });
+      row.addEventListener('click', function () {
+        var groupName = row.getAttribute('data-group');
+        if (groupName) { openVariantPicker(groupName); return; }
+        openDetail(row.getAttribute('data-id'));
+      });
     });
     document.getElementById('menu-search').addEventListener('input', function (e) {
       filterMenu(e.target.value.trim().toLowerCase());
     });
   }
 
-  function cocktailRowHtml(c) {
-    var isNew = state.seen.indexOf(c.id) === -1;
-    return '<div class="cocktail-row" data-id="' + c.id + '" data-name="' + escapeHtml(c.name.toLowerCase()) + '">' +
-      iconSvg(c.glass ? 'glass_' + c.glass : 'glass_rocks', 'glass-icon') +
-      '<div class="name">' + escapeHtml(c.name) + '</div>' +
+  function cocktailRowHtml(item) {
+    if (item.isGroup) {
+      var anyNew = item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; });
+      return '<div class="cocktail-row" data-group="' + escapeHtml(item.variant_group) + '" data-name="' + escapeHtml(item.variant_group.toLowerCase()) + '">' +
+        iconSvg(item.glass ? 'glass_' + item.glass : 'glass_rocks', 'glass-icon') +
+        '<div class="name">' + escapeHtml(item.variant_group) + '<span class="variant-count">' + item.members.length + ' flavours</span></div>' +
+        (anyNew ? '<span class="new-badge">New</span>' : '') +
+        '</div>';
+    }
+    var isNew = state.seen.indexOf(item.id) === -1;
+    return '<div class="cocktail-row" data-id="' + item.id + '" data-name="' + escapeHtml(item.name.toLowerCase()) + '">' +
+      iconSvg(item.glass ? 'glass_' + item.glass : 'glass_rocks', 'glass-icon') +
+      '<div class="name">' + escapeHtml(item.name) + '</div>' +
       (isNew ? '<span class="new-badge">New</span>' : '') +
       '</div>';
+  }
+
+  function openVariantPicker(groupName) {
+    var members = state.cocktails.filter(function (c) { return c.variant_group === groupName; });
+    setHeader(groupName, true);
+    var main = document.getElementById('app-main');
+    var html = '<div class="section-label">Choose a flavour</div>' +
+      members.map(function (c) {
+        var isNew = state.seen.indexOf(c.id) === -1;
+        return '<div class="cocktail-row" data-id="' + c.id + '">' +
+          iconSvg(c.glass ? 'glass_' + c.glass : 'glass_rocks', 'glass-icon') +
+          '<div class="name">' + escapeHtml(c.variant_label || c.name) + '</div>' +
+          (isNew ? '<span class="new-badge">New</span>' : '') +
+          '</div>';
+      }).join('');
+    main.innerHTML = html;
+    Array.prototype.forEach.call(main.querySelectorAll('.cocktail-row'), function (row) {
+      row.addEventListener('click', function () { openDetail(row.getAttribute('data-id')); });
+    });
   }
 
   function filterMenu(q) {
@@ -273,8 +342,9 @@
     html += '<div class="section-label">Ingredients</div><ul class="ingredient-list">' +
       ings.map(function (i) {
         var photo = state.ingredientPhotos[String(i.name || '').toLowerCase()];
-        var nameHtml = photo ?
-          '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo) + '">' + escapeHtml(i.name) + '</button>' :
+        var nameHtml = photo && photo.photo_url ?
+          '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo.photo_url) + '">' + escapeHtml(i.name) +
+            (photo.is_stock ? ' <span class="total-tag">stock photo</span>' : '') + '</button>' :
           '<span>' + escapeHtml(i.name) + '</span>';
         var isSplit = splitAcrossSteps[String(i.name || '').toLowerCase()];
         return '<li>' + nameHtml + '<span class="amt">' + escapeHtml(fmtAmtUnit(i.amount, i.unit)) +
@@ -383,7 +453,7 @@
       var unit = match ? match.unit : '';
       var amtLabel = fmtAmtUnit(amtVal, unit);
       var photo = state.ingredientPhotos[String(name).toLowerCase()];
-      return '<li' + (photo ? ' class="clickable" data-ing-view="' + escapeHtml(photo) + '"' : '') + '>' +
+      return '<li' + (photo && photo.photo_url ? ' class="clickable" data-ing-view="' + escapeHtml(photo.photo_url) + '"' : '') + '>' +
         '<span class="ing-name">' + escapeHtml(name) + '</span>' +
         (amtLabel ? '<span class="ing-amt">' + escapeHtml(amtLabel) + '</span>' : '') + '</li>';
     }
@@ -505,11 +575,14 @@
     }) : [{ instruction: '', equipment: 'shaker', ingredient_names: '', photo_url: '' }];
 
     function ingRowHtml(ing, idx) {
-      var hasPhoto = ing.name && state.ingredientPhotos[String(ing.name).toLowerCase()];
+      var photoRow = ing.name && state.ingredientPhotos[String(ing.name).toLowerCase()];
+      var hasPhoto = !!(photoRow && photoRow.photo_url);
+      var isStock = !!(photoRow && photoRow.is_stock);
       return '<div class="repeat-row" data-idx="' + idx + '">' +
         '<input type="text" class="ing-name" placeholder="Name" value="' + escapeHtml(ing.name) + '">' +
         '<input type="number" step="0.1" class="ing-amount" placeholder="Amt" value="' + escapeHtml(ing.amount) + '">' +
         '<select class="ing-unit">' + UNIT_OPTIONS.map(function (u) { return '<option value="' + u + '"' + (u === ing.unit ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>' +
+        '<button type="button" class="photo-btn' + (hasPhoto && !isStock ? ' has-photo' : '') + (hasPhoto && isStock ? ' is-stock' : '') + '" data-ing-search="1" title="Find a stock photo">' + iconSvg('search') + '</button>' +
         '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-ing-photo="1" title="Photo for new starters">' + iconSvg('camera') + '</button>' +
         '<button class="remove-btn" data-remove-ing="' + idx + '">✕</button>' +
         '</div>';
@@ -532,6 +605,11 @@
       '<div class="field-group"><label>Glass</label><select id="f-glass">' + GLASS_OPTIONS.map(function (g) { return '<option value="' + g + '"' + (existing && existing.glass === g ? ' selected' : '') + '>' + g.replace('_', ' ') + '</option>'; }).join('') + '</select></div>' +
       '<div class="field-group"><label>Build method</label><input type="text" id="f-build-method" placeholder="shaken / stirred / built / blended" value="' + escapeHtml(existing ? existing.build_method : '') + '"></div>' +
       '<div class="field-group"><label>Garnish</label><input type="text" id="f-garnish" value="' + escapeHtml(existing ? existing.garnish : '') + '"></div>' +
+
+      '<div class="section-label">Flavour family (optional)</div>' +
+      '<div class="batch-input-row"><div class="field-group"><label>Group name</label><input type="text" id="f-variant-group" placeholder="e.g. Double Dutch" value="' + escapeHtml(existing && existing.variant_group ? existing.variant_group : '') + '"></div>' +
+      '<div class="field-group"><label>This flavour</label><input type="text" id="f-variant-label" placeholder="e.g. Strawberry" value="' + escapeHtml(existing && existing.variant_label ? existing.variant_label : '') + '"></div></div>' +
+      '<p style="color:var(--muted);font-size:0.85rem;margin-top:-10px;">Cocktails sharing the same group name collapse into one menu row with a flavour picker (like Double Dutch). Leave both blank for a standalone cocktail.</p>' +
 
       '<div class="section-label">Ingredients</div>' +
       '<div id="ing-rows">' + ingredients.map(ingRowHtml).join('') + '</div>' +
@@ -579,13 +657,38 @@
           btn.classList.add('uploading');
           pickPhotoAndUpload(function (base64) {
             apiUploadPhoto(base64, 'ingredient', { ingredient_name: name }).then(function (res) {
-              state.ingredientPhotos[name.toLowerCase()] = res.photo_url;
+              state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: false };
               btn.classList.remove('uploading');
               btn.classList.add('has-photo');
+              var searchBtn = row.querySelector('[data-ing-search]');
+              if (searchBtn) { searchBtn.classList.add('has-photo'); searchBtn.classList.remove('is-stock'); }
             }).catch(function (e) {
               btn.classList.remove('uploading');
               alert('Photo upload failed: ' + e.message);
             });
+          });
+        };
+      });
+      Array.prototype.forEach.call(main.querySelectorAll('[data-ing-search]'), function (btn) {
+        btn.onclick = function () {
+          var row = btn.closest('.repeat-row');
+          var name = row.querySelector('.ing-name').value.trim();
+          if (!name) { alert('Enter the ingredient name first.'); return; }
+          btn.classList.add('uploading');
+          apiFetchStockPhoto(name).then(function (res) {
+            btn.classList.remove('uploading');
+            if (!res.found) {
+              alert('No stock photo found for "' + name + '" — try the camera instead.');
+              return;
+            }
+            state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: true };
+            btn.classList.remove('has-photo');
+            btn.classList.add('is-stock');
+            var cameraBtn = row.querySelector('[data-ing-photo]');
+            if (cameraBtn) cameraBtn.classList.add('has-photo');
+          }).catch(function (e) {
+            btn.classList.remove('uploading');
+            alert('Stock photo search failed: ' + e.message);
           });
         };
       });
@@ -657,6 +760,8 @@
         glass: document.getElementById('f-glass').value,
         build_method: document.getElementById('f-build-method').value.trim(),
         garnish: document.getElementById('f-garnish').value.trim(),
+        variant_group: document.getElementById('f-variant-group').value.trim() || null,
+        variant_label: document.getElementById('f-variant-label').value.trim() || null,
         method_steps: stepRowsOut,
         batchable: document.getElementById('f-batchable').checked,
         batch_target_ml: document.getElementById('f-batchable').checked ? (parseInt(document.getElementById('f-batch-target').value, 10) || 750) : null,

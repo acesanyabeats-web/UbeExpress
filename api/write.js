@@ -17,6 +17,19 @@ async function sbFetch(path, options) {
   return r;
 }
 
+async function searchWikimediaPhoto(term) {
+  var url = 'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=' +
+    encodeURIComponent(term) + '&gsrlimit=1&prop=imageinfo&iiprop=url&format=json';
+  var r = await fetch(url, { headers: { 'User-Agent': 'UbeExpress/1.0 (internal bar staff tool; https://ubeexpress.vercel.app)' } });
+  if (!r.ok) return null;
+  var data = await r.json();
+  var pages = data && data.query && data.query.pages;
+  if (!pages) return null;
+  var first = Object.keys(pages).map(function (k) { return pages[k]; })[0];
+  var info = first && first.imageinfo && first.imageinfo[0];
+  return info ? info.url : null;
+}
+
 async function uploadPhotoToStorage(base64, contentType, targetLabel) {
   var ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
   var objectPath = (targetLabel || 'misc') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
@@ -62,6 +75,8 @@ module.exports = async function handler(req, res) {
         glass: payload.glass,
         build_method: payload.build_method,
         garnish: payload.garnish,
+        variant_group: payload.variant_group || null,
+        variant_label: payload.variant_label || null,
         method_steps: payload.method_steps || [],
         batchable: !!payload.batchable,
         batch_target_ml: payload.batch_target_ml || null,
@@ -129,7 +144,7 @@ module.exports = async function handler(req, res) {
         await sbFetch('ingredient_photos?on_conflict=name', {
           method: 'POST',
           headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
-          body: JSON.stringify({ name: payload.ingredient_name, photo_url: photoUrl, updated_at: new Date().toISOString() })
+          body: JSON.stringify({ name: payload.ingredient_name, photo_url: photoUrl, is_stock: false, updated_at: new Date().toISOString() })
         });
       } else if (payload.target === 'cocktail') {
         await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
@@ -143,6 +158,26 @@ module.exports = async function handler(req, res) {
       }
 
       res.status(200).json({ ok: true, photo_url: photoUrl });
+      return;
+    }
+
+    if (action === 'fetch_stock_photo') {
+      var term = payload && payload.ingredient_name;
+      if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }
+
+      var stockUrl = await searchWikimediaPhoto(term);
+      if (!stockUrl) {
+        res.status(200).json({ ok: true, found: false });
+        return;
+      }
+
+      await sbFetch('ingredient_photos?on_conflict=name', {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify({ name: term, photo_url: stockUrl, is_stock: true, updated_at: new Date().toISOString() })
+      });
+
+      res.status(200).json({ ok: true, found: true, photo_url: stockUrl });
       return;
     }
 
