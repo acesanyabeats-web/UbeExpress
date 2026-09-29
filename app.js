@@ -330,22 +330,12 @@
     var main = document.getElementById('app-main');
     var tab = state.menuTab || 'cocktail';
     var displayList = computeMenuDisplayList(tab);
-    var newOnes = displayList.filter(function (item) {
-      return item.isGroup ?
-        item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; }) :
-        state.seen.indexOf(item.id) === -1;
-    });
     var html = '<div class="menu-tabs">' +
       '<button type="button" class="menu-tab' + (tab === 'cocktail' ? ' active' : '') + '" id="tab-cocktail">🍸 Cocktails</button>' +
       '<button type="button" class="menu-tab' + (tab === 'mocktail' ? ' active' : '') + '" id="tab-mocktail">🧃 Mocktails</button>' +
       '</div>';
     html += '<input type="text" id="menu-search" placeholder="Search ' + (tab === 'mocktail' ? 'mocktails' : 'cocktails') + '...">';
 
-    if (newOnes.length) {
-      html += '<div class="section-label">🆕 New since you last checked (' + newOnes.length + ')</div>';
-      html += '<div id="new-list">' + newOnes.map(cocktailRowHtml).join('') + '</div>';
-    }
-    html += '<div class="section-label">Full ' + (tab === 'mocktail' ? 'mocktail' : 'cocktail') + ' menu (A&ndash;Z)</div>';
     html += '<div id="full-list">' + displayList.map(cocktailRowHtml).join('') + '</div>';
     if (!displayList.length) html += '<p style="color:var(--muted)">No ' + (tab === 'mocktail' ? 'mocktails' : 'cocktails') + ' yet' + (state.role === 'admin' ? ' — tap + to add one.' : '.') + '</p>';
 
