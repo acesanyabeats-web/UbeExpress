@@ -75,6 +75,7 @@ module.exports = async function handler(req, res) {
         glass: payload.glass,
         build_method: payload.build_method,
         garnish: payload.garnish,
+        is_mocktail: !!payload.is_mocktail,
         variant_group: payload.variant_group || null,
         variant_label: payload.variant_label || null,
         method_steps: payload.method_steps || [],

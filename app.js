@@ -72,7 +72,8 @@
     ingredients: {},     // cocktail_id -> [ingredient rows]
     ingredientPhotos: {}, // lowercase ingredient name -> photo_url
     seen: readSeen(),
-    backTarget: null     // fn the nav-back-btn calls; set by setHeader
+    backTarget: null,    // fn the nav-back-btn calls; set by setHeader
+    menuTab: 'cocktail'  // 'cocktail' | 'mocktail' — which sub-list the Cocktail Spec menu shows
   };
 
   // ---------- storage helpers ----------
@@ -100,7 +101,7 @@
 
   function loadAllData() {
     return Promise.all([
-      sbSelect('cocktails', 'select=*&order=created_at.desc'),
+      sbSelect('cocktails', 'select=*&order=name.asc'),
       sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc'),
       sbSelect('ingredient_photos', 'select=*')
     ]).then(function (results) {
@@ -293,10 +294,16 @@
   // ---------- MENU VIEW ----------
   // Cocktails sharing a variant_group (e.g. "Double Dutch") collapse into one
   // menu row; picking it opens a flavour picker before the normal detail view.
-  function computeMenuDisplayList() {
+  // `tab` filters to just the alcoholic or non-alcoholic list (see
+  // state.menuTab / cocktails.is_mocktail); the returned list is always
+  // sorted A-Z by whatever label the row actually shows.
+  function computeMenuDisplayList(tab) {
     var seenGroups = {};
     var list = [];
     state.cocktails.forEach(function (c) {
+      var isMocktail = !!c.is_mocktail;
+      if (tab === 'mocktail' && !isMocktail) return;
+      if (tab === 'cocktail' && isMocktail) return;
       if (c.variant_group) {
         if (seenGroups[c.variant_group]) return;
         seenGroups[c.variant_group] = true;
@@ -304,11 +311,16 @@
           isGroup: true,
           variant_group: c.variant_group,
           glass: c.glass,
-          members: state.cocktails.filter(function (x) { return x.variant_group === c.variant_group; })
+          members: state.cocktails.filter(function (x) { return x.variant_group === c.variant_group && !!x.is_mocktail === isMocktail; })
         });
       } else {
         list.push(c);
       }
+    });
+    list.sort(function (a, b) {
+      var an = (a.isGroup ? a.variant_group : a.name).toLowerCase();
+      var bn = (b.isGroup ? b.variant_group : b.name).toLowerCase();
+      return an < bn ? -1 : (an > bn ? 1 : 0);
     });
     return list;
   }
@@ -316,23 +328,39 @@
   function renderMenu() {
     setHeader('🍸 Cocktail Spec', true, renderHome);
     var main = document.getElementById('app-main');
-    var displayList = computeMenuDisplayList();
+    var tab = state.menuTab || 'cocktail';
+    var displayList = computeMenuDisplayList(tab);
     var newOnes = displayList.filter(function (item) {
       return item.isGroup ?
         item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; }) :
         state.seen.indexOf(item.id) === -1;
     });
-    var html = '<input type="text" id="menu-search" placeholder="Search cocktails...">';
+    var html = '<div class="menu-tabs">' +
+      '<button type="button" class="menu-tab' + (tab === 'cocktail' ? ' active' : '') + '" id="tab-cocktail">🍸 Cocktails</button>' +
+      '<button type="button" class="menu-tab' + (tab === 'mocktail' ? ' active' : '') + '" id="tab-mocktail">🧃 Mocktails</button>' +
+      '</div>';
+    html += '<input type="text" id="menu-search" placeholder="Search ' + (tab === 'mocktail' ? 'mocktails' : 'cocktails') + '...">';
 
     if (newOnes.length) {
       html += '<div class="section-label">🆕 New since you last checked (' + newOnes.length + ')</div>';
       html += '<div id="new-list">' + newOnes.map(cocktailRowHtml).join('') + '</div>';
     }
-    html += '<div class="section-label">Full menu</div>';
+    html += '<div class="section-label">Full ' + (tab === 'mocktail' ? 'mocktail' : 'cocktail') + ' menu (A&ndash;Z)</div>';
     html += '<div id="full-list">' + displayList.map(cocktailRowHtml).join('') + '</div>';
-    if (!state.cocktails.length) html += '<p style="color:var(--muted)">No cocktails yet' + (state.role === 'admin' ? ' — tap + to add one.' : '.') + '</p>';
+    if (!displayList.length) html += '<p style="color:var(--muted)">No ' + (tab === 'mocktail' ? 'mocktails' : 'cocktails') + ' yet' + (state.role === 'admin' ? ' — tap + to add one.' : '.') + '</p>';
 
     main.innerHTML = html;
+
+    document.getElementById('tab-cocktail').addEventListener('click', function () {
+      if (state.menuTab === 'cocktail') return;
+      state.menuTab = 'cocktail';
+      renderMenu();
+    });
+    document.getElementById('tab-mocktail').addEventListener('click', function () {
+      if (state.menuTab === 'mocktail') return;
+      state.menuTab = 'mocktail';
+      renderMenu();
+    });
 
     Array.prototype.forEach.call(main.querySelectorAll('.cocktail-row'), function (row) {
       row.addEventListener('click', function () {
@@ -364,8 +392,14 @@
   }
 
   function openVariantPicker(groupName) {
-    var members = state.cocktails.filter(function (c) { return c.variant_group === groupName; });
-    setHeader(groupName, true);
+    var members = state.cocktails.filter(function (c) { return c.variant_group === groupName; })
+      .slice()
+      .sort(function (a, b) {
+        var an = (a.variant_label || a.name).toLowerCase();
+        var bn = (b.variant_label || b.name).toLowerCase();
+        return an < bn ? -1 : (an > bn ? 1 : 0);
+      });
+    setHeader(groupName, true, renderMenu);
     var main = document.getElementById('app-main');
     var html = '<div class="section-label">Choose a flavour</div>' +
       members.map(function (c) {
@@ -842,6 +876,8 @@
       '<div class="field-group"><label>Build method</label><input type="text" id="f-build-method" placeholder="shaken / stirred / built / blended" value="' + escapeHtml(existing ? existing.build_method : '') + '"></div>' +
       '<div class="field-group"><label>Garnish</label><input type="text" id="f-garnish" value="' + escapeHtml(existing ? existing.garnish : '') + '"></div>' +
 
+      '<div class="toggle-row"><label>Mocktail (no alcohol)</label><input type="checkbox" id="f-is-mocktail"' + (existing && existing.is_mocktail ? ' checked' : '') + '></div>' +
+
       '<div class="section-label">Flavour family (optional)</div>' +
       '<div class="batch-input-row"><div class="field-group"><label>Group name</label><input type="text" id="f-variant-group" placeholder="e.g. Double Dutch" value="' + escapeHtml(existing && existing.variant_group ? existing.variant_group : '') + '"></div>' +
       '<div class="field-group"><label>This flavour</label><input type="text" id="f-variant-label" placeholder="e.g. Strawberry" value="' + escapeHtml(existing && existing.variant_label ? existing.variant_label : '') + '"></div></div>' +
@@ -996,6 +1032,7 @@
         glass: document.getElementById('f-glass').value,
         build_method: document.getElementById('f-build-method').value.trim(),
         garnish: document.getElementById('f-garnish').value.trim(),
+        is_mocktail: document.getElementById('f-is-mocktail').checked,
         variant_group: document.getElementById('f-variant-group').value.trim() || null,
         variant_label: document.getElementById('f-variant-label').value.trim() || null,
         method_steps: stepRowsOut,

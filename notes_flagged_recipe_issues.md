@@ -135,6 +135,38 @@ faithfully from screenshots, nothing silently "fixed."
   correct, only the glass ICON may not match the real vessel.
 
 ---
+
+## Cocktail/Mocktail split — classification methodology, needs your check
+
+Added a new `is_mocktail` column and split the Cocktail Spec menu into two
+sub-tabs. There's no existing "is this alcoholic" field anywhere in the
+source data, so this was inferred by checking every one of the 78 cocktails'
+ingredient lists for a real spirit/liqueur/fortified-wine ingredient
+(Bacardi, vodka, tequila, gin, Aperol, Campari, Pimms, Amaretto, Baileys,
+schnapps, Prosecco, ASUKI liquors, etc.) — 33 drinks with none flagged
+Mocktail, 45 with at least one flagged Cocktail.
+
+**One real assumption this rests on, please double-check**: several drinks
+(Baby Bath, Baby Vimto, Berry Butterfly, Galaxy Soda) use "**Finest Call
+Blue Curacao**" — Finest Call is otherwise a non-alcoholic mixer brand in
+this data (purees/syrups/grenadine), so I treated this specific product as
+their 0%-ABV Blue Curaçao *flavoured syrup*, not the real alcoholic Blue
+Curaçao liqueur, and classified those drinks as Mocktails on that basis. If
+the bar actually stocks the real spirit under that same ingredient name,
+Baby Bath and Galaxy Soda (the two that rely on it with nothing else
+alcoholic in the recipe) would need to move to the Cocktails tab. Worth
+confirming directly since this is a real service-safety distinction, not
+just a menu-organization one.
+
+Every cocktail sharing a "flavour family" (Mojito, Double Dutch, Pop Star,
+Pimms) turned out to be uniformly one type or the other in the current
+data — no family currently has mixed alcoholic/non-alcoholic flavours — so
+the family-grouped menu rows didn't need any special-case handling. Full
+per-drink classification and the new admin "Mocktail (no alcohol)" checkbox
+(so this never has to be re-derived from ingredients again going forward)
+are both live.
+
+---
 Saved so nothing gets lost while other work (spec sections, fruit prep,
 garnish stock) proceeds. Nothing above has been corrected in the live data —
 still exactly as entered.
