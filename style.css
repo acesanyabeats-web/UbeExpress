@@ -152,6 +152,32 @@ body {
 .prep-row.checked { opacity: 0.55; }
 .prep-row.checked span { text-decoration: line-through; }
 
+/* ---- Prep label list ---- */
+.label-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.label-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.label-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.label-date { color: var(--muted); font-size: 0.9rem; }
+
+@media print {
+  #login-screen, #app-header, #prep-labels-btn, #labels-print-btn, #labels-note {
+    display: none !important;
+  }
+  #app-main { padding: 0; }
+  .label-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .label-card { border: 1px solid #000; break-inside: avoid; }
+  .label-name { color: #000; }
+  .label-date { color: #333; }
+}
+
 /* ---- Cocktail list cards ---- */
 .cocktail-row {
   display: flex;

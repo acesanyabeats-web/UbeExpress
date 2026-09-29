@@ -42,6 +42,24 @@
     return null;
   }
 
+  // Prep-label shelf life. A real, clearly-flagged assumption, not this
+  // bar's own confirmed practice: 24h is the standard conservative shelf
+  // life for cut fresh fruit/herbs/juice kept refrigerated; the 2 house-made
+  // batches get longer (72h) as a chilled diluted syrup/cordial-style mix.
+  // Adjust PREP_SHELF_LIFE_HOURS/LONG_SHELF_LIFE_ITEMS here if actual
+  // practice differs.
+  var LONG_SHELF_LIFE_ITEMS = ['homemade lemonade', 'homemade raspberry lemonade - batch'];
+  var PREP_SHELF_LIFE_HOURS = 24;
+  var PREP_SHELF_LIFE_HOURS_LONG = 72;
+  function shelfLifeHours(name) {
+    return LONG_SHELF_LIFE_ITEMS.indexOf(String(name).toLowerCase()) !== -1 ?
+      PREP_SHELF_LIFE_HOURS_LONG : PREP_SHELF_LIFE_HOURS;
+  }
+  function fmtLabelDate(d) {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
   var state = {
     role: null,          // 'staff' | 'admin'
     cocktails: [],
@@ -439,7 +457,10 @@
       var checkedMap = {};
       rows.forEach(function (r) { checkedMap[String(r.item_name).toLowerCase()] = !!r.checked; });
 
-      var html = '<button id="prep-reset-btn" class="btn btn-secondary" style="margin-bottom:18px;">🔄 Reset for new day</button>';
+      var html = '<div style="display:flex;gap:10px;margin-bottom:18px;">' +
+        '<button id="prep-reset-btn" class="btn btn-secondary" style="flex:1;">🔄 Reset for new day</button>' +
+        '<button id="prep-labels-btn" class="btn btn-primary" style="flex:1;">🏷 Label List</button>' +
+        '</div>';
 
       html += '<div class="section-label">🍓 Fruit &amp; Syrups to Portion</div>';
       html += '<div class="prep-list">' + (lists.fruitSyrup.length ?
@@ -459,9 +480,14 @@
           var name = row.getAttribute('data-item');
           var cat = ingredientCategory(name);
           row.classList.toggle('checked', checkbox.checked);
+          // keep the closure's own checkedMap in sync so the Label List
+          // button (which reads it without a fresh fetch) reflects this
+          // tick immediately, not just after a full page reload
+          checkedMap[name.toLowerCase()] = checkbox.checked;
           setPrepChecked(name, cat, checkbox.checked).catch(function (e) {
             checkbox.checked = !checkbox.checked;
             row.classList.toggle('checked', checkbox.checked);
+            checkedMap[name.toLowerCase()] = checkbox.checked;
             alert('Could not save: ' + e.message);
           });
         });
@@ -470,9 +496,48 @@
       wireArmConfirm(document.getElementById('prep-reset-btn'), 'Tap again to reset', function () {
         resetPrepChecklist().then(renderFruitPrep).catch(function (e) { alert('Reset failed: ' + e.message); });
       });
+
+      document.getElementById('prep-labels-btn').addEventListener('click', function () {
+        var stillToDo = lists.fruitSyrup.filter(function (n) { return !checkedMap[n.toLowerCase()]; });
+        renderLabelList(stillToDo);
+      });
     }).catch(function (e) {
       main.innerHTML = '<p>Could not load the prep list: ' + escapeHtml(e.message) + '</p>';
     });
+  }
+
+  // Compiled from whatever's currently still unchecked in Fruit & Syrups —
+  // never a separately hand-maintained list, so ticking an item off on the
+  // checklist automatically drops it here next time this is opened. Sweets
+  // Garnish Stock is deliberately excluded: those are restocked from sealed
+  // packaging with its own long shelf life, not daily-prepped into a
+  // container that needs a food-safety date label the way cut fruit does.
+  function renderLabelList(items) {
+    setHeader('🏷 Prep Labels', true, renderFruitPrep);
+    var main = document.getElementById('app-main');
+    var now = new Date();
+
+    if (!items.length) {
+      main.innerHTML = '<p style="color:var(--muted)">Nothing left to prep — every fruit/syrup item is already ticked off.</p>' +
+        '<button id="labels-back-btn" class="btn btn-secondary">← Back to Fruit Prep</button>';
+      document.getElementById('labels-back-btn').addEventListener('click', renderFruitPrep);
+      return;
+    }
+
+    var html = '<p id="labels-note" style="color:var(--muted);margin-bottom:14px;">' + items.length + ' item' + (items.length === 1 ? '' : 's') +
+      ' still need prepping today. Prepped/use-by times below assume prep happens now — a real, flagged assumption, not a confirmed shelf life for this bar; adjust in the code if your actual practice differs.</p>';
+    html += '<button id="labels-print-btn" class="btn btn-primary" style="margin-bottom:18px;">🖨 Print Labels</button>';
+    html += '<div id="label-grid" class="label-grid">' + items.map(function (name) {
+      var useBy = new Date(now.getTime() + shelfLifeHours(name) * 3600 * 1000);
+      return '<div class="label-card">' +
+        '<div class="label-name">' + escapeHtml(name) + '</div>' +
+        '<div class="label-date">Prepped: ' + fmtLabelDate(now) + '</div>' +
+        '<div class="label-date">Use by: ' + fmtLabelDate(useBy) + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+
+    main.innerHTML = html;
+    document.getElementById('labels-print-btn').addEventListener('click', function () { window.print(); });
   }
 
   // ---------- DETAIL VIEW ----------
