@@ -163,6 +163,14 @@ body {
   font-size: 1.02rem;
 }
 .ingredient-list .amt { color: var(--accent); font-weight: 600; }
+.total-tag {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+}
 
 .finished-photo-wrap {
   position: relative;

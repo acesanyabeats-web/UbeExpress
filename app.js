@@ -263,16 +263,24 @@
         '</div>';
     }
 
+    var steps = Array.isArray(c.method_steps) ? c.method_steps : [];
+    var splitAcrossSteps = {};
+    steps.forEach(function (s) {
+      var amts = s.ingredient_amounts || {};
+      Object.keys(amts).forEach(function (k) { splitAcrossSteps[k] = true; });
+    });
+
     html += '<div class="section-label">Ingredients</div><ul class="ingredient-list">' +
       ings.map(function (i) {
         var photo = state.ingredientPhotos[String(i.name || '').toLowerCase()];
         var nameHtml = photo ?
           '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo) + '">' + escapeHtml(i.name) + '</button>' :
           '<span>' + escapeHtml(i.name) + '</span>';
-        return '<li>' + nameHtml + '<span class="amt">' + fmtAmt(i.amount) + ' ' + escapeHtml(i.unit || '') + '</span></li>';
+        var isSplit = splitAcrossSteps[String(i.name || '').toLowerCase()];
+        return '<li>' + nameHtml + '<span class="amt">' + fmtAmt(i.amount) + ' ' + escapeHtml(i.unit || '') +
+          (isSplit ? ' <span class="total-tag">total</span>' : '') + '</span></li>';
       }).join('') + '</ul>';
 
-    var steps = Array.isArray(c.method_steps) ? c.method_steps : [];
     if (steps.length) {
       html += '<div class="section-label">Method</div><ol class="method-list">' +
         steps.map(function (s) { return '<li>' + escapeHtml(s.instruction || ''); }).join('') + '</ol>';
@@ -360,10 +368,11 @@
       return c.glass ? 'glass_' + c.glass : 'glass_rocks';
     }
 
-    function ingredientRowHtml(name) {
+    function ingredientRowHtml(name, overrideAmt) {
       var match = ingByName[String(name).toLowerCase()];
-      var amt = match ? fmtAmt(match.amount) : '';
-      var amtLabel = amt ? amt + (match.unit ? ' ' + match.unit : '') : '';
+      var amt = overrideAmt != null ? fmtAmt(overrideAmt) : (match ? fmtAmt(match.amount) : '');
+      var unit = match ? match.unit : '';
+      var amtLabel = amt ? amt + (unit ? ' ' + unit : '') : '';
       var photo = state.ingredientPhotos[String(name).toLowerCase()];
       return '<li' + (photo ? ' class="clickable" data-ing-view="' + escapeHtml(photo) + '"' : '') + '>' +
         '<span class="ing-name">' + escapeHtml(name) + '</span>' +
@@ -374,7 +383,10 @@
       var s = steps[idx];
       var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
       var names = s.ingredient_names || [];
-      var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(ingredientRowHtml).join('') + '</ul>' : '';
+      var overrideAmts = s.ingredient_amounts || {};
+      var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(function (n) {
+        return ingredientRowHtml(n, overrideAmts[String(n).toLowerCase()]);
+      }).join('') + '</ul>' : '';
       var mediaHtml = s.photo_url ?
         '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">' :
         iconSvg(iconForStep(s), 'equip-icon');
@@ -464,8 +476,13 @@
       return { name: i.name, amount: i.amount, unit: i.unit };
     }) : [{ name: '', amount: '', unit: 'oz' }];
     var steps = existing && Array.isArray(existing.method_steps) ? existing.method_steps.map(function (s) {
-      return { instruction: s.instruction || '', equipment: s.equipment || 'shaker', ingredient_names: (s.ingredient_names || []).join(', ') };
-    }) : [{ instruction: '', equipment: 'shaker', ingredient_names: '' }];
+      var overrideAmts = s.ingredient_amounts || {};
+      var namesOut = (s.ingredient_names || []).map(function (n) {
+        var a = overrideAmts[String(n).toLowerCase()];
+        return a != null ? n + ':' + a : n;
+      });
+      return { instruction: s.instruction || '', equipment: s.equipment || 'shaker', ingredient_names: namesOut.join(', '), photo_url: s.photo_url || '' };
+    }) : [{ instruction: '', equipment: 'shaker', ingredient_names: '', photo_url: '' }];
 
     function ingRowHtml(ing, idx) {
       var hasPhoto = ing.name && state.ingredientPhotos[String(ing.name).toLowerCase()];
@@ -479,14 +496,14 @@
     }
     function stepRowHtml(s, idx, allowPhoto) {
       var hasPhoto = !!s.photo_url;
-      return '<div class="repeat-row" data-idx="' + idx + '" style="flex-direction:column;align-items:stretch;">' +
+      return '<div class="repeat-row" data-idx="' + idx + '" data-photo-url="' + escapeHtml(s.photo_url || '') + '" style="flex-direction:column;align-items:stretch;">' +
         '<div style="display:flex;gap:8px;">' +
         '<select class="step-equipment" style="flex:1;">' + EQUIPMENT_OPTIONS.map(function (e) { return '<option value="' + e + '"' + (e === s.equipment ? ' selected' : '') + '>' + e.replace('_', ' ') + '</option>'; }).join('') + '</select>' +
         (allowPhoto ? '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-step-photo="1" title="Photo of this step\'s final result">' + iconSvg('camera') + '</button>' : '') +
         '<button class="remove-btn" data-remove-step="' + idx + '">✕</button>' +
         '</div>' +
         '<input type="text" class="step-instruction" placeholder="Instruction (e.g. Shake hard for 12 seconds)" value="' + escapeHtml(s.instruction) + '" style="margin-top:6px;">' +
-        '<input type="text" class="step-ingredients" placeholder="Ingredients used this step (comma-separated)" value="' + escapeHtml(s.ingredient_names) + '" style="margin-top:6px;">' +
+        '<input type="text" class="step-ingredients" placeholder="Ingredients this step (comma-separated; add :amount to override, e.g. Raspberries:2)" value="' + escapeHtml(s.ingredient_names) + '" style="margin-top:6px;">' +
         '</div>';
     }
 
@@ -559,9 +576,10 @@
           var stepIndex = Array.prototype.indexOf.call(document.querySelectorAll('#step-rows .repeat-row'), row);
           btn.classList.add('uploading');
           pickPhotoAndUpload(function (base64) {
-            apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex }).then(function () {
+            apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex }).then(function (res) {
               btn.classList.remove('uploading');
               btn.classList.add('has-photo');
+              row.setAttribute('data-photo-url', res.photo_url);
               return loadAllData();
             }).catch(function (e) {
               btn.classList.remove('uploading');
@@ -583,11 +601,34 @@
 
       var stepRowsOut = Array.prototype.map.call(document.querySelectorAll('#step-rows .repeat-row'), function (row) {
         var namesRaw = row.querySelector('.step-ingredients').value.trim();
-        return {
+        var names = [];
+        var amounts = {};
+        if (namesRaw) {
+          namesRaw.split(',').forEach(function (part) {
+            part = part.trim();
+            if (!part) return;
+            var colonIdx = part.lastIndexOf(':');
+            if (colonIdx > -1) {
+              var nm = part.slice(0, colonIdx).trim();
+              var amtVal = parseFloat(part.slice(colonIdx + 1));
+              if (nm && !isNaN(amtVal)) {
+                names.push(nm);
+                amounts[nm.toLowerCase()] = amtVal;
+                return;
+              }
+            }
+            names.push(part);
+          });
+        }
+        var stepOut = {
           instruction: row.querySelector('.step-instruction').value.trim(),
           equipment: row.querySelector('.step-equipment').value,
-          ingredient_names: namesRaw ? namesRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : []
+          ingredient_names: names
         };
+        if (Object.keys(amounts).length) stepOut.ingredient_amounts = amounts;
+        var existingPhotoUrl = row.getAttribute('data-photo-url');
+        if (existingPhotoUrl) stepOut.photo_url = existingPhotoUrl;
+        return stepOut;
       }).filter(function (s) { return s.instruction; });
 
       var payload = {
