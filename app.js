@@ -426,13 +426,24 @@
         li.addEventListener('click', function () {
           var url = li.getAttribute('data-ing-view');
           var alreadyActive = li.classList.contains('active');
+          var wasVisible = !preview.hidden;
           Array.prototype.forEach.call(overlay.querySelectorAll('.step-ingredient-list li.active'), function (o) { o.classList.remove('active'); });
           if (alreadyActive) {
-            preview.hidden = true;
-            preview.removeAttribute('src');
+            preview.classList.remove('visible');
+            setTimeout(function () { preview.hidden = true; preview.removeAttribute('src'); }, 200);
+          } else if (wasVisible) {
+            // crossfade: fade the old photo out, swap the src underneath, fade the new one in
+            preview.classList.remove('visible');
+            setTimeout(function () {
+              preview.src = url;
+              preview.classList.add('visible');
+            }, 200);
+            li.classList.add('active');
           } else {
             preview.src = url;
             preview.hidden = false;
+            void preview.offsetWidth; // force reflow so the fade-in transition actually runs
+            preview.classList.add('visible');
             li.classList.add('active');
           }
         });

@@ -232,7 +232,10 @@ body {
   border-radius: 12px;
   border: 2px solid var(--accent2);
   margin-bottom: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
+.step-ing-photo.visible { opacity: 1; }
 .step-ing-photo[hidden] { display: none; }
 .build-step .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
 .build-step .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
