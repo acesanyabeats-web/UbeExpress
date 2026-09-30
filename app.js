@@ -261,11 +261,15 @@
     reader.readAsDataURL(file);
   }
 
-  function pickPhotoAndUpload(onDone, onCancel) {
+  // source: 'camera' forces the device camera via the capture hint; 'library'
+  // omits it, so the OS shows its normal photo/file picker instead (needed to
+  // pick an already-downloaded image — e.g. a colleague's screenshot saved
+  // from a shared album — rather than being pushed straight into the camera).
+  function pickPhotoAndUpload(source, onDone, onCancel) {
     var input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment';
+    if (source === 'camera') input.capture = 'environment';
     input.style.display = 'none';
     document.body.appendChild(input);
     var settled = false;
@@ -280,6 +284,43 @@
     input.click();
   }
 
+  // Small action-sheet shown whenever any of the 3 admin photo buttons
+  // (ingredient/step/finished-drink) is tapped: Take Photo / Choose from
+  // Library, plus Remove Photo when one is already set (so a photo can be
+  // inserted, swapped for a different one, or cleared, all from one button).
+  function showPhotoActionMenu(hasExisting, cb) {
+    var overlay = document.createElement('div');
+    overlay.id = 'photo-menu-overlay';
+    overlay.innerHTML =
+      '<div class="photo-menu">' +
+        '<button type="button" class="photo-menu-item" data-action="camera">' + iconSvg('camera') + ' Take Photo</button>' +
+        '<button type="button" class="photo-menu-item" data-action="library">🖼️ Choose from Library</button>' +
+        (hasExisting ? '<button type="button" class="photo-menu-item photo-menu-danger" data-action="remove">🗑️ Remove Photo</button>' : '') +
+        '<button type="button" class="photo-menu-item photo-menu-cancel" data-action="cancel">Cancel</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    function close(action) {
+      overlay.remove();
+      cb(action === 'cancel' ? null : action);
+    }
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) { close('cancel'); return; }
+      var btn = e.target.closest('[data-action]');
+      if (btn) close(btn.getAttribute('data-action'));
+    });
+  }
+
+  // Shared entry point for all 3 admin photo buttons. onDone(base64, isRemoval):
+  // isRemoval=true means the user chose "Remove Photo" (base64 is null) —
+  // callers branch to apiRemovePhoto instead of apiUploadPhoto.
+  function choosePhotoAndUpload(hasExisting, onDone, onCancel) {
+    showPhotoActionMenu(hasExisting, function (action) {
+      if (!action) { if (onCancel) onCancel(); return; }
+      if (action === 'remove') { onDone(null, true); return; }
+      pickPhotoAndUpload(action, function (base64) { onDone(base64, false); }, onCancel);
+    });
+  }
+
   function apiUploadPhoto(imageBase64, target, extra) {
     var payload = { image_base64: imageBase64, content_type: 'image/jpeg', target: target };
     extra = extra || {};
@@ -290,6 +331,20 @@
       body: JSON.stringify({ action: 'upload_photo', payload: payload })
     }).then(function (r) {
       if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('upload failed: ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function apiRemovePhoto(target, extra) {
+    var payload = { target: target };
+    extra = extra || {};
+    for (var k in extra) { if (extra.hasOwnProperty(k)) payload[k] = extra[k]; }
+    return fetch('/api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+      body: JSON.stringify({ action: 'remove_photo', payload: payload })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('remove failed: ' + r.status)); });
       return r.json();
     });
   }
@@ -759,16 +814,17 @@
 
     var cocktailPhotoBtn = document.getElementById('cocktail-photo-btn');
     if (cocktailPhotoBtn) cocktailPhotoBtn.addEventListener('click', function () {
-      cocktailPhotoBtn.classList.add('uploading');
-      pickPhotoAndUpload(function (base64) {
-        apiUploadPhoto(base64, 'cocktail', { cocktail_id: c.id }).then(function (res) {
-          c.photo_url = res.photo_url;
+      choosePhotoAndUpload(!!c.photo_url, function (base64, isRemoval) {
+        cocktailPhotoBtn.classList.add('uploading');
+        var req = isRemoval ? apiRemovePhoto('cocktail', { cocktail_id: c.id }) : apiUploadPhoto(base64, 'cocktail', { cocktail_id: c.id });
+        req.then(function (res) {
+          c.photo_url = isRemoval ? null : res.photo_url;
           return loadAllData();
         }).then(function () { openDetail(id); }).catch(function (e) {
           cocktailPhotoBtn.classList.remove('uploading');
-          alert('Photo upload failed: ' + e.message);
+          alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
         });
-      }, function () { cocktailPhotoBtn.classList.remove('uploading'); });
+      }, function () {});
     });
 
     var startBtn = document.getElementById('start-build-btn');
@@ -1042,19 +1098,29 @@
           var row = btn.closest('.repeat-row');
           var name = row.querySelector('.ing-name').value.trim();
           if (!name) { alert('Enter the ingredient name first.'); return; }
-          btn.classList.add('uploading');
-          pickPhotoAndUpload(function (base64) {
-            apiUploadPhoto(base64, 'ingredient', { ingredient_name: name }).then(function (res) {
-              state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: false };
+          var existingPhoto = state.ingredientPhotos[name.toLowerCase()];
+          choosePhotoAndUpload(!!(existingPhoto && existingPhoto.photo_url), function (base64, isRemoval) {
+            btn.classList.add('uploading');
+            var req = isRemoval
+              ? apiRemovePhoto('ingredient', { ingredient_name: name })
+              : apiUploadPhoto(base64, 'ingredient', { ingredient_name: name });
+            req.then(function (res) {
               btn.classList.remove('uploading');
-              btn.classList.add('has-photo');
               var searchBtn = row.querySelector('[data-ing-search]');
-              if (searchBtn) { searchBtn.classList.add('has-photo'); searchBtn.classList.remove('is-stock'); }
+              if (isRemoval) {
+                delete state.ingredientPhotos[name.toLowerCase()];
+                btn.classList.remove('has-photo');
+                if (searchBtn) searchBtn.classList.remove('has-photo');
+              } else {
+                state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: false };
+                btn.classList.add('has-photo');
+                if (searchBtn) { searchBtn.classList.add('has-photo'); searchBtn.classList.remove('is-stock'); }
+              }
             }).catch(function (e) {
               btn.classList.remove('uploading');
-              alert('Photo upload failed: ' + e.message);
+              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
             });
-          }, function () { btn.classList.remove('uploading'); });
+          }, function () {});
         };
       });
       Array.prototype.forEach.call(main.querySelectorAll('[data-ing-search]'), function (btn) {
@@ -1085,18 +1151,22 @@
           if (!existing) { alert('Save the cocktail first, then edit it to add step photos.'); return; }
           var row = btn.closest('.repeat-row');
           var stepIndex = Array.prototype.indexOf.call(document.querySelectorAll('#step-rows .repeat-row'), row);
-          btn.classList.add('uploading');
-          pickPhotoAndUpload(function (base64) {
-            apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex }).then(function (res) {
+          var hasExisting = !!row.getAttribute('data-photo-url');
+          choosePhotoAndUpload(hasExisting, function (base64, isRemoval) {
+            btn.classList.add('uploading');
+            var req = isRemoval
+              ? apiRemovePhoto('step', { cocktail_id: existing.id, step_index: stepIndex })
+              : apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex });
+            req.then(function (res) {
               btn.classList.remove('uploading');
-              btn.classList.add('has-photo');
-              row.setAttribute('data-photo-url', res.photo_url);
+              if (isRemoval) { btn.classList.remove('has-photo'); row.setAttribute('data-photo-url', ''); }
+              else { btn.classList.add('has-photo'); row.setAttribute('data-photo-url', res.photo_url); }
               return loadAllData();
             }).catch(function (e) {
               btn.classList.remove('uploading');
-              alert('Photo upload failed: ' + e.message);
+              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
             });
-          }, function () { btn.classList.remove('uploading'); });
+          }, function () {});
         };
       });
     }

@@ -162,6 +162,38 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'remove_photo') {
+      if (payload.target === 'step') {
+        var getRes2 = await sbFetch('cocktails?id=eq.' + payload.cocktail_id + '&select=method_steps', { headers: sbHeaders() });
+        var rows2 = await getRes2.json();
+        var steps2 = (rows2[0] && rows2[0].method_steps) || [];
+        if (!steps2[payload.step_index]) { res.status(400).json({ error: 'Bad step index' }); return; }
+        delete steps2[payload.step_index].photo_url;
+        await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+          method: 'PATCH',
+          headers: sbHeaders(),
+          body: JSON.stringify({ method_steps: steps2, updated_at: new Date().toISOString() })
+        });
+      } else if (payload.target === 'ingredient') {
+        await sbFetch('ingredient_photos?name=eq.' + encodeURIComponent(payload.ingredient_name), {
+          method: 'DELETE',
+          headers: sbHeaders()
+        });
+      } else if (payload.target === 'cocktail') {
+        await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+          method: 'PATCH',
+          headers: sbHeaders(),
+          body: JSON.stringify({ photo_url: null, updated_at: new Date().toISOString() })
+        });
+      } else {
+        res.status(400).json({ error: 'Bad target' });
+        return;
+      }
+
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     if (action === 'fetch_stock_photo') {
       var term = payload && payload.ingredient_name;
       if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }

@@ -501,6 +501,44 @@ body {
 .crop-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .crop-actions .btn { padding: 10px 16px; }
 
+/* ---- Photo action menu (choose camera/library/remove) ---- */
+#photo-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 410;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.photo-menu {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.photo-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1rem;
+  padding: 16px;
+  cursor: pointer;
+}
+.photo-menu-item:first-child { border-top: none; }
+.photo-menu-item svg { width: 20px; height: 20px; }
+.photo-menu-item.photo-menu-danger { color: var(--danger); }
+.photo-menu-item.photo-menu-cancel { font-weight: 600; margin-top: 8px; border-top: none; background: var(--card2); border-radius: var(--radius); }
+
 /* ---- Batch calculator ---- */
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
 .batch-input-row .field-group { flex: 1; margin-bottom: 0; }
