@@ -119,37 +119,163 @@
   }
 
   // ---------- photo capture/upload helpers ----------
+  // Resizes any drawable source (an <img> or a <canvas>, e.g. one produced by
+  // the crop modal below) to maxDim on its longest side and returns base64 JPEG.
+  function resizeSourceToBase64(source, srcW, srcH, maxDim, cb) {
+    var w = srcW, h = srcH;
+    if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+    else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(source, 0, 0, w, h);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    cb(dataUrl.split(',')[1]);
+  }
+
   function compressImageFile(file, maxDim, cb) {
     var reader = new FileReader();
     reader.onload = function (e) {
       var img = new Image();
-      img.onload = function () {
-        var w = img.width, h = img.height;
-        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
-        else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-        cb(dataUrl.split(',')[1]);
-      };
+      img.onload = function () { resizeSourceToBase64(img, img.width, img.height, maxDim, cb); };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
 
-  function pickPhotoAndUpload(onDone) {
+  // Full-screen crop tool: shows the picked photo with a draggable/resizable
+  // crop box (corner handles + drag-to-move), so a screenshot's status bar/UI
+  // chrome (or anything else unwanted) can be cropped out before it's saved as
+  // a step/ingredient/finished-drink photo. "Use full photo" skips cropping
+  // entirely for a photo that's already framed correctly (e.g. a straight
+  // camera shot). Works from any admin device — phone or desktop.
+  function showCropModal(file, onDone, onCancel) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var overlay = document.createElement('div');
+      overlay.id = 'crop-modal-overlay';
+      overlay.innerHTML =
+        '<div class="crop-stage">' +
+          '<img class="crop-img" src="' + e.target.result + '">' +
+          '<div class="crop-box">' +
+            '<div class="crop-handle tl" data-mode="tl"></div>' +
+            '<div class="crop-handle tr" data-mode="tr"></div>' +
+            '<div class="crop-handle bl" data-mode="bl"></div>' +
+            '<div class="crop-handle br" data-mode="br"></div>' +
+          '</div>' +
+        '</div>' +
+        '<p class="crop-hint">Drag the corners to crop out anything you don\'t want in the photo (e.g. a screenshot\'s status bar).</p>' +
+        '<div class="crop-actions">' +
+          '<button type="button" class="btn btn-secondary crop-cancel-btn">Cancel</button>' +
+          '<button type="button" class="btn btn-secondary crop-skip-btn">Use Full Photo</button>' +
+          '<button type="button" class="btn btn-primary crop-use-btn">Crop &amp; Use</button>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      var img = overlay.querySelector('.crop-img');
+      var stage = overlay.querySelector('.crop-stage');
+      var box = overlay.querySelector('.crop-box');
+
+      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+      function initBox() {
+        var w = stage.clientWidth, h = stage.clientHeight;
+        var bw = w * 0.86, bh = h * 0.86;
+        box.style.width = bw + 'px';
+        box.style.height = bh + 'px';
+        box.style.left = ((w - bw) / 2) + 'px';
+        box.style.top = ((h - bh) / 2) + 'px';
+      }
+      if (img.complete && img.naturalWidth) initBox(); else img.onload = initBox;
+
+      var MIN = 32;
+      function wireDrag(el, mode) {
+        el.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          el.setPointerCapture(ev.pointerId);
+          var startX = ev.clientX, startY = ev.clientY;
+          var startLeft = box.offsetLeft, startTop = box.offsetTop;
+          var startW = box.offsetWidth, startH = box.offsetHeight;
+          var stageW = stage.clientWidth, stageH = stage.clientHeight;
+
+          function onMove(mv) {
+            var dx = mv.clientX - startX, dy = mv.clientY - startY;
+            if (mode === 'move') {
+              box.style.left = clamp(startLeft + dx, 0, stageW - startW) + 'px';
+              box.style.top = clamp(startTop + dy, 0, stageH - startH) + 'px';
+              return;
+            }
+            var nl = startLeft, nt = startTop, nw = startW, nh = startH;
+            if (mode.indexOf('l') !== -1) { nl = clamp(startLeft + dx, 0, startLeft + startW - MIN); nw = startLeft + startW - nl; }
+            if (mode.indexOf('r') !== -1) { nw = clamp(startW + dx, MIN, stageW - startLeft); }
+            if (mode.indexOf('t') !== -1) { nt = clamp(startTop + dy, 0, startTop + startH - MIN); nh = startTop + startH - nt; }
+            if (mode.indexOf('b') !== -1) { nh = clamp(startH + dy, MIN, stageH - startTop); }
+            box.style.left = nl + 'px'; box.style.top = nt + 'px';
+            box.style.width = nw + 'px'; box.style.height = nh + 'px';
+          }
+          function onUp(up) {
+            el.releasePointerCapture(up.pointerId);
+            el.removeEventListener('pointermove', onMove);
+            el.removeEventListener('pointerup', onUp);
+          }
+          el.addEventListener('pointermove', onMove);
+          el.addEventListener('pointerup', onUp);
+        });
+      }
+      wireDrag(box, 'move');
+      Array.prototype.forEach.call(overlay.querySelectorAll('.crop-handle'), function (h) {
+        wireDrag(h, h.getAttribute('data-mode'));
+      });
+
+      function cleanup() { overlay.remove(); }
+
+      overlay.querySelector('.crop-cancel-btn').addEventListener('click', function () {
+        cleanup();
+        if (onCancel) onCancel();
+      });
+      overlay.querySelector('.crop-skip-btn').addEventListener('click', function () {
+        resizeSourceToBase64(img, img.naturalWidth, img.naturalHeight, 1280, function (b64) {
+          cleanup();
+          onDone(b64);
+        });
+      });
+      overlay.querySelector('.crop-use-btn').addEventListener('click', function () {
+        // stage is sized exactly to the rendered <img> (see CSS), so the crop
+        // box's own offset/size IS the crop rect in on-screen pixels — scale
+        // straight to the image's natural (full-resolution) pixel coords.
+        var scaleX = img.naturalWidth / stage.clientWidth;
+        var scaleY = img.naturalHeight / stage.clientHeight;
+        var sx = clamp(box.offsetLeft * scaleX, 0, img.naturalWidth);
+        var sy = clamp(box.offsetTop * scaleY, 0, img.naturalHeight);
+        var sw = Math.min(box.offsetWidth * scaleX, img.naturalWidth - sx);
+        var sh = Math.min(box.offsetHeight * scaleY, img.naturalHeight - sy);
+        var canvas = document.createElement('canvas');
+        canvas.width = sw; canvas.height = sh;
+        canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        resizeSourceToBase64(canvas, sw, sh, 1280, function (b64) {
+          cleanup();
+          onDone(b64);
+        });
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function pickPhotoAndUpload(onDone, onCancel) {
     var input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     input.capture = 'environment';
     input.style.display = 'none';
     document.body.appendChild(input);
+    var settled = false;
+    function fireCancel() { if (!settled) { settled = true; if (onCancel) onCancel(); } }
+    input.addEventListener('cancel', fireCancel);
     input.addEventListener('change', function () {
       var file = input.files[0];
       if (input.parentNode) input.parentNode.removeChild(input);
-      if (!file) return;
-      compressImageFile(file, 1280, onDone);
+      if (!file) { fireCancel(); return; }
+      showCropModal(file, function (base64) { settled = true; onDone(base64); }, fireCancel);
     });
     input.click();
   }
@@ -642,7 +768,7 @@
           cocktailPhotoBtn.classList.remove('uploading');
           alert('Photo upload failed: ' + e.message);
         });
-      });
+      }, function () { cocktailPhotoBtn.classList.remove('uploading'); });
     });
 
     var startBtn = document.getElementById('start-build-btn');
@@ -928,7 +1054,7 @@
               btn.classList.remove('uploading');
               alert('Photo upload failed: ' + e.message);
             });
-          });
+          }, function () { btn.classList.remove('uploading'); });
         };
       });
       Array.prototype.forEach.call(main.querySelectorAll('[data-ing-search]'), function (btn) {
@@ -970,7 +1096,7 @@
               btn.classList.remove('uploading');
               alert('Photo upload failed: ' + e.message);
             });
-          });
+          }, function () { btn.classList.remove('uploading'); });
         };
       });
     }
