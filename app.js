@@ -349,6 +349,84 @@
     });
   }
 
+  // Full-screen "set a photo for every step" screen, reached from the edit
+  // form's "📷 Step Photos" button. Shows one slot per step of the cocktail
+  // AS CURRENTLY SAVED in Supabase (cocktail.method_steps at the moment this
+  // was opened) — not the in-progress, possibly-edited-but-unsaved rows in
+  // the form — since every slot writes straight to that saved row via the
+  // same upload_photo/remove_photo actions the old per-row button used.
+  // Tapping an empty slot inserts a photo; tapping a filled slot replaces it;
+  // either way you're returned to this same grid afterward so the next slot
+  // can be done, until Confirm closes it. Each pick saves immediately (same
+  // safe pattern as every other photo button in this app), so nothing is
+  // lost by closing the screen partway through.
+  function showStepPhotoSlots(cocktail, onClose) {
+    var steps = (Array.isArray(cocktail.method_steps) ? cocktail.method_steps : []).map(function (s) {
+      return { instruction: s.instruction || '', photo_url: s.photo_url || '' };
+    });
+    if (!steps.length) {
+      alert('This cocktail has no method steps yet — add some and hit Save first.');
+      if (onClose) onClose();
+      return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'step-photo-slots-overlay';
+    document.body.appendChild(overlay);
+
+    // Keeps each step ROW's own data-photo-url attribute (the edit form's
+    // Save button reads this, per step row, to build its method_steps
+    // payload) in sync with a slot change made here — otherwise a later
+    // "Save" on the full form would silently overwrite method_steps with
+    // each row's stale attribute value and wipe out a photo just added here.
+    function syncRowAttr(i, url) {
+      var row = document.querySelectorAll('#step-rows .repeat-row')[i];
+      if (row) row.setAttribute('data-photo-url', url || '');
+    }
+
+    function render() {
+      overlay.innerHTML =
+        '<div class="slots-header"><h3>Step Photos</h3><button type="button" id="slots-confirm-btn" class="btn btn-primary">Confirm</button></div>' +
+        '<p class="slots-hint">Tap a slot to add a photo. Tap a filled slot to replace it.</p>' +
+        '<div class="slots-grid">' +
+          steps.map(function (s, i) {
+            return '<button type="button" class="photo-slot' + (s.photo_url ? ' has-photo' : '') + '" data-slot-idx="' + i + '">' +
+              (s.photo_url ? '<img src="' + escapeHtml(s.photo_url) + '">' : iconSvg('camera', 'slot-icon')) +
+              '<span class="slot-label">Step ' + (i + 1) + '</span>' +
+            '</button>';
+          }).join('') +
+        '</div>';
+
+      document.getElementById('slots-confirm-btn').addEventListener('click', function () {
+        overlay.remove();
+        if (onClose) onClose();
+      });
+
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-slot-idx]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var i = parseInt(btn.getAttribute('data-slot-idx'), 10);
+          choosePhotoAndUpload(!!steps[i].photo_url, function (base64, isRemoval) {
+            btn.classList.add('uploading');
+            var req = isRemoval
+              ? apiRemovePhoto('step', { cocktail_id: cocktail.id, step_index: i })
+              : apiUploadPhoto(base64, 'step', { cocktail_id: cocktail.id, step_index: i });
+            req.then(function (res) {
+              steps[i].photo_url = isRemoval ? '' : res.photo_url;
+              syncRowAttr(i, steps[i].photo_url);
+              render();
+              loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
+            }).catch(function (e) {
+              btn.classList.remove('uploading');
+              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
+            });
+          }, function () { /* cancelled — stay on the grid, nothing to undo */ });
+        });
+      });
+    }
+
+    render();
+  }
+
   function apiFetchStockPhoto(ingredientName) {
     return fetch('/api/write', {
       method: 'POST',
@@ -1029,12 +1107,10 @@
         '<button class="remove-btn" data-remove-ing="' + idx + '">✕</button>' +
         '</div>';
     }
-    function stepRowHtml(s, idx, allowPhoto) {
-      var hasPhoto = !!s.photo_url;
+    function stepRowHtml(s, idx) {
       return '<div class="repeat-row" data-idx="' + idx + '" data-photo-url="' + escapeHtml(s.photo_url || '') + '" style="flex-direction:column;align-items:stretch;">' +
         '<div style="display:flex;gap:8px;">' +
         '<select class="step-equipment" style="flex:1;">' + EQUIPMENT_OPTIONS.map(function (e) { return '<option value="' + e + '"' + (e === s.equipment ? ' selected' : '') + '>' + e.replace('_', ' ') + '</option>'; }).join('') + '</select>' +
-        (allowPhoto ? '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-step-photo="1" title="Photo of this step\'s final result">' + iconSvg('camera') + '</button>' : '') +
         '<button class="remove-btn" data-remove-step="' + idx + '">✕</button>' +
         '</div>' +
         '<input type="text" class="step-instruction" placeholder="Instruction (e.g. Shake hard for 12 seconds)" value="' + escapeHtml(s.instruction) + '" style="margin-top:6px;">' +
@@ -1059,8 +1135,10 @@
       '<div id="ing-rows">' + ingredients.map(ingRowHtml).join('') + '</div>' +
       '<button id="add-ing-btn" class="add-row-btn">+ Add ingredient</button>' +
 
-      '<div class="section-label">Method steps</div>' +
-      '<div id="step-rows">' + steps.map(function (s, idx) { return stepRowHtml(s, idx, !!existing); }).join('') + '</div>' +
+      '<div class="section-label-row"><div class="section-label">Method steps</div>' +
+      (existing ? '<button type="button" id="step-photos-btn" class="btn btn-secondary step-photos-btn">' + iconSvg('camera') + ' Step Photos</button>' : '') +
+      '</div>' +
+      '<div id="step-rows">' + steps.map(function (s, idx) { return stepRowHtml(s, idx); }).join('') + '</div>' +
       '<button id="add-step-btn" class="add-row-btn">+ Add step</button>' +
 
       '<div class="toggle-row"><label>Batchable (pre-batched bottle)</label><input type="checkbox" id="f-batchable"' + (existing && existing.batchable ? ' checked' : '') + '></div>' +
@@ -1074,8 +1152,12 @@
       wirePhotoButtons();
     });
     document.getElementById('add-step-btn').addEventListener('click', function () {
-      document.getElementById('step-rows').insertAdjacentHTML('beforeend', stepRowHtml({ instruction: '', equipment: 'shaker', ingredient_names: '' }, Date.now(), false));
+      document.getElementById('step-rows').insertAdjacentHTML('beforeend', stepRowHtml({ instruction: '', equipment: 'shaker', ingredient_names: '' }, Date.now()));
       wireRemoveButtons();
+    });
+    var stepPhotosBtn = document.getElementById('step-photos-btn');
+    if (stepPhotosBtn) stepPhotosBtn.addEventListener('click', function () {
+      showStepPhotoSlots(existing, function () {});
     });
     document.getElementById('f-batchable').addEventListener('change', function (e) {
       document.getElementById('batch-target-group').style.display = e.target.checked ? '' : 'none';
@@ -1144,29 +1226,6 @@
             btn.classList.remove('uploading');
             alert('Stock photo search failed: ' + e.message);
           });
-        };
-      });
-      Array.prototype.forEach.call(main.querySelectorAll('[data-step-photo]'), function (btn) {
-        btn.onclick = function () {
-          if (!existing) { alert('Save the cocktail first, then edit it to add step photos.'); return; }
-          var row = btn.closest('.repeat-row');
-          var stepIndex = Array.prototype.indexOf.call(document.querySelectorAll('#step-rows .repeat-row'), row);
-          var hasExisting = !!row.getAttribute('data-photo-url');
-          choosePhotoAndUpload(hasExisting, function (base64, isRemoval) {
-            btn.classList.add('uploading');
-            var req = isRemoval
-              ? apiRemovePhoto('step', { cocktail_id: existing.id, step_index: stepIndex })
-              : apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIndex });
-            req.then(function (res) {
-              btn.classList.remove('uploading');
-              if (isRemoval) { btn.classList.remove('has-photo'); row.setAttribute('data-photo-url', ''); }
-              else { btn.classList.add('has-photo'); row.setAttribute('data-photo-url', res.photo_url); }
-              return loadAllData();
-            }).catch(function (e) {
-              btn.classList.remove('uploading');
-              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
-            });
-          }, function () {});
         };
       });
     }
