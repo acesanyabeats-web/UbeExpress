@@ -1,0 +1,249 @@
+# Data Integrity Report — Ube Express
+
+Compiled 30 Sep 2026, at Alex's direct request, for reference in future
+development decisions. This is the durable record: every real
+inconsistency found across the project's history, split cleanly into
+**resolved** (with a real date and what actually changed) and
+**unresolved** (open, waiting on Alex's own call). Nothing here is
+guessed — every claim below is backed by one of:
+
+- **Git history** (`git log`, `git show`) — the only place a CODE change
+  is dated and diffed.
+- **Supabase `created_at`/`updated_at`** on `cocktails` — the only signal
+  for whether a DATA row has ever been touched since insertion (there is
+  no audit/history table, so this can say *whether* and *when*, never
+  *what changed*, for anything not also in a git commit).
+- **`notes_flagged_recipe_issues.md`** — the running flag log kept
+  alongside every data-entry batch.
+- **Real photos** — the official printed menu (10 photos, 29 Sep) and
+  the bar's own physical prep/use-by labels (4 photos, 30 Sep).
+
+**Headline finding, stated plainly**: of the ~30 real inconsistencies
+flagged across this project's whole history, exactly **2 code-level
+fixes** (covering 3 cocktails) have ever actually been resolved.
+Everything else — every batch, every discrepancy — is still exactly as
+first entered. This isn't a guess; it's what `cocktails.updated_at`
+actually shows across all 86 rows.
+
+---
+
+## Resolved
+
+### 2026-09-29, 02:12 UTC — `6daaa3f` — real per-step amount bug + 3 name mismatches
+**What was found**: Pink Gin Sling's Raspberries showed the same master
+total (3, itself wrong) at every build step that used it, because there
+was no way to record a different amount per step — the recipe's own
+instructions already specify a real split (2 muddled, 2 into the glass,
+1 for garnish = 5 total).
+
+**What was fixed**: a real per-step `ingredient_amounts` override was
+added (Live Build Mode now shows the true per-step amount; the detail
+overview shows the true total with a "total" tag). Pink Gin Sling's
+master Raspberries amount corrected **3 → 5** in Supabase. Separately,
+in the same pass, real ingredient-*name* mismatches between a step's own
+instruction text and the master ingredient list were found and fixed
+across **3 cocktails** (Peach Pony Club, Pink Gin Sling, Witching Hour —
+the only 3 rows in the entire `cocktails` table whose `updated_at`
+differs from `created_at` at all): "ASUKI Yuzu Citrus 17% Liquor" vs.
+"ASUKI Yuzu Citrus", and similar drift for Real - Peach Puree, Fever
+Tree - Ginger Ale, Mint - Fresh, and Milk Semi Skimmed — renamed to the
+fuller branded name already used in the step text, since the mismatch
+meant the amount could never be shown. A stray "Oranges" step reference
+was corrected to the real "Orange Zest" ingredient (amount 0 → 1).
+
+**This is almost certainly what `notes_flagged_recipe_issues.md`'s own
+opening line means by "the earlier 3-cocktail pass"** — the file
+references it as precedent but never recorded what it actually was.
+Real evidence for the match: exactly 3 cocktails, exactly these 3,
+exactly this timeframe, nowhere else in the table's history.
+
+### 2026-09-29, 02:22 UTC — `a67aaf2` — real amounts for Witching Hour's cold foam
+**What was found**: the prior commit had cleaned up Witching Hour's
+cold-foam step text into real candidate ingredient names (Lemon Sorbet,
+Soda Water) but explicitly flagged them as having "no master ingredient
+row/amount yet."
+
+**What was fixed**: Alex's exact spec (one scoop of lemon sorbet, soda
+water added to taste until a snow-sludge consistency, mixed with a
+barspoon) was captured for real — `scoop` and `to taste` added as real
+selectable units, Lemon Sorbet set to 1 scoop, Soda Water to-taste with
+a null amount, the barspoon technique folded into the step's own
+instruction text, and the step's equipment changed glass → bar_spoon to
+match. A real, separate display bug was caught and fixed in the same
+pass: a unit-only ingredient like "to taste" rendered with a stray
+leading space in one place and vanished entirely in Live Build Mode in
+another — a shared `fmtAmtUnit()` helper now makes all three display
+sites consistent.
+
+**Still open despite this fix**: the Sep 29 physical-menu cross-check
+(see Unresolved, below) later found Witching Hour tracks several
+ingredients (Lemon Sorbet, Lime Juice, Mixed Berry Coulis, Soda Water)
+that don't appear on the real printed menu at all, and is missing
+"sugar syrup," which does. This 02:22 fix resolved a real *amount* gap;
+it did not resolve — and predates the discovery of — a real *content*
+mismatch against the actual menu. Two different bugs on the same drink.
+
+---
+
+## Unresolved
+
+Organized by which two things disagree — the same split used in the
+[artifact version of this list](https://claude.ai/artifact/25wHFNYnzLGYhhKz7e4MZL),
+kept here as the durable, dated source of truth.
+
+### A. App vs. the physical menu
+*(the tracked recipe says something the real printed menu doesn't, or is missing something it says)*
+
+| Drink | What's wrong | Flagged |
+|---|---|---|
+| Dancing Queen | Tracks "freeze dried raspberries" (ingredient + garnish agree with each other); menu says "freeze-dried **strawberry** pieces" | 29 Sep |
+| Galaxy Soda | Tracks strawberry boba (ingredient + garnish agree); menu says "blueberry + **raspberry** boba" | 29 Sep |
+| Mad Scientist | Missing "fresh lemon juice" and "soda water," both on the real menu | 29 Sep |
+| Witching Hour | Tracks Lemon Sorbet, Lime Juice, Mixed Berry Coulis, Soda Water — none on the real menu; menu's "sugar syrup" isn't tracked | 29 Sep |
+| Coco Loco | Tracks "Tails Porn-star Martini Mix" with no connection to this drink on the real menu — possible copy-paste leftover | 29 Sep |
+| Pornstar Martini | Missing "Mexican lime juice" and a separate passionfruit juice (distinct from the puree already tracked) | 29 Sep |
+| Mermaid Shake | Tracks Ube Extract, not on the real menu for this drink; menu's "double chocolate syrup" isn't tracked (only white is) | 29 Sep |
+| Give me S'mores | Missing "marshmallow paste," the FIRST ingredient on the real menu | 29 Sep |
+| Sweet Shop | Tracks Post Mix Lemonade, not on the real menu's list | 29 Sep |
+| Pick Me Up | Tracked as "Sugar – Granulated"; menu says "sugar syrup" | 29 Sep |
+| Pink Gin Sling | Gin tracked as "Chilled Raspberry Pink Gin"; real product name on the menu is "Chilled Pub's Lychee & Raspberry Gin" — possibly a different bottle | 29 Sep |
+| "Raspberry, Passionfruit & Lemon Cooler" (menu) vs. Passionfruit Cooler (app) | Genuinely unclear if same drink renamed or two drinks — not merged, not duplicated | 29 Sep |
+| Mojito Blackberry | Puree, method text, and garnish all say raspberry; only the fruit-chunk row says Blackberry | Batch 1 |
+| Pimms Jug | Method says 125ml Pimm's; ingredient row says 150ml | Batch 1 |
+| Homemade Cherry Cola | Method mentions a lemon wedge and homemade lemonade mix; neither exists in this recipe's own ingredients | Batch 1 |
+| Dragon's Potion | Garnish text says "strawberry pencil"; tracked ingredient is "Cherry Pencils" | Batch 1 |
+| Homemade Lemonade – 501ml | Identical, implausible value in both Key Lime Pie and Mango Smooth | Batch 4 |
+| Real - Mango Syrup – 50g | Gram unit on what's almost certainly an ml syrup | Batch 4 |
+| Lemon – 0.05g (Honey and Lemon Soda) | Same "lemon in grams" class as Batch 1's 0.25g instances | Batch 4 |
+
+### B. App inconsistent with itself
+*(the app's own fields disagree with each other, independent of the menu)*
+
+| Drink | What's wrong | Flagged |
+|---|---|---|
+| Baby Bathtub | Real three-way conflict: ingredient row says passionfruit boba; the app's own garnish field says "mango bubbles"; the menu says "passionfruit boba bubbles" | 29 Sep |
+
+### C. App inconsistent with an earlier entry source
+*(conflicts with a different screenshot batch used to enter the same drink originally, not with this menu)*
+
+| Drink | What's wrong | Flagged |
+|---|---|---|
+| Key Lime Pie | Tracks Vanilla Gelato — not on this menu's ingredient list at all, but present in Batch 4's own original screenshot source | 29 Sep |
+
+### D. Naming-only (ingredients match; display name differs from the real menu)
+- Apple Cooler (app) vs. "Apple N Raspberry Cooler" (menu)
+- Strawberry Wizz Fizz (app) vs. "Baby Wizz Fizz" (menu)
+- Homemade Ginger-ade (app) vs. "Homemade Lemon N Gingerade" (menu)
+- Bathtub (app, no boba tracked, garnish says only "rubber duck, mint
+  sprig, lemon/lime slices") vs. "Chilled Bathtub" (menu, £14, for-2,
+  has boba) — may genuinely be two different real menu items, not a
+  renamed duplicate
+- Dragon's Potion — ingredient row "Chai Seeds" vs. method text "chia
+  seeds" (source-side typo, transcribed as shown)
+- Coconut Dessicated vs. "desiccated" in method text
+
+### E. One systemic naming question covering several drinks
+The real menu consistently says **"boba balls"** everywhere the app
+tracks `Popping Balls – [flavour]` (Double Dutch, Pop Stars, both
+Bathtubs, several Homemade Sodas). Popping boba (bursts with liquid) and
+standard chewy boba are genuinely different real products — worth one
+answer that resolves every instance at once, not a per-drink fix.
+
+### F. Structural gaps
+- **No price column anywhere in the schema.** Every menu photo was full
+  of real prices; nowhere to store them. Prices for this batch's 8 new
+  drinks are known; the other ~78 aren't.
+- **Butterfly Pea** fits neither Fruit Prep classification list
+  (Batch 4) — left uncategorized on purpose.
+- **Dragon Fruit and Lychee Soda**'s method text was cut off in its
+  original screenshot source — entered with real ingredients, empty
+  method (Batch 4).
+- **Glass icon gap** — several real vessels (handled jar/mug, mini
+  bathtub, goldfish bowl, mermaid glass) have no dedicated icon; mapped
+  to the closest existing one. Data is right, icon may not be.
+
+---
+
+## New real evidence, 30 Sep — the bar's own physical prep/use-by labels
+
+Alex sent 4 photos of real printed shelf-life labels already in use at
+the bar (a separate, existing commercial label system — not Ube
+Express's own Label List output, which uses a plainer "Prepped /
+Use by" format with no team ID or day-colour grid). Real, transcribed
+shelf-life data, all labels dated PREPPED 29/09/26:
+
+| Item | Real shelf life (labelled) |
+|---|---|
+| Mint – Fresh, Limes, Passionfruit, Oranges, Raspberries, Grapefruit, Lemon, Red Chilli, Cucumber, Strawberries | **3 days** |
+| Pineapple | ~6 days |
+| Tinned Lychee (opened) | 7 days |
+| Marshmallows | 7 days |
+| Popping Balls (Strawberry, Raspberry, Passionfruit, Mango, Lychee), Glace Cherries | **14 days** |
+| Guest Sweets, Coconut – Dessicated, Cordial – Lime, Homemade Lemonade (opened) | **28 days** |
+
+**This directly supersedes a placeholder I built into the app myself.**
+The Fruit Prep Label List feature (shipped 29 Sep, commit `4fc33d2`)
+uses a flagged, admitted guess — 24h for fresh fruit/herbs, 72h for the
+two homemade batches — explicitly logged in the code's own comment as
+"a real, clearly-flagged assumption, not this bar's own confirmed
+practice." The real labels show the true numbers are **3 days for fresh
+produce**, not 24 hours, and several categories (14–28 days) that the
+Label List doesn't even generate labels for at all, because Sweets
+Garnish Stock was deliberately excluded from labelling on the
+assumption that "sealed/restocked items don't need daily food-safety
+date labels." **That assumption is now shown to be wrong** — the bar
+clearly does track open/use-by dates for sweets and garnish stock, just
+on a longer cycle than fresh produce, not never.
+
+**A real new ingredient gap surfaced by these same labels**: "Popping
+Balls – Mango" is a real, currently-stocked flavour with no match
+anywhere in the app's tracked vocabulary (Lychee, Passionfruit,
+Raspberry, Strawberry, Blueberry are the only four tracked). Also new
+and untracked: "Guest Sweets" as its own named category, and a possible
+"Marshmallows" vs. the already-tracked "Giant Marshmallows" naming
+question — needs a look before assuming they're the same product.
+
+**Not yet included**: a fifth photo — a handwritten note, in pink ink,
+of discrepancies Alex found going down the Fruit Prep list against real
+stock. It's rotated, small, and low-contrast enough that I can't
+transcribe it reliably, and I'm not willing to guess ingredient names or
+numbers into a document meant to guide real decisions. Please retype it
+or send a straighter, closer photo, and I'll fold it in here.
+
+---
+
+## Batch timeline (real commit dates, for reference)
+
+| Date | What shipped |
+|---|---|
+| 27 Sep | Initial build: cocktail spec lookup + Live Build Mode |
+| 28 Sep | Login-hide bug fixed; step-photo capture; bullet-row step display |
+| 29 Sep, 02:12–02:22 | The only 2 real resolved fixes in this project's history (above) |
+| 29 Sep | Ingredient stock-photo search; flavour-variant grouping; Home screen split; Fruit Prep + printable labels; Cocktail/Mocktail split; menu alphabetised, new-badge deduped, Mojito/Pop Star/Spritz/Pimm's families grouped; 8 new drinks entered from real menu photos, extensive discrepancies flagged |
+| 30 Sep | This report; real prep-label shelf-life evidence received |
+
+---
+
+## What this collectively points to
+
+Not a recommendation — just the pattern the evidence itself shows, since
+this is the document meant to help phrase what comes next:
+
+1. **There is no resolution mechanism at all.** ~30 real findings exist;
+   2 have ever been fixed, both by direct SQL/code edits during active
+   development, not through any review workflow. Nothing routes a
+   flagged item back to a decision.
+2. **Nothing in Supabase records *what* changed, only *whether* and
+   *when*.** `updated_at` proved a row was touched exactly 3 times in
+   this project's whole life, but the "what" for even those 3 only
+   exists because the git commit messages happened to spell it out in
+   full prose. A row edited via the admin UI alone would leave zero
+   trace of what it used to say.
+3. **The printed menu and the app's tracked recipes are two
+   independently-maintained sources of truth, and nothing keeps them in
+   sync.** Every "vs. menu" finding above is the same root cause wearing
+   a different ingredient's name.
+4. **A design assumption I made (Sweets Garnish Stock doesn't need
+   date labels) was wrong, and only real physical evidence caught it** —
+   worth remembering as a reason to ask for the real number before
+   shipping a placeholder, not just to flag the placeholder and move on.
