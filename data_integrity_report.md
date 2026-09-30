@@ -164,6 +164,72 @@ answer that resolves every instance at once, not a per-drink fix.
 
 ---
 
+## Source-to-source cross-check: workplace app screenshots vs. physical labels vs. printed menu
+
+A different question from everything above: not "does the app disagree
+with one source," but "do the three real sources disagree with *each
+other*." Real method, stated plainly: I no longer have the original
+workplace-app screenshot image files — they were shown earlier in this
+conversation and their pixels aren't retained in my context. What I do
+have is every Batch 1/4 recipe's **current, untouched Supabase data**,
+which the Resolved section above already proved is a faithful proxy for
+what those screenshots said — nothing has been edited since entry except
+the 3 cocktails covered there. So "screenshot source" below means that
+untouched data, cross-checked against the newer label and menu photos.
+**If you resend the original workplace-app screenshots, I can re-verify
+against the actual pixels instead of this proxy** — worth doing if you
+want full confidence rather than this reconstruction.
+
+### G. A naming conflict I introduced myself, now caught by real label evidence
+- **Lime Cordial** — entered two batches ago as a new, unmatched
+  ingredient for Electric Reef because nothing in the tracked vocabulary
+  fit. The real physical label for the same product reads **"Cordial -
+  Lime."** Same real bottle, wrong word order on my part — a real,
+  self-inflicted inconsistency, now resolvable with confidence rather
+  than flagged as an open question.
+
+### H. Real product-identity questions the labels surface, unresolved
+- **Birds Eye Chillies** (tracked in-app, used in Blue Heat) vs. **"Red
+  Chilli - Prepped"** (label) — genuinely unclear whether this is the
+  same specific chilli variety under a shorter label name, or a second,
+  different chilli the app has never tracked at all.
+- **Grapefruit Pink** (tracked in-app, several drinks) vs. plain
+  **"Grapefruit - Prepped"** (label, no "pink" qualifier) — plus my own
+  newly-invented "Grapefruit Soda"/"Grapefruit Gin" for Grapefruit
+  Bliss, both unconfirmed brands. Real question whether the bar stocks
+  plain grapefruit as a separate line from pink, which the app has never
+  distinguished.
+- **Giant Marshmallows** (tracked in-app, Give me S'mores) vs. plain
+  **"Marshmallows"** (label) — the same open naming question the Sep 29
+  batch already raised, now backed by a second, independent source using
+  the shorter name.
+
+### I. Absence as evidence — flagged cautiously, not concluded
+- **Coconut Shaved** is tracked in 3 real recipes (Coconut Cloud, Dragon
+  Fruit Cloud, Ube Cloud), but no "Coconut Shaved" label appeared among
+  the 4 photos — only "Coconut - Dessicated" did. Could mean shaved
+  coconut doesn't get its own use-by label (derived from the desiccated
+  stock rather than a separate line), or it simply wasn't in this
+  particular batch of photos. Four photos is a partial capture of a
+  longer prep list, not proof either way — not treated as a real
+  conflict, just named.
+
+### J. A real, precisely-known shelf-life gap
+- **Homemade Lemonade** — the real label shows a genuine 28-day shelf
+  life (an "opened product" format, not a daily-prep one). The app's own
+  placeholder (`LONG_SHELF_LIFE_ITEMS`, `PREP_SHELF_LIFE_HOURS_LONG`) is
+  72 hours. That's not just "wrong" the way the 24h default was flagged
+  as a guess when built — it's now a known, precise **9x undershoot**,
+  since real evidence exists to measure it against.
+
+### K. Checked and clean — recorded, not left silent
+Glace Cherries, Tinned Lychee, Oranges, Pineapple, Passion Fruit, and
+Popping Balls – Lychee/Strawberry/Raspberry/Passionfruit all match
+cleanly across whichever of the three real sources mention them. Stated
+here so a future pass doesn't have to re-check them from scratch.
+
+---
+
 ## New real evidence, 30 Sep — the bar's own physical prep/use-by labels
 
 Alex sent 4 photos of real printed shelf-life labels already in use at
