@@ -746,3 +746,30 @@ body {
 .review-actions .btn { flex: 1; }
 #photo-review-overlay .frame-editor-header { max-width: 640px; margin: 0 auto 12px; }
 #photo-review-overlay .frame-editor-header .btn { width: auto; flex: none; padding: 8px 16px; }
+
+/* ---- Ingredients table (admin) ---- */
+.ing-table-intro { color: var(--muted); font-size: 0.88rem; margin-bottom: 10px; }
+#ing-table-filter { width: 100%; margin-bottom: 8px; }
+.ing-group-title { margin: 22px 0 8px; font-size: 1rem; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+.ing-group-count { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.ing-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ing-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.ing-table th:nth-child(2) { width: 76px; text-align: center; }
+.ing-table th:nth-child(3) { width: 34%; }
+.ing-table td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.ing-name-input { width: 100%; font-size: 0.92rem; padding: 6px 8px; }
+.ing-used { font-size: 0.72rem; color: var(--muted); margin-top: 3px; padding-left: 2px; }
+.ing-cell-photo { text-align: center; }
+.ing-frame-btn { background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; }
+.equip-icon.table-frame { width: 64px; height: 64px; margin: 0; }
+.equip-icon.is-photo.table-frame { width: 64px; height: 64px; border-radius: 8px; }
+svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); }
+.ing-type-select { width: 100%; font-size: 0.82rem; padding: 6px 4px; }
+#ing-table-filter, .ing-name-input, .ing-type-select {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+#ing-table-filter { padding: 12px; font-size: 1rem; border-radius: 10px; }
+.ing-name-input:focus, .ing-type-select:focus, #ing-table-filter:focus { outline: none; border-color: var(--accent); }

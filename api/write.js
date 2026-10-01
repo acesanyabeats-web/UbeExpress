@@ -17,52 +17,6 @@ async function sbFetch(path, options) {
   return r;
 }
 
-// Turns a stock-list ingredient name ("Kulana Orange Juice", "Coconut Water
-// 330ml", "Mixed Berry Coulis - Vat Pack") into a cleaner search term by
-// dropping sizes, percentages, pack/batch notes and supplier brand prefixes
-// that only confuse an image search.
-var BRAND_PREFIXES = ['finest call', 'monin', 'kulana', 'real -', 'real', 'think drink -', 'belvoir', 'dutch barn', 'caffe bene', 'mr. really good', 'fever tree -', 'boe -', 'asuki', 'da luca', 'tails', 'blend', 'sweetzone', 'tuck shop', 'post mix'];
-function cleanSearchTerm(name) {
-  var s = String(name || '').toLowerCase();
-  s = s.replace(/[\d.]+\s*("|ml|cl|l|%)/g, ' ');
-  s = s.replace(/\b(vat pack|batch|new|homemade|presse|pouch|premium blend)\b/g, ' ');
-  for (var i = 0; i < BRAND_PREFIXES.length; i++) {
-    if (s.indexOf(BRAND_PREFIXES[i] + ' ') === 0) { s = s.slice(BRAND_PREFIXES[i].length); break; }
-  }
-  s = s.replace(/[-()&]/g, ' ').replace(/\s+/g, ' ').trim();
-  return s || String(name || '').trim();
-}
-
-async function searchWikimediaOnce(term) {
-  // filetype:bitmap keeps results to real photos (no PDFs/SVG diagrams);
-  // iiurlwidth asks for a ~600px thumbnail instead of a multi-MB original.
-  var url = 'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=' +
-    encodeURIComponent(term + ' filetype:bitmap') + '&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json';
-  var r = await fetch(url, { headers: { 'User-Agent': 'UbeExpress/1.0 (internal bar staff tool; https://ubeexpress.vercel.app)' } });
-  if (!r.ok) return null;
-  var data = await r.json();
-  var pages = data && data.query && data.query.pages;
-  if (!pages) return null;
-  var first = Object.keys(pages).map(function (k) { return pages[k]; })[0];
-  var info = first && first.imageinfo && first.imageinfo[0];
-  return info ? (info.thumburl || info.url) : null;
-}
-
-async function searchWikimediaPhoto(name) {
-  // Cleaned full term first, then progressively shorter tails ("monin white
-  // chocolate syrup" -> "white chocolate syrup" -> "chocolate syrup" -> "syrup"
-  // is too generic, so stop at 2 words unless the term was one word).
-  var cleaned = cleanSearchTerm(name);
-  var words = cleaned.split(' ');
-  var tries = [cleaned];
-  if (words.length > 2) tries.push(words.slice(-2).join(' '));
-  for (var i = 0; i < tries.length; i++) {
-    var found = await searchWikimediaOnce(tries[i]);
-    if (found) return found;
-  }
-  return null;
-}
-
 async function uploadPhotoToStorage(base64, contentType, targetLabel) {
   var ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
   var objectPath = (targetLabel || 'misc') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
@@ -215,9 +169,11 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify({ method_steps: steps2, updated_at: new Date().toISOString() })
         });
       } else if (payload.target === 'ingredient') {
+        // Clear the photo but keep the row — it also holds the ingredient's type.
         await sbFetch('ingredient_photos?name=eq.' + encodeURIComponent(payload.ingredient_name), {
-          method: 'DELETE',
-          headers: sbHeaders()
+          method: 'PATCH',
+          headers: sbHeaders(),
+          body: JSON.stringify({ photo_url: null, frame_height: null, updated_at: new Date().toISOString() })
         });
       } else if (payload.target === 'cocktail') {
         await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
@@ -314,6 +270,88 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'update_ingredient') {
+      // Ingredients table edits: change an ingredient's type and/or rename it
+      // everywhere it's used. Names are matched case-insensitively in JS (not
+      // via ilike — names like "17% Liquor" contain SQL wildcard characters).
+      var oldName = String(payload.name || '').trim();
+      if (!oldName) { res.status(400).json({ error: 'Missing ingredient name' }); return; }
+      var oldKey = oldName.toLowerCase();
+      var now = new Date().toISOString();
+      var ipRes = await sbFetch('ingredient_photos?select=id,name', { headers: sbHeaders() });
+      var ipRows = await ipRes.json();
+      var ipRow = ipRows.filter(function (r) { return String(r.name).toLowerCase() === oldKey; })[0];
+
+      if (payload.category !== undefined) {
+        var cat = String(payload.category || '').trim() || null;
+        if (ipRow) {
+          await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ category: cat, updated_at: now }) });
+        } else {
+          await sbFetch('ingredient_photos', { method: 'POST', headers: sbHeaders(), body: JSON.stringify({ name: oldName, category: cat, is_stock: false }) });
+        }
+      }
+
+      if (payload.new_name !== undefined) {
+        var newName = String(payload.new_name || '').trim().replace(/\s+/g, ' ');
+        if (!newName) { res.status(400).json({ error: 'New name is empty' }); return; }
+        var newKey = newName.toLowerCase();
+        if (newKey !== oldKey) {
+          var clash = ipRows.some(function (r) { return String(r.name).toLowerCase() === newKey; });
+          var ciAll = await (await sbFetch('cocktail_ingredients?select=id,name', { headers: sbHeaders() })).json();
+          if (clash || ciAll.some(function (r) { return String(r.name).toLowerCase() === newKey; })) {
+            res.status(409).json({ error: '"' + newName + '" already exists — merging two ingredients isn\'t supported here' });
+            return;
+          }
+        }
+        // 1. Ingredient rows in every drink
+        var ciRows = (await (await sbFetch('cocktail_ingredients?select=id,name', { headers: sbHeaders() })).json())
+          .filter(function (r) { return String(r.name).toLowerCase() === oldKey; });
+        if (ciRows.length) {
+          await sbFetch('cocktail_ingredients?id=in.(' + ciRows.map(function (r) { return r.id; }).join(',') + ')', {
+            method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ name: newName })
+          });
+        }
+        // 2. Build steps that list it (names + per-step amount keys)
+        var cocktails = await (await sbFetch('cocktails?select=id,method_steps', { headers: sbHeaders() })).json();
+        var stepsTouched = 0;
+        for (var ci = 0; ci < cocktails.length; ci++) {
+          var steps = cocktails[ci].method_steps;
+          if (!Array.isArray(steps)) continue;
+          var hit = false;
+          steps.forEach(function (st) {
+            if (Array.isArray(st.ingredient_names)) {
+              st.ingredient_names = st.ingredient_names.map(function (n) {
+                if (String(n).toLowerCase() === oldKey) { hit = true; return newName; }
+                return n;
+              });
+            }
+            if (st.ingredient_amounts && typeof st.ingredient_amounts === 'object') {
+              Object.keys(st.ingredient_amounts).forEach(function (k) {
+                if (k.toLowerCase() === oldKey) {
+                  var v = st.ingredient_amounts[k];
+                  delete st.ingredient_amounts[k];
+                  st.ingredient_amounts[newKey] = v;
+                  hit = true;
+                }
+              });
+            }
+          });
+          if (hit) {
+            stepsTouched++;
+            await sbFetch('cocktails?id=eq.' + cocktails[ci].id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ method_steps: steps, updated_at: now }) });
+          }
+        }
+        // 3. Its photo/type row
+        if (ipRow) {
+          await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ name: newName, updated_at: now }) });
+        }
+        res.status(200).json({ ok: true, renamed_rows: ciRows.length, drinks_with_steps_updated: stepsTouched });
+        return;
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     if (action === 'update_ingredient_frame_height') {
       var ifh = parseInt(payload.frame_height, 10);
       if (!payload.ingredient_name || !(ifh >= 60 && ifh <= 500)) { res.status(400).json({ error: 'Bad frame height' }); return; }
@@ -323,33 +361,6 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({ frame_height: ifh, updated_at: new Date().toISOString() })
       });
       res.status(200).json({ ok: true });
-      return;
-    }
-
-    if (action === 'fetch_stock_photo') {
-      var term = payload && payload.ingredient_name;
-      if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }
-
-      if (payload.skip_if_exists) {
-        // Bulk fill: never overwrite a photo that's already set (own or stock).
-        var exRes = await sbFetch('ingredient_photos?name=ilike.' + encodeURIComponent(term.replace(/[%_]/g, '')) + '&select=name', { headers: sbHeaders() });
-        var exRows = await exRes.json();
-        if (exRows.length) { res.status(200).json({ ok: true, found: false, skipped: true }); return; }
-      }
-
-      var stockUrl = await searchWikimediaPhoto(term);
-      if (!stockUrl) {
-        res.status(200).json({ ok: true, found: false });
-        return;
-      }
-
-      await sbFetch('ingredient_photos?on_conflict=name', {
-        method: 'POST',
-        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
-        body: JSON.stringify({ name: term, photo_url: stockUrl, is_stock: true, updated_at: new Date().toISOString() })
-      });
-
-      res.status(200).json({ ok: true, found: true, photo_url: stockUrl });
       return;
     }
 

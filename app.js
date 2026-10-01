@@ -177,7 +177,6 @@
         (s.photo_url ? frameResizeHandleHtml() : '') +
         '<div class="frame-editor-actions">' +
           '<button type="button" class="btn btn-primary frame-editor-change-btn">' + (s.photo_url ? '📷 Change Photo' : '📷 Add Photo') + '</button>' +
-          (opts && opts.onFindStock ? '<button type="button" class="btn btn-secondary frame-editor-stock-btn">🔍 Find stock photo</button>' : '') +
         '</div>';
 
       overlay.querySelector('.frame-editor-done-btn').addEventListener('click', function () {
@@ -192,16 +191,6 @@
             render();
           });
         }, function () { /* cancelled, nothing to undo */ });
-      });
-
-      var stockBtn = overlay.querySelector('.frame-editor-stock-btn');
-      if (stockBtn) stockBtn.addEventListener('click', function () {
-        stockBtn.disabled = true;
-        stockBtn.textContent = 'Searching…';
-        opts.onFindStock(function (newPhotoUrl) {
-          if (newPhotoUrl) s.photo_url = newPhotoUrl;
-          render();
-        });
       });
 
       var handle = overlay.querySelector('.frame-resize-handle');
@@ -240,7 +229,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, is_stock: !!row.is_stock, frame_height: row.frame_height };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '' };
       });
     });
   }
@@ -518,16 +507,7 @@
     input.click();
   }
 
-  function apiFetchStockPhoto(ingredientName) {
-    return fetch('/api/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
-      body: JSON.stringify({ action: 'fetch_stock_photo', payload: { ingredient_name: ingredientName } })
-    }).then(function (r) {
-      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('search failed: ' + r.status)); });
-      return r.json();
-    });
-  }  function apiUpdateIngredientFrameHeight(ingredientName, frameHeight) {
+  function apiUpdateIngredientFrameHeight(ingredientName, frameHeight) {
     return apiWrite('update_ingredient_frame_height', { ingredient_name: ingredientName, frame_height: frameHeight });
   }
   var INGREDIENT_FRAME_DEFAULT_H = 200;
@@ -548,7 +528,7 @@
     document.body.appendChild(overlay);
   }
   // Admin: every ingredient photo opens the shared Frame Editor — resize,
-  // change/remove, or pull a stock photo off the internet. onClose(changed).
+  // change/remove. onClose(changed).
   function openIngredientFrameEditor(name, onClose) {
     var key = String(name).toLowerCase();
     var existing = state.ingredientPhotos[key];
@@ -556,18 +536,18 @@
     var changed = false;
     openFrameEditor(frame, null, function (base64, isRemoval, cb) {
       var req = isRemoval ? apiRemovePhoto('ingredient', { ingredient_name: (existing && existing.name) || name })
-                          : apiUploadPhoto(base64, 'ingredient', { ingredient_name: name });
+                          : apiUploadPhoto(base64, 'ingredient', { ingredient_name: (existing && existing.name) || name });
       req.then(function (res) {
         changed = true;
-        if (isRemoval) { delete state.ingredientPhotos[key]; existing = null; cb(''); }
+        if (isRemoval) { if (existing) { existing.photo_url = null; existing.frame_height = null; } cb(''); }
         else {
-          existing = { name: name, photo_url: res.photo_url, is_stock: false, frame_height: frame.frame_height };
+          existing = { name: (existing && existing.name) || name, photo_url: res.photo_url, frame_height: frame.frame_height, category: existing ? existing.category : '' };
           state.ingredientPhotos[key] = existing;
           cb(res.photo_url);
         }
       }).catch(function (e) { alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message); });
     }, function (newHeight) {
-      if (!existing) return;
+      if (!existing || !existing.photo_url) return;
       existing.frame_height = newHeight;
       changed = true;
       apiUpdateIngredientFrameHeight(existing.name || name, newHeight).catch(function (e) { alert('Resize save failed: ' + e.message); });
@@ -575,21 +555,9 @@
       cls: 'ingredient-frame',
       defaultHeight: INGREDIENT_FRAME_DEFAULT_H,
       fallbackIcon: 'camera',
-      onFindStock: function (cb) {
-        apiFetchStockPhoto(name).then(function (res) {
-          if (!res.found) { alert('No stock photo found for "' + name + '" — try 📷 instead.'); cb(null); return; }
-          changed = true;
-          existing = { name: name, photo_url: res.photo_url, is_stock: true, frame_height: frame.frame_height };
-          state.ingredientPhotos[key] = existing;
-          cb(res.photo_url);
-        }).catch(function (e) { alert('Stock photo search failed: ' + e.message); cb(null); });
-      },
       onClose: function () { if (onClose) onClose(changed); }
     });
   }
-  // Admin bulk fill: one stock-photo search per ingredient that has no photo
-  // yet, run sequentially from the browser (the server reaches the internet;
-  // one ingredient per request keeps each call well inside the timeout).
   function allIngredientNames() {
     var seen = {}, out = [];
     Object.keys(state.ingredients).forEach(function (cid) {
@@ -600,39 +568,6 @@
     });
     return out.sort(function (a, b) { return a.localeCompare(b); });
   }
-  function missingIngredientPhotoNames() {
-    return allIngredientNames().filter(function (n) {
-      var p = state.ingredientPhotos[n.toLowerCase()];
-      return !(p && p.photo_url);
-    });
-  }
-  function runBulkStockPhotoFill(btn, onDone) {
-    var names = missingIngredientPhotoNames();
-    if (!names.length) { alert('Every ingredient already has a photo.'); return; }
-    if (!confirm('Search the internet for a stock photo for ' + names.length + ' ingredients with no photo yet? Takes a few minutes — keep this screen open. You can swap any bad ones afterwards in the Frame Editor.')) return;
-    btn.disabled = true;
-    var found = 0, notFound = [], failed = [], i = 0;
-    function next() {
-      if (i >= names.length) {
-        btn.disabled = false;
-        var msg = 'Done: ' + found + ' of ' + names.length + ' ingredients got a stock photo.';
-        if (notFound.length) msg += '\n\nNo photo found (' + notFound.length + '): ' + notFound.join(', ');
-        if (failed.length) msg += '\n\nErrors (' + failed.length + '): ' + failed.join(', ');
-        alert(msg);
-        loadAllData().then(onDone);
-        return;
-      }
-      var n = names[i++];
-      btn.textContent = '🌐 Fetching ' + i + ' / ' + names.length + '…';
-      apiWrite('fetch_stock_photo', { ingredient_name: n, skip_if_exists: true }).then(function (res) {
-        if (res.found) found++;
-        else if (!res.skipped) notFound.push(n);
-      }).catch(function () { failed.push(n); }).then(next);
-    }
-    next();
-  }
-
-
   // ---------- admin write API ----------
   function apiWrite(action, payload) {
     return fetch('/api/write', {
@@ -721,6 +656,138 @@
   }
 
   // ---------- HOME ----------
+  // ---------- Ingredients table (admin) ----------
+  // Every ingredient used in any drink, grouped by type. Types sort A-Z, and
+  // ingredients sort A-Z within each type. Each row is editable: rename it
+  // (updates every drink that uses it), change its type, or tap its photo
+  // frame to open the Frame Editor.
+  var UNTYPED = 'No type yet';
+  function ingredientUsage() {
+    var counts = {};
+    Object.keys(state.ingredients).forEach(function (cid) {
+      var seen = {};
+      state.ingredients[cid].forEach(function (i) {
+        var k = String(i.name || '').trim().toLowerCase();
+        if (k && !seen[k]) { seen[k] = true; counts[k] = (counts[k] || 0) + 1; }
+      });
+    });
+    return counts;
+  }
+  function ingredientTypes() {
+    var set = {};
+    Object.keys(state.ingredientPhotos).forEach(function (k) {
+      var cat = state.ingredientPhotos[k].category;
+      if (cat) set[cat] = true;
+    });
+    return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
+  }
+  function apiUpdateIngredient(name, changes) {
+    var payload = { name: name };
+    for (var k in changes) if (changes.hasOwnProperty(k)) payload[k] = changes[k];
+    return apiWrite('update_ingredient', payload);
+  }
+  function renderIngredientsTable() {
+    setHeader('🧾 Ingredients', true, renderHome);
+    var main = document.getElementById('app-main');
+    var usage = ingredientUsage();
+    var filterEl = document.getElementById('ing-table-filter');
+    var filter = filterEl ? filterEl.value.trim().toLowerCase() : '';
+    var scrollY = window.scrollY;
+
+    var names = allIngredientNames();
+    // Also list typed rows that no drink uses right now, so nothing vanishes.
+    Object.keys(state.ingredientPhotos).forEach(function (k) {
+      if (!usage[k]) names.push(state.ingredientPhotos[k].name);
+    });
+    var groups = {};
+    names.forEach(function (n) {
+      var p = state.ingredientPhotos[n.toLowerCase()];
+      var type = (p && p.category) || UNTYPED;
+      (groups[type] = groups[type] || []).push(n);
+    });
+    var byName = function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }); };
+    var types = ingredientTypes();
+    var typeOptions = function (current) {
+      return (current ? '' : '<option value="" selected>— choose type —</option>') +
+        types.map(function (t) { return '<option value="' + escapeHtml(t) + '"' + (t === current ? ' selected' : '') + '>' + escapeHtml(t) + '</option>'; }).join('') +
+        '<option value="__new__">➕ New type…</option>';
+    };
+
+    var withPhoto = names.filter(function (n) { var p = state.ingredientPhotos[n.toLowerCase()]; return p && p.photo_url; }).length;
+    var html = '<div class="ing-table-intro">' + names.length + ' ingredients · ' + withPhoto + ' with a photo. Tap a frame to add or change its photo; edit a name or type to change it everywhere.</div>' +
+      '<input type="search" id="ing-table-filter" placeholder="Filter ingredients…" value="' + escapeHtml(filter) + '">';
+    Object.keys(groups).sort(byName).forEach(function (type) {
+      var rows = groups[type].sort(byName).filter(function (n) { return !filter || n.toLowerCase().indexOf(filter) !== -1 || type.toLowerCase().indexOf(filter) !== -1; });
+      if (!rows.length) return;
+      html += '<h3 class="ing-group-title">' + escapeHtml(type) + ' <span class="ing-group-count">' + rows.length + '</span></h3>' +
+        '<table class="ing-table"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th></tr></thead><tbody>' +
+        rows.map(function (n) {
+          var p = state.ingredientPhotos[n.toLowerCase()];
+          var used = usage[n.toLowerCase()] || 0;
+          return '<tr data-ing="' + escapeHtml(n) + '">' +
+            '<td class="ing-cell-name"><input type="text" class="ing-name-input" aria-label="Ingredient name" value="' + escapeHtml(n) + '">' +
+              '<div class="ing-used">' + (used ? 'in ' + used + ' drink' + (used > 1 ? 's' : '') : 'not in any drink') + '</div></td>' +
+            '<td class="ing-cell-photo"><button type="button" class="ing-frame-btn" aria-label="Photo for ' + escapeHtml(n) + '">' + ingredientTableFrameHtml(n) + '</button></td>' +
+            '<td class="ing-cell-type"><select class="ing-type-select" aria-label="Type">' + typeOptions(p && p.category) + '</select></td>' +
+          '</tr>';
+        }).join('') + '</tbody></table>';
+    });
+    main.innerHTML = html;
+    window.scrollTo(0, scrollY);
+
+    var f = document.getElementById('ing-table-filter');
+    f.addEventListener('input', function () {
+      var pos = f.selectionStart;
+      renderIngredientsTable();
+      var nf = document.getElementById('ing-table-filter');
+      nf.focus(); nf.setSelectionRange(pos, pos);
+    });
+
+    Array.prototype.forEach.call(main.querySelectorAll('tr[data-ing]'), function (tr) {
+      var name = tr.getAttribute('data-ing');
+      tr.querySelector('.ing-frame-btn').addEventListener('click', function () {
+        openIngredientFrameEditor(name, function (changed) { if (changed) renderIngredientsTable(); });
+      });
+      var sel = tr.querySelector('.ing-type-select');
+      sel.addEventListener('change', function () {
+        var p = state.ingredientPhotos[name.toLowerCase()];
+        var prev = (p && p.category) || '';
+        var type = sel.value;
+        if (type === '__new__') {
+          type = (prompt('New type name (e.g. "Bitters"):') || '').trim();
+          if (!type) { sel.value = prev; return; }
+        }
+        sel.disabled = true;
+        apiUpdateIngredient(name, { category: type }).then(function () {
+          if (p) p.category = type;
+          else state.ingredientPhotos[name.toLowerCase()] = { name: name, photo_url: null, frame_height: null, category: type };
+          renderIngredientsTable();
+        }).catch(function (e) { alert('Could not change the type: ' + e.message); sel.disabled = false; sel.value = prev; });
+      });
+      var input = tr.querySelector('.ing-name-input');
+      function commitRename() {
+        var newName = input.value.trim().replace(/\s+/g, ' ');
+        if (!newName) { input.value = name; return; }
+        if (newName === name) return;
+        var used = usage[name.toLowerCase()] || 0;
+        if (!confirm('Rename "' + name + '" to "' + newName + '"' + (used ? (used > 1 ? ' in all ' + used + ' drinks' : ' in the 1 drink that uses it') + ' (ingredients and build steps)' : '') + '?')) { input.value = name; return; }
+        input.disabled = true;
+        apiUpdateIngredient(name, { new_name: newName }).then(function () {
+          return loadAllData();
+        }).then(renderIngredientsTable).catch(function (e) {
+          alert('Could not rename: ' + e.message);
+          input.disabled = false; input.value = name;
+        });
+      }
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = name; input.blur(); } });
+      input.addEventListener('change', commitRename);
+    });
+  }
+  function ingredientTableFrameHtml(name) {
+    var p = state.ingredientPhotos[String(name).toLowerCase()];
+    return stepMediaHtml(null, { photo_url: p ? p.photo_url : '' }, { cls: 'table-frame', defaultHeight: 64, fallbackIcon: 'camera' });
+  }
+
   // ---------- Staff step-photo candidates ----------
   // Staff can't edit any photo. In Build Mode they can take/choose a photo for
   // a step; it's stored as a CANDIDATE (photo_submissions, status pending)
@@ -955,7 +1022,10 @@
           '<div class="home-card-emoji">📋</div>' +
           '<div class="home-card-text"><h3>Data Integrity Report</h3><p>Every inconsistency found so far — resolved and still open</p></div>' +
         '</div>' +
-        '<button type="button" id="bulk-stock-btn" class="btn btn-secondary home-wide-btn">🌐 Fetch internet photos for ingredients (' + missingIngredientPhotoNames().length + ' missing)</button>' : '') +
+        '<div class="home-card" id="home-ingredients">' +
+          '<div class="home-card-emoji">🧾</div>' +
+          '<div class="home-card-text"><h3>Ingredients</h3><p>Every ingredient by type — add photos, rename, regroup</p></div>' +
+        '</div>' : '') +
       // Log out is pushed to the very bottom of the screen (margin-top:auto
       // inside the full-height .is-home column — see style.css).
       '<button type="button" id="logout-btn" class="btn btn-secondary logout-btn">Log out</button>';
@@ -968,8 +1038,8 @@
     });
     var reportCard = document.getElementById('home-report');
     if (reportCard) reportCard.addEventListener('click', renderReport);
-    var bulkBtn = document.getElementById('bulk-stock-btn');
-    if (bulkBtn) bulkBtn.addEventListener('click', function () { runBulkStockPhotoFill(bulkBtn, renderHome); });
+    var ingCard = document.getElementById('home-ingredients');
+    if (ingCard) ingCard.addEventListener('click', renderIngredientsTable);
     document.getElementById('logout-btn').addEventListener('click', function () {
       if (!confirm('Log out of Ube Express?')) return;
       localStorage.removeItem('bar_role');
@@ -1300,7 +1370,7 @@
         var hasIngPhoto = !!(photo && photo.photo_url);
         var nameHtml = (hasIngPhoto || state.role === 'admin') ?
           '<button type="button" class="name-btn' + (hasIngPhoto ? ' has-photo' : '') + '" data-ing-frame="' + escapeHtml(i.name) + '">' + escapeHtml(i.name) +
-            (hasIngPhoto && photo.is_stock ? ' <span class="total-tag">stock photo</span>' : '') + '</button>' :
+            '</button>' :
           '<span>' + escapeHtml(i.name) + '</span>';
         var isSplit = splitAcrossSteps[String(i.name || '').toLowerCase()];
         return '<li>' + nameHtml + '<span class="amt">' + escapeHtml(fmtAmtUnit(i.amount, i.unit)) +
@@ -1585,12 +1655,10 @@
     function ingRowHtml(ing, idx) {
       var photoRow = ing.name && state.ingredientPhotos[String(ing.name).toLowerCase()];
       var hasPhoto = !!(photoRow && photoRow.photo_url);
-      var isStock = !!(photoRow && photoRow.is_stock);
       return '<div class="repeat-row" data-idx="' + idx + '">' +
         '<input type="text" class="ing-name" placeholder="Name" value="' + escapeHtml(ing.name) + '">' +
         '<input type="number" step="0.1" class="ing-amount" placeholder="Amt" value="' + escapeHtml(ing.amount) + '">' +
         '<select class="ing-unit">' + UNIT_OPTIONS.map(function (u) { return '<option value="' + u + '"' + (u === ing.unit ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>' +
-        '<button type="button" class="photo-btn' + (hasPhoto && !isStock ? ' has-photo' : '') + (hasPhoto && isStock ? ' is-stock' : '') + '" data-ing-search="1" title="Find a stock photo">' + iconSvg('search') + '</button>' +
         '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-ing-photo="1" title="Frame Editor: photo for new starters">' + iconSvg('camera') + '</button>' +
         '<button class="remove-btn" data-remove-ing="' + idx + '">✕</button>' +
         '</div>';
@@ -1789,33 +1857,7 @@
           if (!name) { alert('Enter the ingredient name first.'); return; }
           openIngredientFrameEditor(name, function () {
             var p = state.ingredientPhotos[name.toLowerCase()];
-            var has = !!(p && p.photo_url), stock = has && p.is_stock;
-            btn.classList.toggle('has-photo', has);
-            var searchBtn = row.querySelector('[data-ing-search]');
-            if (searchBtn) { searchBtn.classList.toggle('has-photo', has && !stock); searchBtn.classList.toggle('is-stock', !!stock); }
-          });
-        };
-      });
-      Array.prototype.forEach.call(main.querySelectorAll('[data-ing-search]'), function (btn) {
-        btn.onclick = function () {
-          var row = btn.closest('.repeat-row');
-          var name = row.querySelector('.ing-name').value.trim();
-          if (!name) { alert('Enter the ingredient name first.'); return; }
-          btn.classList.add('uploading');
-          apiFetchStockPhoto(name).then(function (res) {
-            btn.classList.remove('uploading');
-            if (!res.found) {
-              alert('No stock photo found for "' + name + '" — try the camera instead.');
-              return;
-            }
-            state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: true };
-            btn.classList.remove('has-photo');
-            btn.classList.add('is-stock');
-            var cameraBtn = row.querySelector('[data-ing-photo]');
-            if (cameraBtn) cameraBtn.classList.add('has-photo');
-          }).catch(function (e) {
-            btn.classList.remove('uploading');
-            alert('Stock photo search failed: ' + e.message);
+            btn.classList.toggle('has-photo', !!(p && p.photo_url));
           });
         };
       });
