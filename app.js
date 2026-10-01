@@ -1425,7 +1425,18 @@
   function addBatch(name, labelledNow) {
     var now = new Date().toISOString();
     return anonFetch('prep_batches', 'POST', { item_name: name, created_at: now, label_at: labelledNow ? now : null }, 'return=representation')
-      .then(function (rows) { state.batches = state.batches.concat(rows); });
+      .then(function (rows) { state.batches = state.batches.concat(rows); })
+      .then(function () { return needsTopUp(name) ? setStockFlags(name, { needs_topup: false }) : null; });
+  }
+  // "Needs a top up": a colleague flags an item (even a stocked one) so the
+  // next opener replenishes it. Cleared by "Topped up" or by prepping a new container.
+  function needsTopUp(name) {
+    var f = state.prep[String(name).toLowerCase()];
+    return !!(f && f.needs_topup && !f.out_of_stock);
+  }
+  function topUpList(names) {
+    return names.filter(needsTopUp).map(function (n) { return { name: n, at: state.prep[String(n).toLowerCase()].needs_topup_at }; })
+      .sort(function (a, b) { return String(a.at || '').localeCompare(String(b.at || '')); });
   }
   function endBatch(id, reason) {
     return anonFetch('prep_batches?id=eq.' + id, 'PATCH', { ended_at: new Date().toISOString(), end_reason: reason }, 'return=representation')
@@ -1501,10 +1512,14 @@
           ' aria-label="' + escapeHtml(name) + ' stocked"></label>' +
         '<span class="prep-name">' + escapeHtml(name) + '</span>' +
         expiryBadgeHtml(name) +
+        (needsTopUp(name) ? '<span class="topup-badge">⬆ Top up</span>' : '') +
         '<span class="prep-item-actions">' +
           (oos
             ? (state.role === 'admin' ? '<button type="button" class="prep-btn prep-restock-btn">Back in stock</button>' : '')
             : (ticked ? '<button type="button" class="prep-btn prep-add-btn" aria-label="Prepped another container">＋ Another</button>' : '') +
+              (needsTopUp(name)
+                ? '<button type="button" class="prep-btn prep-topup-done-btn">Topped up</button>'
+                : '<button type="button" class="prep-btn prep-topup-btn" title="Running low — replenish on next open">Needs top up</button>') +
               '<button type="button" class="prep-btn prep-oos-btn" title="Can\'t stock it — out of stock">Out of stock</button>') +
         '</span>' +
       '</div>' +
@@ -1558,7 +1573,8 @@
       var toss = throwOutList();
       var html = '<details class="prep-legend"><summary>Colour key</summary><div class="prep-legend-grid">' +
         PREP_LEGEND.map(function (l) { return '<span class="legend-item st-' + l[0] + '"><span class="prep-dot"></span>' + l[1] + '</span>'; }).join('') +
-        '<span class="legend-item"><span class="new-badge-stock">🆕</span> Back in stock (3 days)</span></div></details>';
+        '<span class="legend-item"><span class="new-badge-stock">🆕</span> Back in stock (3 days)</span>' +
+        '<span class="legend-item"><span class="topup-badge">⬆ Top up</span> Running low — replenish on next open</span></div></details>';
 
       html += '<div class="section-label">🗑 Throw Out Tonight</div>';
       html += toss.length
@@ -1571,6 +1587,18 @@
             '</div>';
           }).join('') + '</div>'
         : '<p class="toss-empty">Nothing to throw out tonight.</p>';
+
+      var topups = topUpList(lists.fruitSyrup.concat(lists.sweetsGarnish));
+      html += '<div class="section-label">⬆ Top Up on Next Open</div>';
+      html += topups.length
+        ? '<div class="toss-list">' + topups.map(function (x) {
+            return '<div class="toss-row topup-row" data-item="' + escapeHtml(x.name) + '">' +
+              '<div class="toss-text"><div class="toss-name">' + escapeHtml(x.name) + '</div>' +
+              (x.at ? '<div class="toss-meta">Flagged ' + escapeHtml(fmtLabelDate(new Date(x.at))) + '</div>' : '') + '</div>' +
+              '<button type="button" class="btn btn-secondary topup-done">Topped up</button>' +
+            '</div>';
+          }).join('') + '</div>'
+        : '<p class="toss-empty">Nothing flagged for a top up.</p>';
 
       html += '<button id="prep-labels-btn" class="btn btn-primary prep-labels-btn">🏷 Label List' + (queue.length ? ' (' + queue.length + ')' : '') + '</button>';
 
@@ -1611,7 +1639,15 @@
         });
         var oos = row.querySelector('.prep-oos-btn');
         if (oos) wireArmConfirm(oos, 'Tap to confirm', function () {
-          setStockFlags(name, { out_of_stock: true, out_of_stock_at: new Date().toISOString() }).then(renderFruitPrep).catch(fail);
+          setStockFlags(name, { out_of_stock: true, out_of_stock_at: new Date().toISOString(), needs_topup: false }).then(renderFruitPrep).catch(fail);
+        });
+        var topup = row.querySelector('.prep-topup-btn');
+        if (topup) topup.addEventListener('click', function () {
+          setStockFlags(name, { needs_topup: true, needs_topup_at: new Date().toISOString() }).then(renderFruitPrep).catch(fail);
+        });
+        var topupDone = row.querySelector('.prep-topup-done-btn');
+        if (topupDone) topupDone.addEventListener('click', function () {
+          setStockFlags(name, { needs_topup: false }).then(renderFruitPrep).catch(fail);
         });
         var restock = row.querySelector('.prep-restock-btn');
         if (restock) restock.addEventListener('click', function () {
@@ -1623,9 +1659,14 @@
           });
         });
       });
-      Array.prototype.forEach.call(main.querySelectorAll('.toss-row'), function (row) {
+      Array.prototype.forEach.call(main.querySelectorAll('.toss-row:not(.topup-row)'), function (row) {
         wireArmConfirm(row.querySelector('.toss-btn'), 'Tap to confirm', function () {
           endBatch(row.getAttribute('data-batch'), 'thrown').then(renderFruitPrep).catch(fail);
+        });
+      });
+      Array.prototype.forEach.call(main.querySelectorAll('.topup-row'), function (row) {
+        row.querySelector('.topup-done').addEventListener('click', function () {
+          setStockFlags(row.getAttribute('data-item'), { needs_topup: false }).then(renderFruitPrep).catch(fail);
         });
       });
       document.getElementById('prep-labels-btn').addEventListener('click', function () { renderLabelList(labelQueue()); });

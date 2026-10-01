@@ -509,3 +509,11 @@ and **Thrown out** (waste → red). Used up was added beyond Alex's spec
 because without it an emptied tub would wrongly show as waste.
 The old "Untick all" reset is gone (it would wipe real stock state).
 Renames/swaps/merges carry an ingredient's containers along with it.
+
+### Needs top up (Oct 1 2026)
+New columns `prep_checklist_state.needs_topup` (bool, default false) and
+`needs_topup_at` (timestamptz) — additive migration, no existing rows changed.
+Any colleague can tap **Needs top up** on a Fruit Prep item (stocked or not)
+to flag it for the next opener; flagged items get a ⬆ Top up badge and appear
+in a "⬆ Top Up on Next Open" list. The flag clears on **Topped up**, when a new
+container is prepped for that item, or when it is marked Out of stock.

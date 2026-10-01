@@ -896,6 +896,8 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .exp-badge.st-black { background: #fff; color: #000; }
 .exp-badge.st-red { background: var(--st-red); color: #fff; }
 .exp-badge.st-blue { background: var(--st-blue); color: #fff; }
+.topup-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #ffe0b8; color: #6b3500; white-space: nowrap; }
+.toss-row.topup-row { border-color: #e08a2c; }
 .new-badge-stock { font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #fff3c4; color: #5a4300; white-space: nowrap; }
 .batch-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .batch-chip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
