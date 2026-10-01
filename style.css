@@ -1028,3 +1028,11 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ctr-label-table td { padding: 6px; border-bottom: 1px solid var(--border); }
 @media print { .ctr-label-table th { color: #333 !important; } .ctr-label-table td, .ctr-label-table th { border-color: #bbb; } }
 .label-should { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+.ct-table-2 { min-width: 760px; }
+.ct-table.ct-table-2 th:nth-child(1) { width: 170px; }
+.ct-table.ct-table-2 th:nth-child(2) { width: auto; }
+.ct-table.ct-table-2 th:nth-child(3) { width: 260px; text-align: left; }
+.ct-table.ct-table-2 th:nth-child(4) { width: 120px; text-align: left; }
+.ct-table.ct-table-2 th:nth-child(5) { width: 44px; }
+.ct-add select { width: 100%; padding: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }

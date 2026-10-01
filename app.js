@@ -1835,6 +1835,18 @@
   // rows carry a "🍻 Cheers Trav" so staff and managers see the system still
   // needs fixing (sibling of the label list's "Thank you Trav").
   var CHEERS = '🍻 Cheers Trav';
+  // Discrepancy categories. menu_app = printed menu vs Chilled Pubs app;
+  // dyslexia = spelling mistakes in the app; nonsense = measurements nobody
+  // uses behind the bar (grams). Labels are their own section (Thank you Trav).
+  // Monetary (menu / app / till prices) is a separate future investigation.
+  var DISC_CATS = [
+    { k: 'menu_app', short: '🍻 Menu vs app', title: '🍻 Cheers Trav — menu vs Chilled Pubs app', tag: '🍻 Cheers Trav', thing: 'Drink', menu: true,
+      intro: 'Where the printed menu and the Chilled Pubs app disagree.' },
+    { k: 'dyslexia', short: '🔤 Dyslexia (spelling)', title: '🔤 Dyslexia — spelling mistakes in the app', tag: '🔤 Cheers Trav', thing: 'Drink', menu: false,
+      intro: 'Names spelt wrong in the Chilled Pubs app. Already corrected in Ube Express.' },
+    { k: 'nonsense', short: '🤷 Nonsense (measurements)', title: '🤷 Nonsense — measurements nobody uses', tag: '🤷 Cheers Trav', thing: 'Ingredient', menu: false,
+      intro: 'Things the app measures in grams. Behind the bar we count, scoop or pour — nobody weighs a garnish.' }
+  ];
   // Admin always sees Cheers Trav; staff only once the admin switches it on.
   function cheersTravVisible() { return state.role === 'admin' || (state.settings || {}).cheers_trav_staff === true; }
   // Thank you Trav: every ingredient whose label machine prints a wrong name
@@ -1850,10 +1862,13 @@
     if (!cheersTravVisible()) return '';
     var rows = openDiscrepancies().filter(function (d) { return d.cocktail_id === cocktailId; });
     if (!rows.length) return '';
-    return '<div class="trav-banner cheers-banner"><div class="cheers-head"><span class="trav-tag">' + CHEERS + '</span> The menu and the Chilled Pubs app disagree on this drink:</div>' +
+    return '<div class="trav-banner cheers-banner"><div class="cheers-head"><span class="trav-tag">' + CHEERS + '</span> The Chilled Pubs app has this drink wrong:</div>' +
       rows.map(function (d) {
-        return '<div class="cheers-line"><span class="cheers-k">Menu:</span> ' + escapeHtml(d.menu_says || '—') + '</div>' +
-          '<div class="cheers-line"><span class="cheers-k">App:</span> ' + escapeHtml(d.app_says || '—') + '</div>';
+        return ((d.category || 'menu_app') === 'menu_app'
+            ? '<div class="cheers-line"><span class="cheers-k">Menu:</span> ' + escapeHtml(d.menu_says || '—') + '</div>'
+            : '<div class="cheers-line"><span class="cheers-k">' + (d.category === 'dyslexia' ? 'Spelling' : 'Measurement') + ':</span></div>') +
+          '<div class="cheers-line"><span class="cheers-k">App:</span> ' + escapeHtml(d.app_says || '—') + '</div>' +
+          (d.change_needed ? '<div class="cheers-line"><span class="cheers-k">Change:</span> ' + escapeHtml(d.change_needed) + '</div>' : '');
       }).join('<hr class="cheers-hr">') + '</div>';
   }
   // Evidence screenshot slot (menu or app side). Admin taps to add/replace/
@@ -1927,35 +1942,46 @@
     var openN = all.filter(function (d) { return !d.resolved; }).length;
     var drinkOpts = state.cocktails.map(function (c) { return '<option value="' + escapeHtml(c.name) + '">'; }).join('');
     var chip = function (k, label) { return '<button type="button" class="ct-chip' + (filter === k ? ' is-on' : '') + '" data-f="' + k + '">' + label + '</button>'; };
-    var html = '<h2 class="ct-section">' + CHEERS + ' — menu vs Chilled Pubs app</h2>' +
-      '<p class="ing-table-intro">Where the printed menu and the Chilled Pubs app disagree. Every open row gets a ' + CHEERS +
-      ' until it is fixed at the source. ' + openN + ' open · ' + (all.length - openN) + ' fixed.</p>' +
-      '<div class="ct-chips">' + chip('open', 'Open') + chip('fixed', 'Fixed') + chip('all', 'All') + '</div>' +
+    var total = function (cat) { return all.filter(function (d) { return (d.category || 'menu_app') === cat; }); };
+    var html = '<div class="ct-chips">' + chip('open', 'Open') + chip('fixed', 'Fixed') + chip('all', 'All') + '</div>' +
       '<div class="ct-actions"><button type="button" id="ct-report-btn" class="btn btn-secondary">📄 Report (print / PDF)</button></div>' +
-      '<div class="ing-table-scroll"><table class="ing-table ct-table"><thead><tr><th>Drink</th><th>Menu says</th><th>Chilled Pubs app says</th><th>What to change</th><th>Fixed?</th>' + (admin ? '<th></th>' : '') + '</tr></thead><tbody>' +
-      rows.map(function (d) {
-        var cell = function (field) {
-          return admin ? '<textarea class="ct-edit" data-field="' + field + '" rows="2">' + escapeHtml(d[field] || '') + '</textarea>' : escapeHtml(d[field] || '—');
-        };
-        var drink = d.cocktail_id ? '<button type="button" class="ct-drink" data-cid="' + d.cocktail_id + '">' + escapeHtml(d.drink_name) + '</button>' : escapeHtml(d.drink_name);
-        return '<tr data-id="' + d.id + '" class="' + (d.resolved ? 'is-fixed' : '') + '">' +
-          '<td class="ct-drink-cell">' + drink + '</td><td>' + cell('menu_says') + evidenceSlotHtml(d, 'menu') + '</td><td>' + cell('app_says') + evidenceSlotHtml(d, 'app') + '</td><td>' + cell('change_needed') + '</td>' +
-          '<td class="ct-fixed">' + (admin
-            ? '<select class="ct-resolved"><option value="no"' + (d.resolved ? '' : ' selected') + '>No</option><option value="yes"' + (d.resolved ? ' selected' : '') + '>Yes</option></select>'
-            : (d.resolved ? 'Yes' : 'No')) +
-            (d.resolved ? '' : '<span class="trav-tag">' + CHEERS + '</span>') + '</td>' +
-          (admin ? '<td><button type="button" class="ct-del" aria-label="Delete">🗑</button></td>' : '') +
-        '</tr>';
+      DISC_CATS.map(function (cat) {
+        var catAll = total(cat.k);
+        var catRows = rows.filter(function (d) { return (d.category || 'menu_app') === cat.k; });
+        var open = catAll.filter(function (d) { return !d.resolved; }).length;
+        var cols = 3 + (cat.menu ? 1 : 0) + 1 + (admin ? 1 : 0);
+        return '<h2 class="ct-section">' + cat.title + '</h2>' +
+          '<p class="ing-table-intro">' + cat.intro + ' ' + open + ' open · ' + (catAll.length - open) + ' fixed.</p>' +
+          '<div class="ing-table-scroll"><table class="ing-table ct-table' + (cat.menu ? '' : ' ct-table-2') + '"><thead><tr><th>' + cat.thing + '</th>' +
+            (cat.menu ? '<th>Menu says</th>' : '') + '<th>Chilled Pubs app says</th><th>What to change</th><th>Fixed?</th>' + (admin ? '<th></th>' : '') + '</tr></thead><tbody>' +
+          catRows.map(function (d) {
+            var cell = function (field) {
+              return admin ? '<textarea class="ct-edit" data-field="' + field + '" rows="2">' + escapeHtml(d[field] || '') + '</textarea>' : escapeHtml(d[field] || '—');
+            };
+            var drink = d.cocktail_id ? '<button type="button" class="ct-drink" data-cid="' + d.cocktail_id + '">' + escapeHtml(d.drink_name) + '</button>' : escapeHtml(d.drink_name);
+            return '<tr data-id="' + d.id + '" class="' + (d.resolved ? 'is-fixed' : '') + '">' +
+              '<td class="ct-drink-cell">' + drink + '</td>' +
+              (cat.menu ? '<td>' + cell('menu_says') + evidenceSlotHtml(d, 'menu') + '</td>' : '') +
+              '<td>' + cell('app_says') + evidenceSlotHtml(d, 'app') + '</td><td>' + cell('change_needed') + '</td>' +
+              '<td class="ct-fixed">' + (admin
+                ? '<select class="ct-resolved"><option value="no"' + (d.resolved ? '' : ' selected') + '>No</option><option value="yes"' + (d.resolved ? ' selected' : '') + '>Yes</option></select>'
+                : (d.resolved ? 'Yes' : 'No')) +
+                (d.resolved ? '' : '<span class="trav-tag">' + cat.tag + '</span>') + '</td>' +
+              (admin ? '<td><button type="button" class="ct-del" aria-label="Delete">🗑</button></td>' : '') +
+            '</tr>';
+          }).join('') +
+          (catRows.length ? '' : '<tr><td colspan="' + cols + '" class="ct-empty">' + (filter === 'fixed' ? 'Nothing fixed yet.' : 'Nothing open here.') + '</td></tr>') +
+          '</tbody></table></div>';
       }).join('') +
-      (rows.length ? '' : '<tr><td colspan="' + (admin ? 6 : 5) + '" class="ct-empty">' + (filter === 'fixed' ? 'Nothing fixed yet.' : 'Nothing open — no Cheers Trav needed.') + '</td></tr>') +
-      '</tbody></table></div>' +
+      travLabelsSectionHtml(admin) +
       (admin ? '<div class="ct-add"><h3>Add a discrepancy</h3>' +
-        '<input type="text" id="ct-new-drink" list="ct-drinks" placeholder="Drink">' +
+        '<select id="ct-new-cat">' + DISC_CATS.map(function (c) { return '<option value="' + c.k + '">' + c.short + '</option>'; }).join('') + '</select>' +
+        '<input type="text" id="ct-new-drink" list="ct-drinks" placeholder="Drink or ingredient">' +
         '<datalist id="ct-drinks">' + drinkOpts + '</datalist>' +
-        '<textarea id="ct-new-menu" rows="2" placeholder="Menu says…"></textarea>' +
+        '<textarea id="ct-new-menu" rows="2" placeholder="Menu says… (menu vs app only)"></textarea>' +
         '<textarea id="ct-new-app" rows="2" placeholder="Chilled Pubs app says…"></textarea>' +
-        '<button type="button" id="ct-add-btn" class="btn btn-primary">＋ Add</button></div>' : '') +
-      travLabelsSectionHtml(admin);
+        '<textarea id="ct-new-change" rows="2" placeholder="What to change…"></textarea>' +
+        '<button type="button" id="ct-add-btn" class="btn btn-primary">＋ Add</button></div>' : '');
     main.innerHTML = html;
     function fail(e) { alert('Could not save: ' + e.message); renderCheersTrav(filter); }
     Array.prototype.forEach.call(main.querySelectorAll('.ct-chip'), function (b) {
@@ -2014,8 +2040,10 @@
       if (!name) { alert('Enter the drink.'); return; }
       var c = state.cocktails.filter(function (x) { return x.name.toLowerCase() === name.toLowerCase(); })[0];
       add.disabled = true;
-      apiSaveDiscrepancy({ drink_name: c ? c.name : name, cocktail_id: c ? c.id : null,
-        menu_says: document.getElementById('ct-new-menu').value, app_says: document.getElementById('ct-new-app').value })
+      var cat = document.getElementById('ct-new-cat').value;
+      apiSaveDiscrepancy({ drink_name: c ? c.name : name, cocktail_id: c ? c.id : null, category: cat,
+        menu_says: cat === 'menu_app' ? document.getElementById('ct-new-menu').value : '',
+        app_says: document.getElementById('ct-new-app').value, change_needed: document.getElementById('ct-new-change').value })
         .then(function () { renderCheersTrav('open'); }).catch(fail);
     });
   }
@@ -2026,7 +2054,17 @@
     setHeader('📄 Cheers Trav Report', true, function () { renderCheersTrav(filter); });
     var main = document.getElementById('app-main');
     main.classList.add('is-wide');
-    var rows = (state.discrepancies || []).filter(function (d) { return !d.resolved; });
+    var openAll = (state.discrepancies || []).filter(function (d) { return !d.resolved; });
+    var rows = openAll.filter(function (d) { return (d.category || 'menu_app') === 'menu_app'; });
+    var catTable = function (k) {
+      var cat = DISC_CATS.filter(function (c) { return c.k === k; })[0];
+      var list = openAll.filter(function (d) { return d.category === k; });
+      if (!list.length) return '';
+      return '<section class="ctr-card ctr-labels"><h3>' + cat.title + '</h3>' +
+        '<table class="ctr-label-table"><thead><tr><th>' + cat.thing + '</th><th>Chilled Pubs app says</th><th>Change to</th></tr></thead><tbody>' +
+        list.map(function (d) { return '<tr><td>' + escapeHtml(d.drink_name) + '</td><td>' + escapeHtml(d.app_says || '—') + '</td><td><strong>' + escapeHtml(d.change_needed || '—') + '</strong></td></tr>'; }).join('') +
+        '</tbody></table></section>';
+    };
     var withBoth = rows.filter(function (d) { return d.menu_evidence_url && d.app_evidence_url; }).length;
     var side = function (label, text, url) {
       return '<div class="ctr-side"><div class="ctr-side-label">' + label + '</div>' +
@@ -2036,7 +2074,10 @@
     var today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     main.innerHTML =
       '<div class="ctr-head"><h2>🍻 Cheers Trav — what to change</h2>' +
-        '<p>' + rows.length + ' menu discrepanc' + (rows.length === 1 ? 'y' : 'ies') + ' · ' + travLabels().length + ' label' + (travLabels().length === 1 ? '' : 's') + ' to rename · ' + escapeHtml(today) +
+        '<p>' + rows.length + ' menu discrepanc' + (rows.length === 1 ? 'y' : 'ies') +
+          ' · ' + openAll.filter(function (d) { return d.category === 'dyslexia'; }).length + ' spelling' +
+          ' · ' + openAll.filter(function (d) { return d.category === 'nonsense'; }).length + ' measurement' +
+          ' · ' + travLabels().length + ' label' + (travLabels().length === 1 ? '' : 's') + ' to rename · ' + escapeHtml(today) +
         (withBoth < rows.length ? ' · <span class="ctr-warn">' + (rows.length - withBoth) + ' still missing a screenshot</span>' : '') + '</p>' +
         '<button type="button" id="ctr-print" class="btn btn-primary ctr-print">🖨 Print / Save as PDF</button></div>' +
       rows.map(function (d, i) {
@@ -2047,6 +2088,7 @@
         '</section>';
       }).join('') +
       (rows.length ? '' : '<p class="ct-empty">No menu discrepancies open.</p>') +
+      catTable('dyslexia') + catTable('nonsense') +
       (function () {
         var labels = travLabels();
         if (!labels.length) return '';

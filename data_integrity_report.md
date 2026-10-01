@@ -747,3 +747,32 @@ has 0 real containers logged so far.
   committed).
 
 **Next session: open with /Routine.**
+
+### Discrepancy categories: Dyslexia + Nonsense; Alex's answers applied (1 Oct 2026, after /Routine)
+**Discrepancy lists, as Alex framed them:** menu → app (🍻), app → spec (🔤 Dyslexia,
+🤷 Nonsense), labels → spec (🙏 Thank you Trav). **Monetary** (prices across the menu,
+the Chilled Pubs app *and the till system*) is deliberately its own future
+investigation — no price column added yet. The aim across all of them: surface the
+inconsistencies, EHO-standard risks and training gaps.
+
+- `menu_discrepancies.category` added (`menu_app` / `dyslexia` / `nonsense`,
+  check-constrained); the Cheers Trav page and report show each as its own section.
+- **Dyslexia** (renamed in our app, logged against the Chilled Pubs app):
+  "Chai Seeds" → **Chia Seeds** (Dragon's Potion); "Coconut Dessicated" →
+  **Coconut Desiccated** (Coconut Cloud).
+- **Nonsense**: every ingredient the app measures in grams — 52 rows, one per
+  ingredient (amounts + every drink using it), snapshotted before any conversion.
+  Mint shows as two rows (Leaves / Sprigs; the Pimms Jug 12g sits under Sprigs
+  because it was snapshotted before the Pimms fix) — a merge into one "Mint" row
+  was attempted and cancelled; still open.
+- **Lemon / Pineapple grams → 1 wedge** in our app: 11 rows (9 lemon incl. the
+  Pop Stars, Double Dutches and Honey and Lemon Soda; 2 pineapple).
+- **Mint rule (Alex):** garnish = sprigs; making phase = leaves; one shared label.
+  Pimms Jug now uses Mint Leaves only (moved into the fruit step, no sprigs).
+  Everything else already matched the rule.
+- **Peach / Pomegranate:** 5–7 days once open, TBC — `shelf_life_hours` = 120
+  (5 days, the safe end) on both; should-print notes updated.
+- **Guest Sweets** is a real label grouping name for long-life dry stock — fine,
+  not a discrepancy.
+- **Dragon Fruit and Lychee Soda**: method entered from Alex's Chilled Pubs app
+  screenshot (6 steps) + garnish; its ingredients already matched the screenshot.

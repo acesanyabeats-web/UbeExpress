@@ -555,6 +555,7 @@ module.exports = async function handler(req, res) {
       if (payload.cocktail_id !== undefined) md.cocktail_id = payload.cocktail_id || null;
       if (payload.menu_says !== undefined) md.menu_says = clip(payload.menu_says, 600);
       if (payload.app_says !== undefined) md.app_says = clip(payload.app_says, 600);
+      if (payload.category !== undefined) md.category = ['menu_app', 'dyslexia', 'nonsense'].indexOf(payload.category) !== -1 ? payload.category : 'menu_app';
       if (payload.change_needed !== undefined) md.change_needed = clip(payload.change_needed, 600);
       if (payload.menu_evidence_url !== undefined) md.menu_evidence_url = payload.menu_evidence_url || null;
       if (payload.app_evidence_url !== undefined) md.app_evidence_url = payload.app_evidence_url || null;
