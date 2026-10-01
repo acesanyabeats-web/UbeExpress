@@ -696,7 +696,7 @@ body {
 .report-md pre { background: var(--card2); padding: 12px; border-radius: 8px; overflow-x: auto; }
 .report-md pre code { background: none; padding: 0; }
 .report-md hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
-.report-md blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); color: var(--muted); }
+.report-md blockquote { margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); }
 .report-md a { color: var(--accent); }
 .report-table-wrap { overflow-x: auto; margin: 0 0 14px; }
 .report-md table { border-collapse: collapse; font-size: 0.88rem; min-width: 100%; }
@@ -720,7 +720,7 @@ body {
 .review-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; max-width: 640px; margin-left: auto; margin-right: auto; }
 .review-title { font-weight: 600; }
 .review-instruction { color: var(--muted); font-size: 0.9rem; margin: 4px 0 10px; }
-.review-warn { background: var(--card2); border-left: 3px solid var(--danger); padding: 8px 10px; font-size: 0.85rem; margin-bottom: 10px; }
+.review-warn { background: var(--card2); border: 1px solid var(--danger); border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; margin-bottom: 10px; }
 .review-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .review-compare figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .review-compare figcaption { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
@@ -798,30 +798,43 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
    the SAME grid cell, so .build-bottom is always as tall as the drink's
    tallest step and its top edge — and therefore the frame's centre — stays
    put from step to step. */
-#build-overlay .step-label { text-align: center; padding: 10px 16px 0; margin: 0; flex: none; }
+/* Label row: "Step X of Y" + (staff) Suggest a photo / (admin) candidates
+   badge. Fixed height so the button never shifts anything. */
+.step-label-row { flex: none; display: flex; align-items: center; justify-content: center; gap: 12px; height: 46px; padding: 6px 16px 0; }
+#build-overlay .step-label { margin: 0; }
+.suggest-photo-btn { background: var(--accent); color: #1a1410; border: none; border-radius: 999px; padding: 7px 14px; font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap; box-shadow: 0 0 0 3px rgba(216,163,77,0.25); }
+.step-label-row .candidate-badge { margin: 0; padding: 7px 14px; font-size: 0.85rem; }
 .build-stage {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
+  padding: 8px 24px;
   overflow: hidden;
 }
+/* The photo card fills the stage: same size on every step. */
+.build-stage .step-media-row, .build-stage .step-media-btn { width: 100%; height: 100%; justify-content: center; align-items: center; }
+.build-stage .step-media-btn { max-width: 360px; border-radius: 14px; background: var(--card); }
+.build-stage .equip-icon.is-photo.build-frame { width: 100%; height: 100% !important; max-width: none; background: transparent; border-radius: 14px; }
+.build-stage svg.equip-icon.build-frame { width: 40%; height: 40%; margin: 0; }
 .build-stage .step-media-row { position: relative; }
 /* The ingredient-photo preview floats beside the frame so showing it never
    pushes the frame sideways. */
-.build-stage .step-ing-photo { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); margin: 0; max-width: calc((100vw - 100%) / 2 - 20px); }
+.build-stage .step-media-row { position: relative; }
+/* Tapped-ingredient photo: a thumbnail tucked into the card's corner, so it
+   never pushes the main photo around. */
+.build-stage .step-ing-photo { position: absolute; right: calc(50% - min(50%, 180px) + 10px); bottom: 10px; margin: 0; width: 34%; max-width: 120px; height: auto; aspect-ratio: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
 .build-bottom {
   flex: none;
   display: grid;
-  padding: 0 20px;
+  padding: 14px 24px 0;
   max-height: 55vh;
   overflow-y: auto;
 }
 .build-bottom-block {
   grid-area: 1 / 1;
-  align-self: end;
+  align-self: start; /* Alex's pick (A): text always starts right under the photo */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -833,3 +846,4 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 /* Fixed button height: "✕ Close" vs "← Back" vs "✅ Done" glyphs have
    different natural line heights, which nudged the whole layout by 1px. */
 .build-nav .btn { height: 56px; line-height: 1; padding-top: 0; padding-bottom: 0; }
+#build-overlay .step-ingredient-list { max-width: 300px; }

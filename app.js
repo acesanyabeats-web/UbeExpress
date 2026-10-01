@@ -1718,15 +1718,8 @@
       var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(function (n) {
         return ingredientRowHtml(n, overrideAmts[String(n).toLowerCase()]);
       }).join('') + '</ul>' : '';
-      var extra = '';
-      if (state.role === 'admin') {
-        var n = pendingSubmissionsFor(c.id, i).length;
-        if (n) extra = '<button type="button" class="candidate-badge"' + (isCurrent ? ' id="step-candidates-btn"' : ' tabindex="-1"') + '>📸 ' + n + ' staff photo' + (n > 1 ? 's' : '') + ' to compare</button>';
-      } else {
-        extra = '<button type="button" class="suggest-photo-link"' + (isCurrent ? ' id="step-suggest-btn"' : ' tabindex="-1"') + '>📷 Suggest a photo for this step</button>';
-      }
       return '<div class="build-bottom-block' + (isCurrent ? ' is-current' : '') + '"' + (isCurrent ? '' : ' aria-hidden="true"') + '>' +
-        extra + ingList +
+        ingList +
         '<div class="instruction">' + escapeHtml(st.instruction || '') + '</div>' +
       '</div>';
     }
@@ -1734,7 +1727,17 @@
     function render() {
       var s = steps[idx];
       var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
-      var mediaHtml = stepMediaHtml(c.glass, s);
+      // Build Mode always fills one big fixed card (Alex's call): every step's
+      // photo is the same size, never cropped (letterboxed), so nothing jumps.
+      // Saved per-step frame heights still apply in the edit grid/overview.
+      var mediaHtml = stepMediaHtml(c.glass, s, { cls: 'build-frame' });
+      var labelExtra = '';
+      if (state.role === 'admin') {
+        var nCand = pendingSubmissionsFor(c.id, idx).length;
+        if (nCand) labelExtra = '<button type="button" class="candidate-badge" id="step-candidates-btn">📸 ' + nCand + ' to compare</button>';
+      } else {
+        labelExtra = '<button type="button" class="suggest-photo-btn" id="step-suggest-btn">📷 Suggest a photo</button>';
+      }
       // Anchored layout: progress bar + "Step X of Y" pinned at the top;
       // the ingredients + instruction block pinned just above the buttons;
       // the photo frame centred in the space between. Every step's bottom
@@ -1743,7 +1746,7 @@
       // step — its top edge never moves, so the frame's centre never moves.
       overlay.innerHTML =
         '<div class="build-progress">' + dots + '</div>' +
-        '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
+        '<div class="step-label-row"><span class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</span>' + labelExtra + '</div>' +
         '<div class="build-stage">' +
           '<div class="step-media-row"><button type="button" class="step-media-btn" title="' + (state.role === 'admin' ? 'Frame Editor' : 'Suggest a photo for this step') + '">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
         '</div>' +
