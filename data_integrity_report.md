@@ -565,3 +565,20 @@ the Ingredients table's "Right name" column; a shared label marked Yes shows a p
 Same day, per Alex: `label_ok = true` also for **Lychee** (prints "Tinned Lychee") and
 **Giant Marshmallows** (prints "Marshmallows") — sensible shared labels, no Trav.
 Same day: `label_ok = true` for **Cherries** (prints "Glace Cherries") too.
+
+### 🍻 Cheers Trav — menu vs Chilled Pubs app discrepancies (Oct 1 2026)
+Sibling of the label list's "Thank you Trav": where the printed menu and the
+Chilled Pubs app (the source these specs were entered from) disagree. New table
+`menu_discrepancies` (drink, cocktail_id link, menu_says, app_says, resolved;
+anon read-only, admin writes via /api/write `save_menu_discrepancy` /
+`delete_menu_discrepancy`). Seeded with **19 open rows**: the Sep 29 physical-menu
+cross-check in `notes_flagged_recipe_issues.md`, each re-checked against live data
+first. 18 link to a real drink; 1 ("All boba drinks" — "boba balls" vs "Popping
+Balls") is menu-wide. Re-check changed two: Galaxy Soda now has blueberry +
+strawberry balls (menu still says blueberry + raspberry); Bathtub now has
+passionfruit boba (only the "Chilled Bathtub, £14, for 2" name/sharer question left).
+New "🍻 Cheers Trav" home card (everyone; count of open rows), a table page (staff
+read-only; admin edits text inline, marks Fixed, deletes, adds rows), and a banner on
+each affected drink's spec page. Within-app recipe inconsistencies (method text vs
+ingredient list, unit oddities) are NOT in this table — they're app-only, still listed
+above in this report.

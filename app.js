@@ -260,8 +260,10 @@
       sbSelect('ingredient_photos', 'select=*'),
       sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; }),
       sbSelect('prep_checklist_state', 'select=*').catch(function () { return []; }),
-      sbSelect('prep_batches', 'select=*&or=(ended_at.is.null,ended_at.gt.' + new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() + ')').catch(function () { return []; })
+      sbSelect('prep_batches', 'select=*&or=(ended_at.is.null,ended_at.gt.' + new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() + ')').catch(function () { return []; }),
+      sbSelect('menu_discrepancies', 'select=*&order=sort_order.asc,created_at.asc').catch(function () { return []; })
     ]).then(function (results) {
+      state.discrepancies = results[6] || [];
       setPrepState(results[4] || []);
       state.batches = results[5] || [];
       state.photoSubmissions = results[3] || [];
@@ -1255,6 +1257,13 @@
         '<div class="home-card-emoji">🍋</div>' +
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
+      (function () {
+        var open = openDiscrepancies().length;
+        return '<div class="home-card' + (open ? ' has-trav' : '') + '" id="home-cheers-trav">' +
+          '<div class="home-card-emoji">🍻</div>' +
+          '<div class="home-card-text"><h3>Cheers Trav' + (open ? ' <span class="pending-count trav-count">' + open + '</span>' : '') + '</h3><p>Where the menu and the Chilled Pubs app disagree</p></div>' +
+        '</div>';
+      })() +
       (state.role === 'admin' ?
         '<div class="home-card' + (state.photoSubmissions.length ? ' has-pending' : '') + '" id="home-candidates">' +
           '<div class="home-card-emoji">📸</div>' +
@@ -1274,6 +1283,7 @@
     main.classList.add('is-home');
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
+    document.getElementById('home-cheers-trav').addEventListener('click', function () { renderCheersTrav('open'); });
     var candCard = document.getElementById('home-candidates');
     if (candCard) candCard.addEventListener('click', function () {
       loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
@@ -1787,6 +1797,107 @@
     });
   }
 
+  // ---------- CHEERS TRAV: menu vs Chilled Pubs app ----------
+  // Every place the printed menu and the Chilled Pubs app disagree. Open
+  // rows carry a "🍻 Cheers Trav" so staff and managers see the system still
+  // needs fixing (sibling of the label list's "Thank you Trav").
+  var CHEERS = '🍻 Cheers Trav';
+  function openDiscrepancies() { return (state.discrepancies || []).filter(function (d) { return !d.resolved; }); }
+  function cheersTravBannerHtml(cocktailId) {
+    var rows = openDiscrepancies().filter(function (d) { return d.cocktail_id === cocktailId; });
+    if (!rows.length) return '';
+    return '<div class="trav-banner cheers-banner"><div class="cheers-head"><span class="trav-tag">' + CHEERS + '</span> The menu and the Chilled Pubs app disagree on this drink:</div>' +
+      rows.map(function (d) {
+        return '<div class="cheers-line"><span class="cheers-k">Menu:</span> ' + escapeHtml(d.menu_says || '—') + '</div>' +
+          '<div class="cheers-line"><span class="cheers-k">App:</span> ' + escapeHtml(d.app_says || '—') + '</div>';
+      }).join('<hr class="cheers-hr">') + '</div>';
+  }
+  function apiSaveDiscrepancy(fields) {
+    return apiWrite('save_menu_discrepancy', fields).then(function (res) {
+      var row = res.row; if (!row) return;
+      var found = false;
+      state.discrepancies = (state.discrepancies || []).map(function (d) { if (d.id === row.id) { found = true; return row; } return d; });
+      if (!found) state.discrepancies.push(row);
+    });
+  }
+  function renderCheersTrav(filter) {
+    setHeader('🍻 Cheers Trav', true, renderHome);
+    var main = document.getElementById('app-main');
+    main.classList.add('is-wide');
+    var admin = state.role === 'admin';
+    var all = state.discrepancies || [];
+    var rows = all.filter(function (d) { return filter === 'all' ? true : filter === 'fixed' ? d.resolved : !d.resolved; });
+    var openN = all.filter(function (d) { return !d.resolved; }).length;
+    var drinkOpts = state.cocktails.map(function (c) { return '<option value="' + escapeHtml(c.name) + '">'; }).join('');
+    var chip = function (k, label) { return '<button type="button" class="ct-chip' + (filter === k ? ' is-on' : '') + '" data-f="' + k + '">' + label + '</button>'; };
+    var html = '<p class="ing-table-intro">Where the printed menu and the Chilled Pubs app disagree. Every open row gets a ' + CHEERS +
+      ' until it is fixed at the source. ' + openN + ' open · ' + (all.length - openN) + ' fixed.</p>' +
+      '<div class="ct-chips">' + chip('open', 'Open') + chip('fixed', 'Fixed') + chip('all', 'All') + '</div>' +
+      '<div class="ing-table-scroll"><table class="ing-table ct-table"><thead><tr><th>Drink</th><th>Menu says</th><th>Chilled Pubs app says</th><th>Fixed?</th>' + (admin ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      rows.map(function (d) {
+        var cell = function (field) {
+          return admin ? '<textarea class="ct-edit" data-field="' + field + '" rows="2">' + escapeHtml(d[field] || '') + '</textarea>' : escapeHtml(d[field] || '—');
+        };
+        var drink = d.cocktail_id ? '<button type="button" class="ct-drink" data-cid="' + d.cocktail_id + '">' + escapeHtml(d.drink_name) + '</button>' : escapeHtml(d.drink_name);
+        return '<tr data-id="' + d.id + '" class="' + (d.resolved ? 'is-fixed' : '') + '">' +
+          '<td class="ct-drink-cell">' + drink + '</td><td>' + cell('menu_says') + '</td><td>' + cell('app_says') + '</td>' +
+          '<td class="ct-fixed">' + (admin
+            ? '<select class="ct-resolved"><option value="no"' + (d.resolved ? '' : ' selected') + '>No</option><option value="yes"' + (d.resolved ? ' selected' : '') + '>Yes</option></select>'
+            : (d.resolved ? 'Yes' : 'No')) +
+            (d.resolved ? '' : '<span class="trav-tag">' + CHEERS + '</span>') + '</td>' +
+          (admin ? '<td><button type="button" class="ct-del" aria-label="Delete">🗑</button></td>' : '') +
+        '</tr>';
+      }).join('') +
+      (rows.length ? '' : '<tr><td colspan="' + (admin ? 5 : 4) + '" class="ct-empty">' + (filter === 'fixed' ? 'Nothing fixed yet.' : 'Nothing open — no Cheers Trav needed.') + '</td></tr>') +
+      '</tbody></table></div>' +
+      (admin ? '<div class="ct-add"><h3>Add a discrepancy</h3>' +
+        '<input type="text" id="ct-new-drink" list="ct-drinks" placeholder="Drink">' +
+        '<datalist id="ct-drinks">' + drinkOpts + '</datalist>' +
+        '<textarea id="ct-new-menu" rows="2" placeholder="Menu says…"></textarea>' +
+        '<textarea id="ct-new-app" rows="2" placeholder="Chilled Pubs app says…"></textarea>' +
+        '<button type="button" id="ct-add-btn" class="btn btn-primary">＋ Add</button></div>' : '');
+    main.innerHTML = html;
+    function fail(e) { alert('Could not save: ' + e.message); renderCheersTrav(filter); }
+    Array.prototype.forEach.call(main.querySelectorAll('.ct-chip'), function (b) {
+      b.addEventListener('click', function () { renderCheersTrav(b.getAttribute('data-f')); });
+    });
+    Array.prototype.forEach.call(main.querySelectorAll('.ct-drink'), function (b) {
+      b.addEventListener('click', function () { openDetail(b.getAttribute('data-cid')); });
+    });
+    Array.prototype.forEach.call(main.querySelectorAll('tr[data-id]'), function (tr) {
+      var id = tr.getAttribute('data-id');
+      Array.prototype.forEach.call(tr.querySelectorAll('.ct-edit'), function (ta) {
+        ta.addEventListener('change', function () {
+          var f = {}; f.id = id; f[ta.getAttribute('data-field')] = ta.value;
+          ta.disabled = true;
+          apiSaveDiscrepancy(f).then(function () { ta.disabled = false; }).catch(fail);
+        });
+      });
+      var res = tr.querySelector('.ct-resolved');
+      if (res) res.addEventListener('change', function () {
+        res.disabled = true;
+        apiSaveDiscrepancy({ id: id, resolved: res.value === 'yes' }).then(function () { renderCheersTrav(filter); }).catch(fail);
+      });
+      var del = tr.querySelector('.ct-del');
+      if (del) wireArmConfirm(del, 'Delete?', function () {
+        apiWrite('delete_menu_discrepancy', { id: id }).then(function () {
+          state.discrepancies = state.discrepancies.filter(function (d) { return d.id !== id; });
+          renderCheersTrav(filter);
+        }).catch(fail);
+      });
+    });
+    var add = document.getElementById('ct-add-btn');
+    if (add) add.addEventListener('click', function () {
+      var name = document.getElementById('ct-new-drink').value.trim();
+      if (!name) { alert('Enter the drink.'); return; }
+      var c = state.cocktails.filter(function (x) { return x.name.toLowerCase() === name.toLowerCase(); })[0];
+      add.disabled = true;
+      apiSaveDiscrepancy({ drink_name: c ? c.name : name, cocktail_id: c ? c.id : null,
+        menu_says: document.getElementById('ct-new-menu').value, app_says: document.getElementById('ct-new-app').value })
+        .then(function () { renderCheersTrav('open'); }).catch(fail);
+    });
+  }
+
   // ---------- DETAIL VIEW ----------
   function openDetail(id) {
     var c = state.cocktails.filter(function (x) { return x.id === id; })[0];
@@ -1800,7 +1911,7 @@
       iconSvg(c.glass ? 'glass_' + c.glass : 'glass_rocks', 'glass-icon') +
       '<h1>' + escapeHtml(c.name) + '</h1>' +
       '<div class="meta">' + escapeHtml(c.build_method || '') + (c.garnish ? ' &middot; garnish: ' + escapeHtml(c.garnish) : '') + '</div>' +
-      '</div>';
+      '</div>' + cheersTravBannerHtml(id);
 
     // The finished-drink photo is wrapped in the same Frame Editor as every
     // step photo/icon: never cropped, vertically centred, admin taps it to

@@ -950,3 +950,32 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .st-amber .prep-tick-input { accent-color: var(--st-amber); }
 .prep-tick-input:disabled { cursor: not-allowed; opacity: 0.5; }
 .prep-ask-note { color: var(--st-amber) !important; font-weight: 600; }
+
+/* Cheers Trav — menu vs Chilled Pubs app discrepancies */
+.home-card.has-trav { border-color: var(--st-amber); }
+.pending-count.trav-count { background: var(--st-amber); color: #1a1410; }
+.ct-chips { display: flex; gap: 8px; margin: 4px 0 12px; flex-wrap: wrap; }
+.ct-chip { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; }
+.ct-chip.is-on { background: var(--st-amber); color: #1a1410; border-color: transparent; font-weight: 700; }
+.ct-table { min-width: 720px; }
+.ct-table th:nth-child(1) { width: 150px; }
+.ct-table th:nth-child(2), .ct-table th:nth-child(3) { width: auto; text-align: left; }
+.ct-table th:nth-child(4) { width: 120px; text-align: left; }
+.ct-table th:nth-child(5) { width: 44px; }
+.ct-table td { vertical-align: top; font-size: 0.85rem; line-height: 1.35; }
+.ct-table tr:not(.is-fixed) td { background: color-mix(in srgb, var(--st-amber) 8%, transparent); }
+.ct-table tr.is-fixed td { opacity: 0.6; }
+.ct-drink { background: none; border: none; color: var(--accent); font-weight: 700; padding: 0; text-align: left; cursor: pointer; font-size: 0.9rem; text-decoration: underline; }
+.ct-drink-cell { font-weight: 700; }
+.ct-edit { field-sizing: content; min-height: 2.6em; width: 100%; box-sizing: border-box; font-size: 0.82rem; padding: 6px; resize: vertical; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+.ct-fixed select { width: 100%; padding: 4px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; }
+.ct-del { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 4px 6px; cursor: pointer; width: auto; }
+.ct-empty { text-align: center; color: var(--muted); padding: 16px; }
+.ct-add { margin-top: 16px; display: grid; gap: 8px; max-width: 560px; }
+.ct-add h3 { margin: 0; font-size: 0.95rem; }
+.ct-add input, .ct-add textarea { width: 100%; box-sizing: border-box; padding: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+.cheers-banner { margin: 10px 0 14px; }
+.cheers-head { margin-bottom: 6px; }
+.cheers-line { font-size: 0.88rem; }
+.cheers-k { font-weight: 700; }
+.cheers-hr { border: none; border-top: 1px solid var(--border); margin: 6px 0; }

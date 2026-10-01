@@ -527,6 +527,32 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    // Menu ↔ Chilled Pubs app discrepancies ("Cheers Trav" table).
+    if (action === 'save_menu_discrepancy') {
+      var clip = function (v, n) { return v === undefined ? undefined : (String(v || '').trim().slice(0, n) || null); };
+      var md = { updated_at: new Date().toISOString() };
+      if (payload.drink_name !== undefined) md.drink_name = clip(payload.drink_name, 120);
+      if (payload.cocktail_id !== undefined) md.cocktail_id = payload.cocktail_id || null;
+      if (payload.menu_says !== undefined) md.menu_says = clip(payload.menu_says, 600);
+      if (payload.app_says !== undefined) md.app_says = clip(payload.app_says, 600);
+      if (payload.resolved !== undefined) { md.resolved = !!payload.resolved; md.resolved_at = payload.resolved ? md.updated_at : null; }
+      var mdOut;
+      if (payload.id) {
+        mdOut = await sbFetch('menu_discrepancies?id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }), body: JSON.stringify(md) });
+      } else {
+        if (!md.drink_name) { res.status(400).json({ error: 'Drink name needed' }); return; }
+        mdOut = await sbFetch('menu_discrepancies', { method: 'POST', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }), body: JSON.stringify(md) });
+      }
+      res.status(200).json({ ok: true, row: (await mdOut.json())[0] || null });
+      return;
+    }
+    if (action === 'delete_menu_discrepancy') {
+      if (!payload.id) { res.status(400).json({ error: 'id needed' }); return; }
+      await sbFetch('menu_discrepancies?id=eq.' + encodeURIComponent(payload.id), { method: 'DELETE', headers: sbHeaders() });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message });
