@@ -122,6 +122,24 @@ step to merge forward into (Blue Heat and Galaxy Soda both happened to
 end on a photo'd step). Will need a real answer — merge backward
 instead, or leave it standalone — whenever a cocktail actually has one.
 
+### 2026-10-01 — direct data edit — 4 more drinks' steps merged, by Alex's own call
+Same rule as Blue Heat/Galaxy Soda (each merged step keeps the one photo
+and frame size it already had; instructions joined, ingredients and
+per-step amounts carried over, nothing dropped):
+- **Peach Pony Club**: step 2 + 3 merged ("…to side of glass, then top
+  with ginger ale and ice cap"). 4 steps → 3.
+- **Pink Gin Sling**: 2 + 3 merged; 4 + 5 + 6 merged ("Add 2 black
+  straws and a crushed ice cap, then garnish…"). Per-step raspberry
+  amounts (2 / 2 / 1) kept. 6 steps → 3.
+- **Sakura Pink**: the sala-syrup pipette (old step 5) moved to step 3;
+  old 3 + 4 merged into the garnish step as the new step 4 ("Add two
+  black straws and top with crushed ice cap, then garnish…"). 6 → 4.
+- **Berry Butterfly**: 1+2, 3+4, 5+6, 7+8 merged. 8 steps → 4.
+
+Verified by direct re-query: all 14 resulting steps have a photo. No
+staff photo candidates were pending for these drinks, so none needed
+re-pointing.
+
 ### 2026-10-01 — shelf life now comes from the real labels (resolves section J)
 **What was wrong**: the Label List used a guessed 24h (fresh) / 72h
 (homemade batches) shelf life, and never labelled sweets/garnish stock.
