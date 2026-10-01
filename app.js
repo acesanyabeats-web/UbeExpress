@@ -704,6 +704,7 @@
   // existing call site's prior behaviour — only Home-level screens need to
   // pass a different target).
   function setHeader(title, showBack, backFn) {
+    document.getElementById('app-main').classList.remove('is-home');
     document.getElementById('app-title').textContent = title;
     document.getElementById('nav-back-btn').hidden = !showBack;
     state.backTarget = backFn || goToMenu;
@@ -716,6 +717,83 @@
   }
 
   // ---------- HOME ----------
+  // ---------- Data Integrity Report (admin) ----------
+  // Renders data_integrity_report.md (served as a static file next to the
+  // app) so the latest committed version is always what's shown. Small
+  // built-in Markdown renderer — headings, paragraphs, lists, tables, rules,
+  // code, bold/italic, links — enough for this report, no library needed.
+  function mdInline(s) {
+    return escapeHtml(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+  function renderMarkdown(md) {
+    var lines = md.replace(/\r/g, '').split('\n');
+    var out = [], i = 0;
+    function isBlockStart(l) { return /^(#{1,6} |\s*[-*] |\s*\d+\. |\||```|---\s*$|> )/.test(l); }
+    while (i < lines.length) {
+      var l = lines[i];
+      if (!l.trim()) { i++; continue; }
+      var h = l.match(/^(#{1,6}) (.*)/);
+      if (h) { out.push('<h' + h[1].length + '>' + mdInline(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+      if (/^---\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+      if (/^```/.test(l)) {
+        var code = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+        i++; out.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>'); continue;
+      }
+      if (/^\|/.test(l)) {
+        var rows = [];
+        while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+        var cells = function (r) { return r.replace(/^\||\|\s*$/g, '').split('|').map(function (c) { return c.trim(); }); };
+        var body = rows.filter(function (r, k) { return !(k === 1 && /^\|[\s:|-]+\|?\s*$/.test(r)); });
+        out.push('<div class="report-table-wrap"><table><thead><tr>' + cells(body[0]).map(function (c) { return '<th>' + mdInline(c) + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + body.slice(1).map(function (r) {
+            return '<tr>' + cells(r).map(function (c) { return '<td>' + mdInline(c) + '</td>'; }).join('') + '</tr>';
+          }).join('') + '</tbody></table></div>');
+        continue;
+      }
+      if (/^> /.test(l)) {
+        var q = [];
+        while (i < lines.length && /^> ?/.test(lines[i]) && lines[i].trim()) q.push(lines[i++].replace(/^> ?/, ''));
+        out.push('<blockquote>' + mdInline(q.join(' ')) + '</blockquote>'); continue;
+      }
+      var listM = l.match(/^\s*([-*]|\d+\.) /);
+      if (listM) {
+        var ordered = /\d/.test(listM[1]), items = [];
+        while (i < lines.length && lines[i].trim()) {
+          if (/^\s*([-*]|\d+\.) /.test(lines[i])) items.push(lines[i].replace(/^\s*([-*]|\d+\.) /, ''));
+          else if (items.length) items[items.length - 1] += ' ' + lines[i].trim();
+          i++;
+          // a blank line followed by another item continues the same list
+          if (i < lines.length && !lines[i].trim() && i + 1 < lines.length && /^\s*([-*]|\d+\.) /.test(lines[i + 1])) i++;
+        }
+        var tag = ordered ? 'ol' : 'ul';
+        out.push('<' + tag + '>' + items.map(function (it) { return '<li>' + mdInline(it) + '</li>'; }).join('') + '</' + tag + '>');
+        continue;
+      }
+      var para = [];
+      while (i < lines.length && lines[i].trim() && !(para.length && isBlockStart(lines[i]))) para.push(lines[i++]);
+      out.push('<p>' + mdInline(para.join(' ')) + '</p>');
+    }
+    return out.join('\n');
+  }
+  function renderReport() {
+    setHeader('📋 Data Integrity Report', true, renderHome);
+    var main = document.getElementById('app-main');
+    main.innerHTML = '<p class="report-loading">Loading report…</p>';
+    fetch('/data_integrity_report.md?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('could not load the report (' + r.status + ')');
+      return r.text();
+    }).then(function (md) {
+      main.innerHTML = '<article class="report-md">' + renderMarkdown(md) + '</article>';
+    }).catch(function (e) {
+      main.innerHTML = '<p>' + escapeHtml(e.message) + '</p>';
+    });
+  }
+
   function renderHome() {
     setHeader('🍸 Ube Express', false);
     var main = document.getElementById('app-main');
@@ -728,10 +806,20 @@
         '<div class="home-card-emoji">🍋</div>' +
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
-      (state.role === 'admin' ? '<button type="button" id="bulk-stock-btn" class="btn btn-secondary logout-btn">🌐 Fetch internet photos for ingredients (' + missingIngredientPhotoNames().length + ' missing)</button>' : '') +
+      (state.role === 'admin' ?
+        '<div class="home-card" id="home-report">' +
+          '<div class="home-card-emoji">📋</div>' +
+          '<div class="home-card-text"><h3>Data Integrity Report</h3><p>Every inconsistency found so far — resolved and still open</p></div>' +
+        '</div>' +
+        '<button type="button" id="bulk-stock-btn" class="btn btn-secondary home-wide-btn">🌐 Fetch internet photos for ingredients (' + missingIngredientPhotoNames().length + ' missing)</button>' : '') +
+      // Log out is pushed to the very bottom of the screen (margin-top:auto
+      // inside the full-height .is-home column — see style.css).
       '<button type="button" id="logout-btn" class="btn btn-secondary logout-btn">Log out</button>';
+    main.classList.add('is-home');
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
+    var reportCard = document.getElementById('home-report');
+    if (reportCard) reportCard.addEventListener('click', renderReport);
     var bulkBtn = document.getElementById('bulk-stock-btn');
     if (bulkBtn) bulkBtn.addEventListener('click', function () { runBulkStockPhotoFill(bulkBtn, renderHome); });
     document.getElementById('logout-btn').addEventListener('click', function () {

@@ -680,4 +680,40 @@ body {
 .batch-input-row .field-group { flex: 1; margin-bottom: 0; }
 
 /* ---- Home: log out ---- */
+.home-wide-btn { display: block; width: 100%; margin-top: 12px; }
 .logout-btn { display: block; width: 100%; margin-top: 24px; }
+/* Home: full-height column so Log out sits at the very bottom of the screen. */
+#app:not([hidden]) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+/* In a flex column, margin:0 auto stops #app-main stretching — keep it full
+   width (capped by its own max-width) on every page, not just home. */
+#app > #app-main { width: 100%; box-sizing: border-box; }
+#app-main.is-home {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  width: 100%;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+#app-main.is-home .logout-btn { margin-top: auto; }
+#app-main.is-home > :not(.logout-btn) { flex-shrink: 0; }
+
+/* Data Integrity Report page */
+.report-loading { color: var(--muted); }
+.report-md { line-height: 1.55; overflow-wrap: anywhere; }
+.report-md h1 { font-size: 1.4rem; margin: 0 0 12px; }
+.report-md h2 { font-size: 1.2rem; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.report-md h3 { font-size: 1.02rem; margin: 22px 0 8px; color: var(--accent); }
+.report-md p, .report-md ul, .report-md ol { margin: 0 0 12px; }
+.report-md ul, .report-md ol { padding-left: 22px; }
+.report-md li { margin-bottom: 6px; }
+.report-md code { background: var(--card2); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
+.report-md pre { background: var(--card2); padding: 12px; border-radius: 8px; overflow-x: auto; }
+.report-md pre code { background: none; padding: 0; }
+.report-md hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+.report-md blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); color: var(--muted); }
+.report-md a { color: var(--accent); }
+.report-table-wrap { overflow-x: auto; margin: 0 0 14px; }
+.report-md table { border-collapse: collapse; font-size: 0.88rem; min-width: 100%; }
+.report-md th, .report-md td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.report-md th { background: var(--card2); }
