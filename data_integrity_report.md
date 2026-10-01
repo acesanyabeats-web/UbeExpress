@@ -640,5 +640,5 @@ the Change Photo menu.
   rows used it. Label machine still prints "Homemade Lemonade" → still Thank you Trav.
   Because the Chilled Pubs app names the batch "Homemade Raspberry Lemonade", a new
   Cheers Trav discrepancy row was added (change: rename it in the app).
-- "Dancing Queen" and "All boba drinks" Cheers Trav rows deleted by Alex on purpose —
-  not needed. 18 menu rows now open.
+- Cheers Trav rows deleted by Alex on purpose (not needed): Dancing Queen, All boba
+  drinks, Pick Me Up, Pink Gin Sling, Passionfruit Cooler. 15 menu rows now open.
