@@ -564,3 +564,4 @@ the Ingredients table's "Right name" column; a shared label marked Yes shows a p
 "Use label: …" on the Label List.
 Same day, per Alex: `label_ok = true` also for **Lychee** (prints "Tinned Lychee") and
 **Giant Marshmallows** (prints "Marshmallows") — sensible shared labels, no Trav.
+Same day: `label_ok = true` for **Cherries** (prints "Glace Cherries") too.
