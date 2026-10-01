@@ -83,6 +83,24 @@ that don't appear on the real printed menu at all, and is missing
 it did not resolve — and predates the discovery of — a real *content*
 mismatch against the actual menu. Two different bugs on the same drink.
 
+### 2026-10-01 — direct data edit (no commit hash, content-only) — Blue Heat's steps 3–5 merged
+**What was found**: walking Blue Heat step-by-step via the new step-photo
+frames (real hands-on use of the feature, not a code review) surfaced
+that 3 of its 5 steps were each too small to warrant their own frame:
+"Add two black straws," "Top with crushed ice cap," and "Garnish with
+dehydrated lime and birds eye chilli" — three separate taps for what's
+really one continuous finishing sequence.
+
+**What was fixed**: those 3 steps merged into 1 ("Add two black straws,
+top with crushed ice cap, then garnish with dehydrated lime and birds
+eye chilli"), carrying over both real ingredients (Dried Lime Slices,
+Birds Eye Chillies) and the one real photo already set on the garnish
+step (the other two had none). Blue Heat: 5 steps → 3. Verified via a
+direct Supabase re-query post-edit — `jsonb_array_length` = 3, all
+content present, zero data lost.
+
+**The broader pattern this surfaced — see Unresolved L, below.**
+
 ---
 
 ## Unresolved
@@ -180,13 +198,13 @@ untouched data, cross-checked against the newer label and menu photos.
 against the actual pixels instead of this proxy** — worth doing if you
 want full confidence rather than this reconstruction.
 
-### G. A naming conflict I introduced myself, now caught by real label evidence
+### G. A naming conflict I introduced myself — decided
 - **Lime Cordial** — entered two batches ago as a new, unmatched
   ingredient for Electric Reef because nothing in the tracked vocabulary
   fit. The real physical label for the same product reads **"Cordial -
-  Lime."** Same real bottle, wrong word order on my part — a real,
-  self-inflicted inconsistency, now resolvable with confidence rather
-  than flagged as an open question.
+  Lime."** Same real bottle, wrong word order on my part. **Decided
+  2026-10-01: keep the app's existing "Lime Cordial" naming** — not
+  renamed to match the label.
 
 ### H. Real product-identity questions the labels surface, unresolved
 - **Birds Eye Chillies** (tracked in-app, used in Blue Heat) vs. **"Red
@@ -227,6 +245,21 @@ Glace Cherries, Tinned Lychee, Oranges, Pineapple, Passion Fruit, and
 Popping Balls – Lychee/Strawberry/Raspberry/Passionfruit all match
 cleanly across whichever of the three real sources mention them. Stated
 here so a future pass doesn't have to re-check them from scratch.
+
+### L. Step granularity — likely affects most of the 86 cocktails, flagged for a real pass
+Alex's own direct observation, walking Blue Heat step-by-step: "most
+recipes will have steps merge, no point in many steps where it can be
+combined." Blue Heat (above) is the one confirmed real instance so far
+— 3 of 5 steps were small enough to fold into one continuous sequence.
+**Not auto-applied across the other 85 cocktails** — deciding what
+genuinely merges needs the same real judgment Blue Heat's fix did (does
+combining the instructions still read naturally, does a photo already
+exist on one of the steps being folded in, does the equipment stay
+consistent across the merge), not a mechanical rule. The real, honest
+scope of this item: walk the rest of the menu the same hands-on way
+(via the step-photo frames, since that's what surfaced it for Blue
+Heat) and merge on a case-by-case basis as each one is actually
+reviewed — a real backlog item, not yet started beyond Blue Heat.
 
 ---
 
