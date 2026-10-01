@@ -17,9 +17,27 @@ async function sbFetch(path, options) {
   return r;
 }
 
-async function searchWikimediaPhoto(term) {
+// Turns a stock-list ingredient name ("Kulana Orange Juice", "Coconut Water
+// 330ml", "Mixed Berry Coulis - Vat Pack") into a cleaner search term by
+// dropping sizes, percentages, pack/batch notes and supplier brand prefixes
+// that only confuse an image search.
+var BRAND_PREFIXES = ['finest call', 'monin', 'kulana', 'real -', 'real', 'think drink -', 'belvoir', 'dutch barn', 'caffe bene', 'mr. really good', 'fever tree -', 'boe -', 'asuki', 'da luca', 'tails', 'blend', 'sweetzone', 'tuck shop', 'post mix'];
+function cleanSearchTerm(name) {
+  var s = String(name || '').toLowerCase();
+  s = s.replace(/[\d.]+\s*("|ml|cl|l|%)/g, ' ');
+  s = s.replace(/\b(vat pack|batch|new|homemade|presse|pouch|premium blend)\b/g, ' ');
+  for (var i = 0; i < BRAND_PREFIXES.length; i++) {
+    if (s.indexOf(BRAND_PREFIXES[i] + ' ') === 0) { s = s.slice(BRAND_PREFIXES[i].length); break; }
+  }
+  s = s.replace(/[-()&]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s || String(name || '').trim();
+}
+
+async function searchWikimediaOnce(term) {
+  // filetype:bitmap keeps results to real photos (no PDFs/SVG diagrams);
+  // iiurlwidth asks for a ~600px thumbnail instead of a multi-MB original.
   var url = 'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=' +
-    encodeURIComponent(term) + '&gsrlimit=1&prop=imageinfo&iiprop=url&format=json';
+    encodeURIComponent(term + ' filetype:bitmap') + '&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json';
   var r = await fetch(url, { headers: { 'User-Agent': 'UbeExpress/1.0 (internal bar staff tool; https://ubeexpress.vercel.app)' } });
   if (!r.ok) return null;
   var data = await r.json();
@@ -27,7 +45,22 @@ async function searchWikimediaPhoto(term) {
   if (!pages) return null;
   var first = Object.keys(pages).map(function (k) { return pages[k]; })[0];
   var info = first && first.imageinfo && first.imageinfo[0];
-  return info ? info.url : null;
+  return info ? (info.thumburl || info.url) : null;
+}
+
+async function searchWikimediaPhoto(name) {
+  // Cleaned full term first, then progressively shorter tails ("monin white
+  // chocolate syrup" -> "white chocolate syrup" -> "chocolate syrup" -> "syrup"
+  // is too generic, so stop at 2 words unless the term was one word).
+  var cleaned = cleanSearchTerm(name);
+  var words = cleaned.split(' ');
+  var tries = [cleaned];
+  if (words.length > 2) tries.push(words.slice(-2).join(' '));
+  for (var i = 0; i < tries.length; i++) {
+    var found = await searchWikimediaOnce(tries[i]);
+    if (found) return found;
+  }
+  return null;
 }
 
 async function uploadPhotoToStorage(base64, contentType, targetLabel) {
@@ -221,9 +254,28 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'update_ingredient_frame_height') {
+      var ifh = parseInt(payload.frame_height, 10);
+      if (!payload.ingredient_name || !(ifh >= 60 && ifh <= 500)) { res.status(400).json({ error: 'Bad frame height' }); return; }
+      await sbFetch('ingredient_photos?name=eq.' + encodeURIComponent(payload.ingredient_name), {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify({ frame_height: ifh, updated_at: new Date().toISOString() })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     if (action === 'fetch_stock_photo') {
       var term = payload && payload.ingredient_name;
       if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }
+
+      if (payload.skip_if_exists) {
+        // Bulk fill: never overwrite a photo that's already set (own or stock).
+        var exRes = await sbFetch('ingredient_photos?name=ilike.' + encodeURIComponent(term.replace(/[%_]/g, '')) + '&select=name', { headers: sbHeaders() });
+        var exRows = await exRes.json();
+        if (exRows.length) { res.status(200).json({ ok: true, found: false, skipped: true }); return; }
+      }
 
       var stockUrl = await searchWikimediaPhoto(term);
       if (!stockUrl) {

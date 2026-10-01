@@ -278,6 +278,14 @@ body {
 .finished-media-btn { justify-content: center; width: 100%; }
 .equip-icon.is-photo.finished-frame { width: 100%; max-width: 320px; height: 260px; }
 .equip-icon.finished-frame { margin-bottom: 0; }
+/* Ingredient photos: same Frame Editor frame (contain, centred, resizable
+   height via ingredient_photos.frame_height). */
+.equip-icon.is-photo.ingredient-frame { width: 100%; max-width: 280px; height: 200px; }
+.equip-icon.ingredient-frame { margin-bottom: 0; }
+.ingredient-modal-frame { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 320px; }
+#photo-modal-overlay .ingredient-modal-frame img { max-height: 70vh; }
+.ingredient-modal-name { color: var(--text); font-weight: 600; text-align: center; }
+.frame-editor-actions { gap: 10px; flex-wrap: wrap; }
 .finished-photo-hint { color: var(--muted); font-size: 0.85rem; margin-top: 6px; text-align: center; }
 .finished-photo { width: 100%; border-radius: 14px; display: block; object-fit: contain; }
 .finished-photo-placeholder {
@@ -335,7 +343,8 @@ body {
 .step-ing-photo {
   width: 110px;
   height: 110px;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--card);
   border-radius: 12px;
   border: 2px solid var(--accent2);
   margin-bottom: 12px;

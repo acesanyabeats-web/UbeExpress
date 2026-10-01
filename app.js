@@ -113,7 +113,7 @@
     // resizing only changes how much of the available space it fills.
     return s.photo_url
       ? '<img class="equip-icon is-photo' + extra + '" style="height:' + (s.frame_height || opts.defaultHeight || 150) + 'px" src="' + escapeHtml(s.photo_url) + '">'
-      : iconSvg(iconForStep(glass, s), 'equip-icon' + extra);
+      : iconSvg(opts.fallbackIcon || iconForStep(glass, s), 'equip-icon' + extra);
   }
   function frameResizeHandleHtml() {
     return '<div class="frame-resize-handle" title="Drag to resize"></div>';
@@ -176,6 +176,7 @@
         (s.photo_url ? frameResizeHandleHtml() : '') +
         '<div class="frame-editor-actions">' +
           '<button type="button" class="btn btn-primary frame-editor-change-btn">' + (s.photo_url ? '📷 Change Photo' : '📷 Add Photo') + '</button>' +
+          (opts && opts.onFindStock ? '<button type="button" class="btn btn-secondary frame-editor-stock-btn">🔍 Find stock photo</button>' : '') +
         '</div>';
 
       overlay.querySelector('.frame-editor-done-btn').addEventListener('click', function () {
@@ -190,6 +191,16 @@
             render();
           });
         }, function () { /* cancelled, nothing to undo */ });
+      });
+
+      var stockBtn = overlay.querySelector('.frame-editor-stock-btn');
+      if (stockBtn) stockBtn.addEventListener('click', function () {
+        stockBtn.disabled = true;
+        stockBtn.textContent = 'Searching…';
+        opts.onFindStock(function (newPhotoUrl) {
+          if (newPhotoUrl) s.photo_url = newPhotoUrl;
+          render();
+        });
       });
 
       var handle = overlay.querySelector('.frame-resize-handle');
@@ -226,7 +237,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { photo_url: row.photo_url, is_stock: !!row.is_stock };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, is_stock: !!row.is_stock, frame_height: row.frame_height };
       });
     });
   }
@@ -513,17 +524,111 @@
       if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('search failed: ' + r.status)); });
       return r.json();
     });
+  }  function apiUpdateIngredientFrameHeight(ingredientName, frameHeight) {
+    return apiWrite('update_ingredient_frame_height', { ingredient_name: ingredientName, frame_height: frameHeight });
   }
-
-  function showPhotoModal(url) {
+  var INGREDIENT_FRAME_DEFAULT_H = 200;
+  function ingredientFrameHtml(name) {
+    var p = state.ingredientPhotos[String(name).toLowerCase()];
+    return stepMediaHtml(null, { photo_url: p ? p.photo_url : '', frame_height: p && p.frame_height },
+      { cls: 'ingredient-frame', defaultHeight: INGREDIENT_FRAME_DEFAULT_H, fallbackIcon: 'camera' });
+  }
+  // Staff view of an ingredient photo: the same frame (no crop, saved height)
+  // inside the existing tap-to-view modal.
+  function showIngredientPhoto(name) {
     var overlay = document.createElement('div');
     overlay.id = 'photo-modal-overlay';
-    overlay.innerHTML = '<button class="close-btn">&times;</button><img src="' + escapeHtml(url) + '">';
+    overlay.innerHTML = '<button class="close-btn">&times;</button><div class="ingredient-modal-frame">' + ingredientFrameHtml(name) + '<div class="ingredient-modal-name">' + escapeHtml(name) + '</div></div>';
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay || e.target.classList.contains('close-btn')) overlay.remove();
     });
     document.body.appendChild(overlay);
   }
+  // Admin: every ingredient photo opens the shared Frame Editor — resize,
+  // change/remove, or pull a stock photo off the internet. onClose(changed).
+  function openIngredientFrameEditor(name, onClose) {
+    var key = String(name).toLowerCase();
+    var existing = state.ingredientPhotos[key];
+    var frame = { photo_url: existing ? existing.photo_url : '', frame_height: existing && existing.frame_height };
+    var changed = false;
+    openFrameEditor(frame, null, function (base64, isRemoval, cb) {
+      var req = isRemoval ? apiRemovePhoto('ingredient', { ingredient_name: (existing && existing.name) || name })
+                          : apiUploadPhoto(base64, 'ingredient', { ingredient_name: name });
+      req.then(function (res) {
+        changed = true;
+        if (isRemoval) { delete state.ingredientPhotos[key]; existing = null; cb(''); }
+        else {
+          existing = { name: name, photo_url: res.photo_url, is_stock: false, frame_height: frame.frame_height };
+          state.ingredientPhotos[key] = existing;
+          cb(res.photo_url);
+        }
+      }).catch(function (e) { alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message); });
+    }, function (newHeight) {
+      if (!existing) return;
+      existing.frame_height = newHeight;
+      changed = true;
+      apiUpdateIngredientFrameHeight(existing.name || name, newHeight).catch(function (e) { alert('Resize save failed: ' + e.message); });
+    }, {
+      cls: 'ingredient-frame',
+      defaultHeight: INGREDIENT_FRAME_DEFAULT_H,
+      fallbackIcon: 'camera',
+      onFindStock: function (cb) {
+        apiFetchStockPhoto(name).then(function (res) {
+          if (!res.found) { alert('No stock photo found for "' + name + '" — try 📷 instead.'); cb(null); return; }
+          changed = true;
+          existing = { name: name, photo_url: res.photo_url, is_stock: true, frame_height: frame.frame_height };
+          state.ingredientPhotos[key] = existing;
+          cb(res.photo_url);
+        }).catch(function (e) { alert('Stock photo search failed: ' + e.message); cb(null); });
+      },
+      onClose: function () { if (onClose) onClose(changed); }
+    });
+  }
+  // Admin bulk fill: one stock-photo search per ingredient that has no photo
+  // yet, run sequentially from the browser (the server reaches the internet;
+  // one ingredient per request keeps each call well inside the timeout).
+  function allIngredientNames() {
+    var seen = {}, out = [];
+    Object.keys(state.ingredients).forEach(function (cid) {
+      state.ingredients[cid].forEach(function (i) {
+        var n = String(i.name || '').trim();
+        if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = true; out.push(n); }
+      });
+    });
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function missingIngredientPhotoNames() {
+    return allIngredientNames().filter(function (n) {
+      var p = state.ingredientPhotos[n.toLowerCase()];
+      return !(p && p.photo_url);
+    });
+  }
+  function runBulkStockPhotoFill(btn, onDone) {
+    var names = missingIngredientPhotoNames();
+    if (!names.length) { alert('Every ingredient already has a photo.'); return; }
+    if (!confirm('Search the internet for a stock photo for ' + names.length + ' ingredients with no photo yet? Takes a few minutes — keep this screen open. You can swap any bad ones afterwards in the Frame Editor.')) return;
+    btn.disabled = true;
+    var found = 0, notFound = [], failed = [], i = 0;
+    function next() {
+      if (i >= names.length) {
+        btn.disabled = false;
+        var msg = 'Done: ' + found + ' of ' + names.length + ' ingredients got a stock photo.';
+        if (notFound.length) msg += '\n\nNo photo found (' + notFound.length + '): ' + notFound.join(', ');
+        if (failed.length) msg += '\n\nErrors (' + failed.length + '): ' + failed.join(', ');
+        alert(msg);
+        loadAllData().then(onDone);
+        return;
+      }
+      var n = names[i++];
+      btn.textContent = '🌐 Fetching ' + i + ' / ' + names.length + '…';
+      apiWrite('fetch_stock_photo', { ingredient_name: n, skip_if_exists: true }).then(function (res) {
+        if (res.found) found++;
+        else if (!res.skipped) notFound.push(n);
+      }).catch(function () { failed.push(n); }).then(next);
+    }
+    next();
+  }
+
 
   // ---------- admin write API ----------
   function apiWrite(action, payload) {
@@ -623,9 +728,12 @@
         '<div class="home-card-emoji">🍋</div>' +
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
+      (state.role === 'admin' ? '<button type="button" id="bulk-stock-btn" class="btn btn-secondary logout-btn">🌐 Fetch internet photos for ingredients (' + missingIngredientPhotoNames().length + ' missing)</button>' : '') +
       '<button type="button" id="logout-btn" class="btn btn-secondary logout-btn">Log out</button>';
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
+    var bulkBtn = document.getElementById('bulk-stock-btn');
+    if (bulkBtn) bulkBtn.addEventListener('click', function () { runBulkStockPhotoFill(bulkBtn, renderHome); });
     document.getElementById('logout-btn').addEventListener('click', function () {
       if (!confirm('Log out of Ube Express?')) return;
       localStorage.removeItem('bar_role');
@@ -952,9 +1060,10 @@
     html += '<div class="section-label">Ingredients</div><ul class="ingredient-list">' +
       ings.map(function (i) {
         var photo = state.ingredientPhotos[String(i.name || '').toLowerCase()];
-        var nameHtml = photo && photo.photo_url ?
-          '<button type="button" class="name-btn has-photo" data-view-photo="' + escapeHtml(photo.photo_url) + '">' + escapeHtml(i.name) +
-            (photo.is_stock ? ' <span class="total-tag">stock photo</span>' : '') + '</button>' :
+        var hasIngPhoto = !!(photo && photo.photo_url);
+        var nameHtml = (hasIngPhoto || state.role === 'admin') ?
+          '<button type="button" class="name-btn' + (hasIngPhoto ? ' has-photo' : '') + '" data-ing-frame="' + escapeHtml(i.name) + '">' + escapeHtml(i.name) +
+            (hasIngPhoto && photo.is_stock ? ' <span class="total-tag">stock photo</span>' : '') + '</button>' :
           '<span>' + escapeHtml(i.name) + '</span>';
         var isSplit = splitAcrossSteps[String(i.name || '').toLowerCase()];
         return '<li>' + nameHtml + '<span class="amt">' + escapeHtml(fmtAmtUnit(i.amount, i.unit)) +
@@ -977,8 +1086,12 @@
 
     main.innerHTML = html;
 
-    Array.prototype.forEach.call(main.querySelectorAll('[data-view-photo]'), function (btn) {
-      btn.addEventListener('click', function () { showPhotoModal(btn.getAttribute('data-view-photo')); });
+    Array.prototype.forEach.call(main.querySelectorAll('[data-ing-frame]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var ingName = btn.getAttribute('data-ing-frame');
+        if (state.role === 'admin') openIngredientFrameEditor(ingName, function (changed) { if (changed) openDetail(id); });
+        else showIngredientPhoto(ingName);
+      });
     });
 
     var cocktailPhotoBtn = document.getElementById('cocktail-photo-btn');
@@ -1068,7 +1181,7 @@
       var unit = match ? match.unit : '';
       var amtLabel = fmtAmtUnit(amtVal, unit);
       var photo = state.ingredientPhotos[String(name).toLowerCase()];
-      return '<li' + (photo && photo.photo_url ? ' class="clickable" data-ing-view="' + escapeHtml(photo.photo_url) + '"' : '') + '>' +
+      return '<li' + (photo && photo.photo_url ? ' class="clickable" data-ing-view="' + escapeHtml(photo.photo_url) + '" data-ing-h="' + (photo.frame_height || '') + '"' : '') + '>' +
         '<span class="ing-name">' + escapeHtml(name) + '</span>' +
         (amtLabel ? '<span class="ing-amt">' + escapeHtml(amtLabel) + '</span>' : '') + '</li>';
     }
@@ -1129,6 +1242,10 @@
       Array.prototype.forEach.call(overlay.querySelectorAll('[data-ing-view]'), function (li) {
         li.addEventListener('click', function () {
           var url = li.getAttribute('data-ing-view');
+          // Same no-crop frame as everywhere else; height follows the Frame
+          // Editor's saved size, scaled to fit beside the step icon.
+          var savedH = parseInt(li.getAttribute('data-ing-h'), 10) || INGREDIENT_FRAME_DEFAULT_H;
+          preview.style.height = Math.round(Math.min(150, savedH * 0.55)) + 'px';
           var alreadyActive = li.classList.contains('active');
           var wasVisible = !preview.hidden;
           Array.prototype.forEach.call(overlay.querySelectorAll('.step-ingredient-list li.active'), function (o) { o.classList.remove('active'); });
@@ -1217,7 +1334,7 @@
         '<input type="number" step="0.1" class="ing-amount" placeholder="Amt" value="' + escapeHtml(ing.amount) + '">' +
         '<select class="ing-unit">' + UNIT_OPTIONS.map(function (u) { return '<option value="' + u + '"' + (u === ing.unit ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>' +
         '<button type="button" class="photo-btn' + (hasPhoto && !isStock ? ' has-photo' : '') + (hasPhoto && isStock ? ' is-stock' : '') + '" data-ing-search="1" title="Find a stock photo">' + iconSvg('search') + '</button>' +
-        '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-ing-photo="1" title="Photo for new starters">' + iconSvg('camera') + '</button>' +
+        '<button type="button" class="photo-btn' + (hasPhoto ? ' has-photo' : '') + '" data-ing-photo="1" title="Frame Editor: photo for new starters">' + iconSvg('camera') + '</button>' +
         '<button class="remove-btn" data-remove-ing="' + idx + '">✕</button>' +
         '</div>';
     }
@@ -1413,29 +1530,13 @@
           var row = btn.closest('.repeat-row');
           var name = row.querySelector('.ing-name').value.trim();
           if (!name) { alert('Enter the ingredient name first.'); return; }
-          var existingPhoto = state.ingredientPhotos[name.toLowerCase()];
-          choosePhotoAndUpload(!!(existingPhoto && existingPhoto.photo_url), function (base64, isRemoval) {
-            btn.classList.add('uploading');
-            var req = isRemoval
-              ? apiRemovePhoto('ingredient', { ingredient_name: name })
-              : apiUploadPhoto(base64, 'ingredient', { ingredient_name: name });
-            req.then(function (res) {
-              btn.classList.remove('uploading');
-              var searchBtn = row.querySelector('[data-ing-search]');
-              if (isRemoval) {
-                delete state.ingredientPhotos[name.toLowerCase()];
-                btn.classList.remove('has-photo');
-                if (searchBtn) searchBtn.classList.remove('has-photo');
-              } else {
-                state.ingredientPhotos[name.toLowerCase()] = { photo_url: res.photo_url, is_stock: false };
-                btn.classList.add('has-photo');
-                if (searchBtn) { searchBtn.classList.add('has-photo'); searchBtn.classList.remove('is-stock'); }
-              }
-            }).catch(function (e) {
-              btn.classList.remove('uploading');
-              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
-            });
-          }, function () {});
+          openIngredientFrameEditor(name, function () {
+            var p = state.ingredientPhotos[name.toLowerCase()];
+            var has = !!(p && p.photo_url), stock = has && p.is_stock;
+            btn.classList.toggle('has-photo', has);
+            var searchBtn = row.querySelector('[data-ing-search]');
+            if (searchBtn) { searchBtn.classList.toggle('has-photo', has && !stock); searchBtn.classList.toggle('is-stock', !!stock); }
+          });
         };
       });
       Array.prototype.forEach.call(main.querySelectorAll('[data-ing-search]'), function (btn) {
