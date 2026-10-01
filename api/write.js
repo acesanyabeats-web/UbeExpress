@@ -85,14 +85,10 @@ async function uploadPhotoToStorage(base64, contentType, targetLabel) {
   return SUPABASE_URL + '/storage/v1/object/public/photos/' + objectPath;
 }
 
+var staffSubmitToken = require('./auth.js').staffSubmitToken;
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
-
-  var secret = req.headers['x-bar-secret'];
-  if (!secret || secret !== process.env.BAR_ADMIN_SECRET) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
 
   var body = req.body;
   if (typeof body === 'string') {
@@ -100,6 +96,17 @@ module.exports = async function handler(req, res) {
   }
   var action = body && body.action;
   var payload = body && body.payload;
+
+  // Every action is admin-only, except staff submitting a step-photo
+  // CANDIDATE (it never changes the live recipe — admin reviews it first).
+  var secret = req.headers['x-bar-secret'];
+  var isAdmin = !!secret && secret === process.env.BAR_ADMIN_SECRET;
+  var staffToken = req.headers['x-bar-staff'];
+  var isStaffSubmit = action === 'submit_photo_candidate' && !!staffToken && staffToken === staffSubmitToken();
+  if (!isAdmin && !isStaffSubmit) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
   try {
     if (action === 'create_cocktail' || action === 'update_cocktail') {
@@ -237,6 +244,59 @@ module.exports = async function handler(req, res) {
         method: 'PATCH',
         headers: sbHeaders(),
         body: JSON.stringify({ method_steps: steps3, updated_at: new Date().toISOString() })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'submit_photo_candidate') {
+      if (!payload || !payload.cocktail_id || !(payload.step_index >= 0) || !payload.image_base64) {
+        res.status(400).json({ error: 'Missing photo or step' }); return;
+      }
+      var cRes = await sbFetch('cocktails?id=eq.' + payload.cocktail_id + '&select=method_steps', { headers: sbHeaders() });
+      var cRows = await cRes.json();
+      var cSteps = (cRows[0] && cRows[0].method_steps) || [];
+      var cStep = cSteps[payload.step_index];
+      if (!cStep) { res.status(400).json({ error: 'Bad step index' }); return; }
+      var candUrl = await uploadPhotoToStorage(payload.image_base64, payload.content_type || 'image/jpeg', 'candidate');
+      await sbFetch('photo_submissions', {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({
+          cocktail_id: payload.cocktail_id,
+          step_index: payload.step_index,
+          // Snapshot of the step's text, so the review can warn if the
+          // recipe's steps were merged/reordered after this was sent.
+          step_instruction: cStep.instruction || '',
+          photo_url: candUrl,
+          submitted_by: String(payload.submitted_by || '').slice(0, 60) || null
+        })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'review_photo_submission') {
+      var sRes = await sbFetch('photo_submissions?id=eq.' + payload.id + '&select=*', { headers: sbHeaders() });
+      var sub = (await sRes.json())[0];
+      if (!sub) { res.status(404).json({ error: 'Submission not found' }); return; }
+      if (sub.status !== 'pending') { res.status(409).json({ error: 'Already ' + sub.status }); return; }
+      if (payload.decision === 'accept') {
+        var aRes = await sbFetch('cocktails?id=eq.' + sub.cocktail_id + '&select=method_steps', { headers: sbHeaders() });
+        var aSteps = ((await aRes.json())[0] || {}).method_steps || [];
+        var idx = payload.step_index != null ? payload.step_index : sub.step_index;
+        if (!aSteps[idx]) { res.status(400).json({ error: 'That step no longer exists' }); return; }
+        aSteps[idx].photo_url = sub.photo_url;
+        await sbFetch('cocktails?id=eq.' + sub.cocktail_id, {
+          method: 'PATCH', headers: sbHeaders(),
+          body: JSON.stringify({ method_steps: aSteps, updated_at: new Date().toISOString() })
+        });
+      } else if (payload.decision !== 'reject') {
+        res.status(400).json({ error: 'Bad decision' }); return;
+      }
+      await sbFetch('photo_submissions?id=eq.' + sub.id, {
+        method: 'PATCH', headers: sbHeaders(),
+        body: JSON.stringify({ status: payload.decision === 'accept' ? 'accepted' : 'rejected', reviewed_at: new Date().toISOString() })
       });
       res.status(200).json({ ok: true });
       return;

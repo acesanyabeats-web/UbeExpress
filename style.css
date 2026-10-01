@@ -717,3 +717,32 @@ body {
 .report-md table { border-collapse: collapse; font-size: 0.88rem; min-width: 100%; }
 .report-md th, .report-md td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
 .report-md th { background: var(--card2); }
+
+/* ---- Staff photo candidates ---- */
+.suggest-photo-link { background: none; border: none; color: var(--accent); font-size: 0.9rem; padding: 6px; cursor: pointer; text-decoration: underline; }
+.candidate-badge { background: var(--accent); color: #1a1410; border: none; border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 0.9rem; cursor: pointer; margin: 4px auto 8px; display: block; }
+.home-card.has-pending { border-color: var(--accent); }
+.pending-count { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #1a1410; font-size: 0.8rem; text-align: center; vertical-align: middle; }
+#candidate-sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 380; display: flex; align-items: flex-end; justify-content: center; padding: 16px; }
+.candidate-sheet { width: 100%; max-width: 420px; background: var(--card); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.candidate-sheet h3 { margin: 0; }
+.candidate-sheet-sub { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.equip-icon.is-photo.candidate-preview { width: 100%; height: 220px; align-self: center; }
+.candidate-sheet label { font-size: 0.85rem; color: var(--muted); }
+.candidate-sheet-actions { display: flex; gap: 10px; justify-content: flex-end; }
+#photo-review-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 250; overflow-y: auto; padding: 16px; }
+.review-empty { color: var(--muted); }
+.review-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; max-width: 640px; margin-left: auto; margin-right: auto; }
+.review-title { font-weight: 600; }
+.review-instruction { color: var(--muted); font-size: 0.9rem; margin: 4px 0 10px; }
+.review-warn { background: var(--card2); border-left: 3px solid var(--danger); padding: 8px 10px; font-size: 0.85rem; margin-bottom: 10px; }
+.review-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.review-compare figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.review-compare figcaption { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.equip-icon.is-photo.review-frame { width: 100%; height: 180px; margin-bottom: 0; }
+.review-none { width: 100%; height: 180px; border: 1px dashed var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.85rem; }
+.review-meta { font-size: 0.8rem; color: var(--muted); margin: 10px 0; }
+.review-actions { display: flex; gap: 10px; }
+.review-actions .btn { flex: 1; }
+#photo-review-overlay .frame-editor-header { max-width: 640px; margin: 0 auto 12px; }
+#photo-review-overlay .frame-editor-header .btn { width: auto; flex: none; padding: 8px 16px; }

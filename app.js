@@ -71,6 +71,7 @@
     cocktails: [],
     ingredients: {},     // cocktail_id -> [ingredient rows]
     ingredientPhotos: {}, // lowercase ingredient name -> photo_url
+    photoSubmissions: [], // pending staff step-photo candidates (admin reviews)
     seen: readSeen(),
     backTarget: null,    // fn the nav-back-btn calls; set by setHeader
     menuTab: 'cocktail'  // 'cocktail' | 'mocktail' — which sub-list the Cocktail Spec menu shows
@@ -227,8 +228,10 @@
     return Promise.all([
       sbSelect('cocktails', 'select=*&order=name.asc'),
       sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc'),
-      sbSelect('ingredient_photos', 'select=*')
+      sbSelect('ingredient_photos', 'select=*'),
+      sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; })
     ]).then(function (results) {
+      state.photoSubmissions = results[3] || [];
       state.cocktails = results[0];
       state.ingredients = {};
       results[1].forEach(function (row) {
@@ -675,6 +678,7 @@
       state.role = res.role;
       localStorage.setItem('bar_role', res.role);
       if (res.role === 'admin' && res.secret) localStorage.setItem('bar_admin_secret', res.secret);
+      if (res.submit_token) localStorage.setItem('bar_submit_token', res.submit_token);
       showApp();
     }).catch(function () {
       errEl.textContent = 'Wrong password — try again.';
@@ -717,6 +721,142 @@
   }
 
   // ---------- HOME ----------
+  // ---------- Staff step-photo candidates ----------
+  // Staff can't edit any photo. In Build Mode they can take/choose a photo for
+  // a step; it's stored as a CANDIDATE (photo_submissions, status pending)
+  // and never touches the live recipe until an admin compares it with the
+  // current photo and accepts it.
+  function pendingSubmissionsFor(cocktailId, stepIndex) {
+    return (state.photoSubmissions || []).filter(function (p) {
+      return p.cocktail_id === cocktailId && (stepIndex == null || p.step_index === stepIndex);
+    });
+  }
+  function ensureSubmitToken() {
+    var tok = localStorage.getItem('bar_submit_token');
+    if (tok) return Promise.resolve(tok);
+    // Logged in before this feature existed: ask for the password once.
+    var pw = prompt('Enter the bar password once to send photos:');
+    if (!pw) return Promise.reject(new Error('cancelled'));
+    return tryLogin(pw).then(function (res) {
+      if (!res.submit_token) throw new Error('No submit permission');
+      localStorage.setItem('bar_submit_token', res.submit_token);
+      return res.submit_token;
+    });
+  }
+  function apiSubmitCandidate(c, stepIndex, base64, name) {
+    return ensureSubmitToken().then(function (tok) {
+      return fetch('/api/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bar-staff': tok, 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+        body: JSON.stringify({ action: 'submit_photo_candidate', payload: { cocktail_id: c.id, step_index: stepIndex, image_base64: base64, content_type: 'image/jpeg', submitted_by: name } })
+      });
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('send failed: ' + r.status)); });
+      return r.json();
+    });
+  }
+  function suggestStepPhoto(c, stepIndex) {
+    pickPhotoAndUploadFromMenu(function (base64) {
+      var sheet = document.createElement('div');
+      sheet.id = 'candidate-sheet-overlay';
+      var savedName = '';
+      try { savedName = localStorage.getItem('bar_staff_name') || ''; } catch (e) {}
+      sheet.innerHTML =
+        '<div class="candidate-sheet">' +
+          '<h3>Send for review</h3>' +
+          '<p class="candidate-sheet-sub">' + escapeHtml(c.name) + ' — step ' + (stepIndex + 1) + '. An admin compares it with the current photo before anything changes.</p>' +
+          '<img class="equip-icon is-photo candidate-preview" src="data:image/jpeg;base64,' + base64 + '">' +
+          '<label for="candidate-name">Your name (optional)</label>' +
+          '<input type="text" id="candidate-name" maxlength="60" value="' + escapeHtml(savedName) + '" placeholder="e.g. Sam">' +
+          '<div class="candidate-sheet-actions">' +
+            '<button type="button" class="btn btn-secondary" id="candidate-cancel">Cancel</button>' +
+            '<button type="button" class="btn btn-primary" id="candidate-send">Send photo</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(sheet);
+      sheet.querySelector('#candidate-cancel').addEventListener('click', function () { sheet.remove(); });
+      var sendBtn = sheet.querySelector('#candidate-send');
+      sendBtn.addEventListener('click', function () {
+        var name = sheet.querySelector('#candidate-name').value.trim();
+        try { localStorage.setItem('bar_staff_name', name); } catch (e) {}
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending…';
+        apiSubmitCandidate(c, stepIndex, base64, name).then(function () {
+          sheet.remove();
+          alert('Thanks — your photo was sent for review.');
+        }).catch(function (e) {
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Send photo';
+          if (e.message !== 'cancelled') alert('Could not send the photo: ' + e.message);
+        });
+      });
+    });
+  }
+  // Take/choose (+ crop) only — no "remove" option for staff.
+  function pickPhotoAndUploadFromMenu(onPicked) {
+    choosePhotoAndUpload(false, function (base64, isRemoval) { if (!isRemoval && base64) onPicked(base64); }, function () {});
+  }
+  function apiReviewSubmission(id, decision) {
+    return apiWrite('review_photo_submission', { id: id, decision: decision });
+  }
+  // Admin comparison screen: current step photo vs each staff candidate,
+  // side by side in the same no-crop frames. filter: {cocktailId, stepIndex}
+  // or null for everything waiting. onClose(changed).
+  function openPhotoReview(filter, onClose) {
+    var overlay = document.createElement('div');
+    overlay.id = 'photo-review-overlay';
+    document.body.appendChild(overlay);
+    var changed = false;
+    function close() { overlay.remove(); if (onClose) onClose(changed); }
+    function render() {
+      var list = filter ? pendingSubmissionsFor(filter.cocktailId, filter.stepIndex) : (state.photoSubmissions || []);
+      var html = '<div class="frame-editor-header"><h3>Staff photo candidates</h3><button type="button" class="btn btn-secondary" id="review-done">Done</button></div>';
+      if (!list.length) html += '<p class="review-empty">Nothing waiting for review.</p>';
+      html += list.map(function (p) {
+        var c = state.cocktails.filter(function (x) { return x.id === p.cocktail_id; })[0];
+        var steps = (c && c.method_steps) || [];
+        var step = steps[p.step_index];
+        var moved = !step || (p.step_instruction && (step.instruction || '') !== p.step_instruction);
+        var current = step && step.photo_url
+          ? stepMediaHtml(c.glass, { photo_url: step.photo_url }, { cls: 'review-frame', defaultHeight: 180 })
+          : '<div class="review-none">No photo yet</div>';
+        var when = new Date(p.created_at);
+        return '<div class="review-card" data-sub="' + p.id + '">' +
+          '<div class="review-title">' + escapeHtml(c ? c.name : 'Deleted cocktail') + ' — step ' + (p.step_index + 1) + '</div>' +
+          '<div class="review-instruction">' + escapeHtml(p.step_instruction || '') + '</div>' +
+          (moved ? '<div class="review-warn">⚠️ This step has changed since the photo was sent (steps merged or reworded) — check it still matches before accepting.</div>' : '') +
+          '<div class="review-compare">' +
+            '<figure><figcaption>Current</figcaption>' + current + '</figure>' +
+            '<figure><figcaption>Candidate</figcaption>' + stepMediaHtml(null, { photo_url: p.photo_url }, { cls: 'review-frame', defaultHeight: 180 }) + '</figure>' +
+          '</div>' +
+          '<div class="review-meta">From ' + escapeHtml(p.submitted_by || 'staff (no name)') + ' · ' + escapeHtml(when.toLocaleString()) + '</div>' +
+          '<div class="review-actions">' +
+            '<button type="button" class="btn btn-secondary" data-decide="reject">✕ Keep current</button>' +
+            '<button type="button" class="btn btn-primary" data-decide="accept"' + (step ? '' : ' disabled') + '>✓ Use candidate</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      overlay.innerHTML = html;
+      overlay.querySelector('#review-done').addEventListener('click', close);
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-decide]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var card = btn.closest('.review-card');
+          var id = card.getAttribute('data-sub');
+          var decision = btn.getAttribute('data-decide');
+          Array.prototype.forEach.call(card.querySelectorAll('button'), function (b) { b.disabled = true; });
+          apiReviewSubmission(id, decision).then(function () {
+            changed = true;
+            return loadAllData();
+          }).then(render).catch(function (e) {
+            alert('Could not save that decision: ' + e.message);
+            render();
+          });
+        });
+      });
+    }
+    render();
+  }
+
   // ---------- Data Integrity Report (admin) ----------
   // Renders data_integrity_report.md (served as a static file next to the
   // app) so the latest committed version is always what's shown. Small
@@ -807,6 +947,10 @@
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
       (state.role === 'admin' ?
+        '<div class="home-card' + (state.photoSubmissions.length ? ' has-pending' : '') + '" id="home-candidates">' +
+          '<div class="home-card-emoji">📸</div>' +
+          '<div class="home-card-text"><h3>Staff Photo Candidates' + (state.photoSubmissions.length ? ' <span class="pending-count">' + state.photoSubmissions.length + '</span>' : '') + '</h3><p>Compare photos sent from the bar with the current ones</p></div>' +
+        '</div>' +
         '<div class="home-card" id="home-report">' +
           '<div class="home-card-emoji">📋</div>' +
           '<div class="home-card-text"><h3>Data Integrity Report</h3><p>Every inconsistency found so far — resolved and still open</p></div>' +
@@ -818,6 +962,10 @@
     main.classList.add('is-home');
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
+    var candCard = document.getElementById('home-candidates');
+    if (candCard) candCard.addEventListener('click', function () {
+      loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
+    });
     var reportCard = document.getElementById('home-report');
     if (reportCard) reportCard.addEventListener('click', renderReport);
     var bulkBtn = document.getElementById('bulk-stock-btn');
@@ -826,6 +974,7 @@
       if (!confirm('Log out of Ube Express?')) return;
       localStorage.removeItem('bar_role');
       localStorage.removeItem('bar_admin_secret');
+      localStorage.removeItem('bar_submit_token');
       location.reload();
     });
   }
@@ -1287,7 +1436,13 @@
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        '<div class="step-media-row"><button type="button" class="step-media-btn">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
+        '<div class="step-media-row"><button type="button" class="step-media-btn" title="' + (state.role === 'admin' ? 'Frame Editor' : 'Suggest a photo for this step') + '">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
+        (state.role === 'admin'
+          ? (function () {
+              var n = pendingSubmissionsFor(c.id, idx).length;
+              return n ? '<button type="button" class="candidate-badge" id="step-candidates-btn">📸 ' + n + ' staff photo' + (n > 1 ? 's' : '') + ' to compare</button>' : '';
+            })()
+          : '<button type="button" class="suggest-photo-link" id="step-suggest-btn">📷 Suggest a photo for this step</button>') +
         ingList +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
@@ -1296,7 +1451,21 @@
         (idx < steps.length - 1 ? '<button id="build-next" class="btn btn-primary">Next →</button>' : '<button id="build-done" class="btn btn-primary">✅ Done</button>') +
         '</div>';
 
+      var candBtn = document.getElementById('step-candidates-btn');
+      if (candBtn) candBtn.addEventListener('click', function () {
+        openPhotoReview({ cocktailId: c.id, stepIndex: idx }, function (changed) {
+          if (!changed) { render(); return; }
+          var fresh = state.cocktails.filter(function (x) { return x.id === c.id; })[0];
+          if (fresh && fresh.method_steps && fresh.method_steps[idx]) s.photo_url = fresh.method_steps[idx].photo_url || '';
+          render();
+        });
+      });
+      function staffSuggest() { suggestStepPhoto(c, idx); }
+      var suggestBtn = document.getElementById('step-suggest-btn');
+      if (suggestBtn) suggestBtn.addEventListener('click', staffSuggest);
       overlay.querySelector('.step-media-btn').addEventListener('click', function () {
+        // Staff never edit photos — tapping the frame offers a candidate instead.
+        if (state.role !== 'admin') { staffSuggest(); return; }
         openFrameEditor(s, c.glass, function (base64, isRemoval, cb) {
           var req = isRemoval
             ? apiRemovePhoto('step', { cocktail_id: c.id, step_index: idx })
