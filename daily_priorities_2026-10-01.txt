@@ -1,0 +1,37 @@
+/Routine — Ube Express — 1 Oct 2026 (run straight after /Bedtime)
+Evidence: the /Bedtime close-out in data_integrity_report.md (git main = remote,
+live Supabase counts), minutes old — not re-gathered. Proportionate run, per Alex.
+
+TEAM 1 (evidence-ranked):
+ 1. Confirm the live site is serving today's code (Vercel). Reason: ~30 commits shipped
+    today with zero live confirmation; if a deploy failed, every "check" step given to
+    Alex fails and looks like a bug. Cheapest, highest-leverage, doable now.
+ 2. Alex hand-test pass on the live app (Fruit Prep with a real container, Cheers Trav,
+    Label List) — nothing has been touched by a real user yet. [Alex]
+ 3. Screenshots for the 15 open Cheers Trav rows — the report is the deliverable he
+    asked for and it has 0 screenshots. [Alex]
+ 4. Confirm the Mint split's 7 judgement calls (Pimms Jug + 6 no-step drinks). [Alex]
+ 5. Peach shelf life + Pomegranate label answer. [Alex]
+ 6. Obvious app-internal typos: "Chai Seeds"→"Chia Seeds", "Coconut Dessicated"→
+    "Desiccated". [needs Alex's yes — renaming makes each a Cheers Trav row]
+ 7. Unit errors: Lemon 0.25 gram (4 Pop Stars), Lemon 0.05g, Pineapple 0.1 gram →
+    "each". [needs Alex's yes]
+ 8. Popping Balls – Mango / Guest Sweets as products; the pink list's circled note. [Alex]
+ 9. Price column decision. [Alex]
+10. Dragon Fruit & Lychee Soda's missing method. [Alex]
+
+TEAM 2 (counter-case):
+ - Real case: the two older browser-test scripts (evidence_test.py, cheers_test.py) now
+   fail on their staff half since Cheers Trav went admin-only. They're scratch tests,
+   not in the repo — real but low value; doesn't outrank anything above.
+ - Real case: #6/#7 are the only items Claude could finish today without new info —
+   argued they should rank above Alex-only items. Rebuttal held: they each change what
+   staff see in a recipe, and Alex has repeatedly corrected guesses today (e.g. Mint,
+   Trav labels) — they need his yes, so they stay where they are, asked together.
+ - Nothing else found that Team 1 dropped.
+
+5thDimension check: built vs reported matches (local main = remote main; DB counts match
+the close-out). Fits the 48-hour rule: everything above serves tonight/tomorrow's service.
+
+FINAL: Team 1's order stands. #1 executed now. #2–#10 need Alex — asked as one batch.
+Dropped (honestly): fixing the scratch test scripts (not product work).
