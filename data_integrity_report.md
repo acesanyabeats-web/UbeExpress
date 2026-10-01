@@ -517,3 +517,11 @@ Any colleague can tap **Needs top up** on a Fruit Prep item (stocked or not)
 to flag it for the next opener; flagged items get a ⬆ Top up badge and appear
 in a "⬆ Top Up on Next Open" list. The flag clears on **Topped up**, when a new
 container is prepped for that item, or when it is marked Out of stock.
+
+### Plain "Needs prepping" merged into red (Oct 1 2026)
+Per Alex: plain/grey was the same as red, just a different reason the item
+isn't at the station. Red now covers every not-at-station case; the row
+badge says why (Thrown out — prep / Back on — prep / Needs prepping). Each
+Fruit Prep row now has a slim left column with its colour-key symbol at
+checkbox size, and the whole row takes that colour's hue. Display-only change,
+no data changed.

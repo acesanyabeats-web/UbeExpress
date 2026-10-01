@@ -884,12 +884,16 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .st-black .prep-dot, .legend-item.st-black .prep-dot { background: var(--st-black); box-shadow: 0 0 0 2px #fff; }
 .st-red .prep-dot, .legend-item.st-red .prep-dot { background: var(--st-red); }
 .st-blue .prep-dot, .legend-item.st-blue .prep-dot { background: var(--st-blue); }
-.prep-item.st-light { border-color: var(--st-light); }
-.prep-item.st-dark { border-color: var(--st-dark); background: #18261b; }
-.prep-item.st-amber { border-color: var(--st-amber); }
+.prep-item { display: flex; align-items: stretch; gap: 10px; }
+.prep-item-body { flex: 1; min-width: 0; }
+.prep-sym { flex: none; width: 24px; display: flex; align-items: flex-start; padding-top: 2px; }
+.prep-sym .prep-dot, .prep-legend .prep-dot { width: 24px; height: 24px; }
+.prep-item.st-light { border-color: var(--st-light); background: color-mix(in srgb, var(--st-light) 16%, var(--card)); }
+.prep-item.st-dark { border-color: var(--st-dark); background: color-mix(in srgb, var(--st-dark) 30%, var(--card)); }
+.prep-item.st-amber { border-color: var(--st-amber); background: color-mix(in srgb, var(--st-amber) 18%, var(--card)); }
 .prep-item.st-black { border-color: #fff; background: var(--st-black); }
-.prep-item.st-red { border-color: var(--st-red); background: #2a1514; }
-.prep-item.st-blue { border-color: var(--st-blue); background: #14202f; }
+.prep-item.st-red { border-color: var(--st-red); background: color-mix(in srgb, var(--st-red) 18%, var(--card)); }
+.prep-item.st-blue { border-color: var(--st-blue); background: color-mix(in srgb, var(--st-blue) 20%, var(--card)); }
 .exp-badge.st-light { background: var(--st-light); color: #10210f; }
 .exp-badge.st-dark { background: var(--st-dark); color: #e9f5ea; }
 .exp-badge.st-amber { background: var(--st-amber); color: #1a1410; }
@@ -912,7 +916,7 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .prep-legend { margin-bottom: 12px; font-size: 0.85rem; }
 .prep-legend summary { cursor: pointer; color: var(--muted); }
 .prep-legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 8px; }
-.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 8px; }
 .prep-labels-btn { margin: 14px 0 6px; }
 .toss-row.st-black { background: var(--st-black); border-color: #fff; }
 .toss-row.st-amber { border-color: var(--st-amber); }

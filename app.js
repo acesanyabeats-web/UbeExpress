@@ -67,8 +67,7 @@
   var NEW_BADGE_DAYS = 3;
   // Whole-item colour (Alex's scheme): blue = out of stock; otherwise the
   // most urgent container (black > amber > dark green > light green); with
-  // no containers: red if the last one was thrown out (or it's just back in
-  // stock), else plain 'none' (needs prepping). isNew = back in stock
+  // no containers: red (not at the station — reason says why). isNew = back in stock
   // recently (until 3 days after it first goes light green again).
   function itemStatus(name) {
     var flags = state.prep[String(name || '').toLowerCase()] || {};
@@ -89,8 +88,10 @@
     }
     var ended = all.filter(function (b) { return b.ended_at; }).sort(function (a, b) { return new Date(b.ended_at) - new Date(a.ended_at); });
     var lastThrown = ended[0] && ended[0].end_reason === 'thrown' && (!restockedAt || new Date(ended[0].ended_at) > restockedAt);
-    if (lastThrown || (restockedAt && isNew)) return { colour: 'red', isNew: isNew, active: active };
-    return { colour: 'none', isNew: false, active: active };
+    // Red = not at the station, whatever the reason (thrown out, used up,
+    // never prepped, just back in stock) — Alex merged the old plain state into red.
+    var reason = lastThrown ? 'thrown' : (restockedAt && isNew) ? 'restocked' : 'empty';
+    return { colour: 'red', reason: reason, isNew: isNew, active: active };
   }
   function fmtShelfLife(hours) {
     if (!hours) return 'not set';
@@ -1476,11 +1477,12 @@
       .sort(function (a, b) { return a.info.expiresAt - b.info.expiresAt; });
   }
   var COLOUR_TEXT = { light: 'Stocked', dark: 'Needs label', amber: 'Bin tonight', black: 'Out of date — bin now', red: 'Thrown out — prep', blue: 'Out of stock', none: 'Needs prepping' };
+  var RED_TEXT = { thrown: 'Thrown out — prep', restocked: 'Back on — prep', empty: 'Needs prepping' };
   function expiryBadgeHtml(name) {
     var st = itemStatus(name);
     if (st.colour === 'none') return '';
     var info = expiryInfo(name);
-    var text = st.colour === 'light' && info.throwOutDay ? 'Good until ' + fmtDay(info.throwOutDay) : COLOUR_TEXT[st.colour];
+    var text = st.colour === 'red' ? RED_TEXT[st.reason] : st.colour === 'light' && info.throwOutDay ? 'Good until ' + fmtDay(info.throwOutDay) : COLOUR_TEXT[st.colour];
     if (st.colour === 'light' && info.status === 'no_shelf_life') text = 'Stocked · shelf life not set';
     return '<span class="exp-badge st-' + st.colour + '">' + escapeHtml(text) + '</span>' + (st.isNew ? '<span class="new-badge-stock" title="Back in stock recently">🆕 back in stock</span>' : '');
   }
@@ -1507,7 +1509,8 @@
     var oos = st.colour === 'blue';
     var ticked = !!TICKED_COLOURS[st.colour];
     return '<div class="prep-item st-' + st.colour + '" data-item="' + escapeHtml(name) + '">' +
-      '<div class="prep-item-head">' +
+      '<span class="prep-sym" aria-hidden="true"><span class="prep-dot"></span></span>' +
+      '<div class="prep-item-body"><div class="prep-item-head">' +
         '<label class="prep-tick"><input type="checkbox" class="prep-tick-input"' + (ticked ? ' checked' : '') + (oos ? ' disabled' : '') +
           ' aria-label="' + escapeHtml(name) + ' stocked"></label>' +
         '<span class="prep-name">' + escapeHtml(name) + '</span>' +
@@ -1524,7 +1527,7 @@
         '</span>' +
       '</div>' +
       (st.active.length ? '<div class="batch-list">' + st.active.map(function (b, i) { return batchChipHtml(name, b, i); }).join('') + '</div>' : '') +
-    '</div>';
+    '</div></div>';
   }
   // Ticking: did they label it now (light green) or does it still need a label (dark green)?
   function askLabelled(name, onPick, note, onCancel) {
@@ -1561,7 +1564,7 @@
     sheet.addEventListener('click', function (e) { if (e.target === sheet) cancel(); });
   }
 
-  var PREP_LEGEND = [['light', 'Stocked & labelled'], ['dark', 'Stocked, needs label'], ['amber', 'Bin at close tonight'], ['black', 'Out of date — bin now'], ['red', 'Thrown out — needs prepping'], ['blue', 'Out of stock'], ['none', 'Needs prepping']];
+  var PREP_LEGEND = [['light', 'Stocked & labelled'], ['dark', 'Stocked, needs label'], ['amber', 'Bin at close tonight'], ['black', 'Out of date — bin now'], ['red', 'Not at station — needs prepping'], ['blue', 'Out of stock']];
   function renderFruitPrep() {
     setHeader('🍋 Fruit Prep', true, renderHome);
     var main = document.getElementById('app-main');
