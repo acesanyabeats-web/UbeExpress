@@ -146,10 +146,12 @@ re-pointing.
 
 **What changed**: shelf life is now stored per ingredient
 (`ingredient_photos.shelf_life_hours`) and editable in the admin
-Ingredients table. 22 ingredients were set straight from the 30 Sep
-label photos (3 days fresh produce, 6 days Pineapple, 7 days Tinned
-Lychee, 14 days Popping Balls/Glace Cherries, 28 days Desiccated
-Coconut/Lime Cordial/Homemade Lemonade). The guessed defaults are gone —
+Ingredients table. 20 ingredients were set straight from the 30 Sep
+label photos (10 fresh produce at 3 days, 6 days Pineapple, 7 days
+Tinned Lychee, 14 days 4 Popping Balls + Glace Cherries, 28 days
+Desiccated Coconut/Lime Cordial/Homemade Lemonade). *(Corrected same
+day: first logged as "22" — a miscount in the write-up; a live re-query
+confirms 20, which matches the label list exactly.)* The guessed defaults are gone —
 an ingredient with no known shelf life now says "shelf life not set"
 instead of printing a made-up date. Sweets/garnish items are labelled
 too. The label time is saved when a colleague presses **Done** on the
@@ -162,6 +164,18 @@ label says "Mint – Fresh"), "Giant Marshmallows" (the label says
 Blueberry", "Homemade Raspberry Lemonade – Batch", "Lime Juice – Fresh".
 Still untracked from the labels: "Popping Balls – Mango", "Guest
 Sweets". The pink handwritten note is still not transcribed.
+
+**Follow-up fix, same day — a real bug Alex's own renames exposed**:
+Fruit Prep decided which ingredients appear on its lists from a
+hard-coded list of names in the app's code. After Alex renamed 4 of
+them in the Ingredients table ("Homemade Raspberry Lemonade - Batch",
+"Sprinkles (Hundreds&Thousands)", "Food Colouring - Green", "Freeze
+Dried Raspberries - NEW"), those 4 silently dropped off Fruit Prep.
+Fixed at the root: each ingredient now carries its own Fruit Prep group
+(`ingredient_photos.prep_group`), seeded from the old lists (21 Fruit &
+Syrups + 44 Sweets & Garnish, verified to match exactly), editable in
+the Ingredients table roll-down, and carried along by renames, swaps
+and merges.
 
 ---
 

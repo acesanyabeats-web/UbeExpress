@@ -9,43 +9,14 @@
   var UNIT_OPTIONS = ['oz', 'ml', 'g', 'each', 'dash', 'barspoon', 'splash', 'rinse', 'whole', 'wedge', 'leaf', 'sprig', 'scoop', 'to taste'];
   var OZ_TO_ML = 29.5735;
 
-  // Fruit Prep / Sweets Garnish Stock classification. Fresh fruit/herbs + the
-  // 2 house-made batch items need daily portioning; candy/novelty/dried/tinned
-  // garnish consumables need stock replenishment. Branded bottled syrups,
-  // purees, cordials, spirits, dairy, sorbet/gelato, sodas and bottled juices
-  // are deliberately excluded from both — they're poured to spec, not prepped
-  // or restocked as garnish, and are out of scope for this feature.
-  var FRUIT_SYRUP_ITEMS = [
-    'lemon', 'lime', 'lime juice - fresh', 'oranges', 'orange zest', 'cucumber',
-    'strawberries', 'raspberries', 'blackberry', 'pineapple', 'passion fruit',
-    'lychee', 'grapefruit pink', 'cherries', 'birds eye chillies', 'peach',
-    'pomegranate seeds', 'mint - fresh', 'mint', 'homemade lemonade',
-    'homemade raspberry lemonade - batch'
-  ];
-  var SWEETS_GARNISH_ITEMS = [
-    'popping candy - wizz fizz', 'popping balls - lychee', 'popping balls - passionfruit',
-    'popping balls - raspberry', 'popping balls - strawberry', 'popping balls - blueberry',
-    'sweetzone candy floss', 'vimto chew bar', 'vimto chew bon bon', 'skittles',
-    'sprinkles (hundreds&thousands)', 'jaffa cakes', 'strawberry laces', 'cherry pencils',
-    'jacks pencil sweet', 'chocolate digestives', 'giant marshmallows', 'percy pigs',
-    'tuck shop foam banana', 'edible glitter', 'drip icing - blue',
-    'freeze dried raspberries - new', 'dried dragonfruit', 'dried lime slices',
-    'dried orange slices', 'glace cherries', 'tinned lychee', 'peach hearts',
-    'chai seeds', 'coconut shaved', 'coconut dessicated', 'birthday tassel stick',
-    'mini disco ball', 'mini cherry blossom tree', 'yellow bathtub ducks',
-    'mermaid tails', 'ping pong balls', 'rocket lollie', 'cocktail umbrellas',
-    '7.75" red/white striped paper straw', '7.75" green/white striped paper straw',
-    'food colouring - green', 'chocolate chip cookie', 'crumbled shortbread'
-  ];
-  // Butterfly Pea (flavourless natural blue colour extract, ~0.05-0.5g/drop
-  // doses) deliberately left uncategorized: it isn't fresh produce needing
-  // daily portioning, and it isn't a "sweets" garnish either — a genuine
-  // classification gap, flagged rather than forced into either list.
+  // Fruit Prep membership lives on each ingredient (ingredient_photos.
+  // prep_group: 'fruit_syrup' = fresh fruit/herbs + house batches to portion,
+  // 'sweets_garnish' = garnish stock to replenish, null = poured to spec, not
+  // prepped). Stored per ingredient — not a hard-coded name list — so it
+  // follows renames/swaps/merges and is editable in the Ingredients table.
   function ingredientCategory(name) {
-    var n = String(name || '').toLowerCase();
-    if (FRUIT_SYRUP_ITEMS.indexOf(n) !== -1) return 'fruit_syrup';
-    if (SWEETS_GARNISH_ITEMS.indexOf(n) !== -1) return 'sweets_garnish';
-    return null;
+    var p = state.ingredientPhotos[String(name || '').toLowerCase()];
+    return (p && p.prep_group) || null;
   }
 
   // Shelf life lives per ingredient (ingredient_photos.shelf_life_hours),
@@ -248,7 +219,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null };
       });
     });
   }
@@ -743,6 +714,10 @@
       '<div class="ing-details-grid">' +
         '<label>Shelf life (days)<input type="number" min="0" step="0.5" class="ing-shelf-input" value="' + days + '" placeholder="not set"></label>' +
         '<label>Most recent label<input type="datetime-local" class="ing-label-input" value="' + (info.labelAt ? toLocalInputValue(info.labelAt) : '') + '"></label>' +
+        '<label>On Fruit Prep<select class="ing-prep-select">' +
+          [['', 'Not on Fruit Prep'], ['fruit_syrup', '🍓 Fruit & Syrups to portion'], ['sweets_garnish', '🍬 Sweets & garnish stock']].map(function (o) {
+            return '<option value="' + o[0] + '"' + ((ingredientCategory(name) || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+          }).join('') + '</select></label>' +
       '</div>' +
       '<div class="ing-details-expiry">' + expiryBadgeHtml(name) + ' <span>' + escapeHtml(expiryText) + '</span></div>' +
       '<div class="ing-swap">' +
@@ -889,6 +864,17 @@
         else state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: hours };
         renderIngredientsTable();
       }).catch(function (e) { shelf.disabled = false; alert('Could not save the shelf life: ' + e.message); });
+    });
+    var prepSel = row.querySelector('.ing-prep-select');
+    prepSel.addEventListener('change', function () {
+      var g = prepSel.value || null;
+      prepSel.disabled = true;
+      apiUpdateIngredient(name, { prep_group: g }).then(function () {
+        var key = name.toLowerCase();
+        if (state.ingredientPhotos[key]) state.ingredientPhotos[key].prep_group = g;
+        else state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: null, prep_group: g };
+        renderIngredientsTable();
+      }).catch(function (e) { prepSel.disabled = false; alert('Could not save: ' + e.message); });
     });
     var label = row.querySelector('.ing-label-input');
     label.addEventListener('change', function () {

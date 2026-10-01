@@ -307,6 +307,16 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      if (payload.prep_group !== undefined) {
+        var pg = payload.prep_group || null;
+        if (pg !== null && pg !== 'fruit_syrup' && pg !== 'sweets_garnish') { res.status(400).json({ error: 'Bad Fruit Prep group' }); return; }
+        if (ipRow) {
+          await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ prep_group: pg, updated_at: now }) });
+        } else {
+          await sbFetch('ingredient_photos', { method: 'POST', headers: sbHeaders(), body: JSON.stringify({ name: oldName, prep_group: pg, is_stock: false }) });
+        }
+      }
+
       if (payload.category !== undefined) {
         var cat = String(payload.category || '').trim() || null;
         if (ipRow) {
@@ -462,7 +472,7 @@ module.exports = async function handler(req, res) {
         if (toIp) {
           // Merge: the kept ingredient picks up anything only the old one had.
           var fill = {};
-          ['category', 'shelf_life_hours', 'photo_url', 'frame_height'].forEach(function (f) {
+          ['category', 'shelf_life_hours', 'photo_url', 'frame_height', 'prep_group'].forEach(function (f) {
             if ((toIp[f] === null || toIp[f] === undefined || toIp[f] === '') && fromIp[f] !== null && fromIp[f] !== undefined && fromIp[f] !== '') fill[f] = fromIp[f];
           });
           if (fill.frame_height !== undefined && !(fill.photo_url || toIp.photo_url)) delete fill.frame_height;

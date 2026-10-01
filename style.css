@@ -770,10 +770,10 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ing-details-row td { background: var(--card); padding: 12px; }
 .ing-details-used { margin: 0 0 10px; font-size: 0.88rem; line-height: 1.45; }
 .ing-details-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.ing-details-grid input { width: 100%; box-sizing: border-box; }
+.ing-details-grid input, .ing-details-grid select { width: 100%; box-sizing: border-box; }
 @media (min-width: 520px) { .ing-details-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
 .ing-details-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
-.ing-details-grid input, .ing-swap-input { border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 8px; font-size: 0.9rem; min-width: 0; color-scheme: dark; }
+.ing-details-grid input, .ing-details-grid select, .ing-swap-input { border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 8px; font-size: 0.9rem; min-width: 0; color-scheme: dark; }
 .ing-details-expiry { margin: 10px 0; font-size: 0.82rem; color: var(--muted); }
 .ing-details-expiry .exp-badge { margin-left: 0; }
 .ing-swap { display: flex; gap: 8px; }
