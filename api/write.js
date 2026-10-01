@@ -313,10 +313,11 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      if (payload.label_name !== undefined || payload.no_label !== undefined) {
+      if (payload.label_name !== undefined || payload.no_label !== undefined || payload.label_ok !== undefined) {
         var lbl = {};
         if (payload.label_name !== undefined) lbl.label_name = String(payload.label_name || '').trim().slice(0, 80) || null;
         if (payload.no_label !== undefined) lbl.no_label = !!payload.no_label;
+        if (payload.label_ok !== undefined) lbl.label_ok = !!payload.label_ok;
         lbl.updated_at = now;
         if (ipRow) {
           await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(lbl) });

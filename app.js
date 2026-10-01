@@ -273,7 +273,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null, label_name: row.label_name || '', no_label: !!row.no_label };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null, label_name: row.label_name || '', no_label: !!row.no_label, label_ok: !!row.label_ok };
       });
     });
   }
@@ -962,14 +962,16 @@
     });
   }
   // Label-machine mapping. "Right name" = the label machine prints this
-  // ingredient's own name; when it doesn't, staff print the machine's name
-  // instead and get a "Thank you Trav" (Alex's running joke) so everyone
-  // sees the system still needs fixing.
+  // ingredient's own name, or a different name that makes sense (e.g. Mint
+  // Sprigs share the Mint Leaves label — admin marks it right). A wrong one
+  // gets a "Thank you Trav" (Alex's running joke) so everyone sees the system
+  // still needs fixing.
   function labelMapping(name) {
     var p = state.ingredientPhotos[String(name).toLowerCase()] || {};
     var machine = (p.label_name || '').trim();
-    var right = !machine || machine.toLowerCase() === String(name).toLowerCase();
-    return { needed: !p.no_label, right: right, machine: right ? '' : machine };
+    if (machine.toLowerCase() === String(name).toLowerCase()) machine = '';
+    var right = !machine || !!p.label_ok;
+    return { needed: !p.no_label, right: right, machine: machine, trav: !!machine && !p.label_ok };
   }
   var TRAV = '🙏 Thank you Trav';
   function labelCellsHtml(name) {
@@ -977,11 +979,12 @@
     var yn = function (cls, val, disabled) {
       return '<select class="' + cls + '"' + (disabled ? ' disabled' : '') + '><option value="yes"' + (val ? ' selected' : '') + '>Yes</option><option value="no"' + (!val ? ' selected' : '') + '>No</option></select>';
     };
+    var showInput = !!m.machine || !m.right;
     return '<td class="ing-cell-lbl">' + yn('ing-lbl-needed', m.needed) + '</td>' +
       '<td class="ing-cell-lbl">' + (m.needed ? yn('ing-lbl-right' + (m.right ? '' : ' is-wrong'), m.right) : '<span class="ing-label-none">—</span>') + '</td>' +
       '<td class="ing-cell-lbl ing-cell-machine">' + (m.needed
-        ? '<input type="text" class="ing-lbl-machine" placeholder="' + (m.right ? 'same name' : 'name on machine') + '" value="' + escapeHtml(m.machine) + '"' + (m.right ? ' hidden' : '') + '>' +
-          (m.right ? '<span class="ing-label-none">—</span>' : '<span class="trav-tag">' + TRAV + '</span>')
+        ? '<input type="text" class="ing-lbl-machine" placeholder="name on machine" value="' + escapeHtml(m.machine) + '"' + (showInput ? '' : ' hidden') + '>' +
+          (m.trav ? '<span class="trav-tag">' + TRAV + '</span>' : m.machine ? '<span class="ing-label-shared">Shared label — fine</span>' : '<span class="ing-label-none">same name</span>')
         : '<span class="ing-label-none">—</span>') + '</td>';
   }
   function wireLabelCells(tr, name) {
@@ -992,6 +995,7 @@
         var p = state.ingredientPhotos[key] || (state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: null, prep_group: null, label_name: '', no_label: false });
         if (changes.label_name !== undefined) p.label_name = changes.label_name || '';
         if (changes.no_label !== undefined) p.no_label = !!changes.no_label;
+        if (changes.label_ok !== undefined) p.label_ok = !!changes.label_ok;
         renderIngredientsTable();
       }).catch(function (e) { el.disabled = false; alert('Could not save: ' + e.message); });
     }
@@ -1000,14 +1004,18 @@
     var right = tr.querySelector('.ing-lbl-right');
     var machine = tr.querySelector('.ing-lbl-machine');
     if (right) right.addEventListener('change', function () {
-      if (right.value === 'yes') { save({ label_name: '' }, right); return; }
-      // "No": ask for the machine's name before saving anything.
-      machine.hidden = false; machine.placeholder = 'name on machine'; machine.focus();
+      var hasName = !!machine.value.trim();
+      // Yes with a different machine name = a shared label that makes sense.
+      if (right.value === 'yes') { save({ label_ok: true }, right); return; }
+      if (hasName) { save({ label_ok: false }, right); return; }
+      // "No" with no machine name yet: ask for it first.
+      machine.hidden = false; machine.focus();
     });
     if (machine) machine.addEventListener('change', function () {
       var v = machine.value.trim();
       if (v && v.toLowerCase() === name.toLowerCase()) v = '';
-      save({ label_name: v }, machine);
+      // A newly typed machine name is wrong unless "Right name" is already Yes.
+      save(right && right.value === 'yes' && v ? { label_name: v } : { label_name: v, label_ok: false }, machine);
     });
   }
   function lastLabelCellHtml(name) {
@@ -1737,7 +1745,7 @@
       '</div>' +
       '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + batches.length + ' container' + (batches.length === 1 ? '' : 's') +
       ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above on each one.</p>';
-    var travCount = batches.filter(function (b) { var m = labelMapping(b.item_name); return m.needed && !m.right; }).length;
+    var travCount = batches.filter(function (b) { var m = labelMapping(b.item_name); return m.needed && m.trav; }).length;
     if (travCount) html += '<div class="trav-banner">' + TRAV + ' — ' + travCount + ' label' + (travCount === 1 ? '' : 's') +
       ' on this list ' + (travCount === 1 ? 'is' : 'are') + ' under the wrong name on the label machine. Print the name shown, and tell a manager it still needs fixing.</div>';
     html += '<div id="label-grid" class="label-grid">' + batches.map(function (b) {
@@ -1748,7 +1756,8 @@
       var lm = labelMapping(name);
       var labelHint = ip.no_label
         ? '<div class="label-use label-use-none">No label exists for this — write it on by hand</div>'
-        : (!lm.right ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>' : '');
+        : lm.trav ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>'
+        : lm.machine ? '<div class="label-use">Use label: <strong>' + escapeHtml(lm.machine) + '</strong></div>' : '';
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
         '<div class="label-date">Use by: <span class="label-useby" data-hours="' + (hours || '') + '">' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</span></div>' +

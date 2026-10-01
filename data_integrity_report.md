@@ -554,3 +554,11 @@ registry row.
 label machine (`label_name`) as columns in the Fruit Prep groups; the old fields in
 the expander were removed. Label List shows "🙏 Thank you Trav — print <machine
 name>" on each wrong-name item plus a banner counting them.
+
+### "Right name" is now Alex's own call, not automatic (Oct 1 2026)
+New column `ingredient_photos.label_ok` (bool, default false). Set **true for Mint
+Sprigs only** (shares the Mint Leaves label — makes sense, no Thank you Trav). Every
+other ingredient whose label-machine name differs stays false → Thank you Trav
+(e.g. Popping Balls - Blueberry printing "Popping Balls - Mango"). Admin flips it in
+the Ingredients table's "Right name" column; a shared label marked Yes shows a plain
+"Use label: …" on the Label List.
