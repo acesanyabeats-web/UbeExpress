@@ -307,6 +307,19 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      if (payload.label_name !== undefined || payload.no_label !== undefined) {
+        var lbl = {};
+        if (payload.label_name !== undefined) lbl.label_name = String(payload.label_name || '').trim().slice(0, 80) || null;
+        if (payload.no_label !== undefined) lbl.no_label = !!payload.no_label;
+        lbl.updated_at = now;
+        if (ipRow) {
+          await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(lbl) });
+        } else {
+          lbl.name = oldName; lbl.is_stock = false; delete lbl.updated_at;
+          await sbFetch('ingredient_photos', { method: 'POST', headers: sbHeaders(), body: JSON.stringify(lbl) });
+        }
+      }
+
       if (payload.prep_group !== undefined) {
         var pg = payload.prep_group || null;
         if (pg !== null && pg !== 'fruit_syrup' && pg !== 'sweets_garnish') { res.status(400).json({ error: 'Bad Fruit Prep group' }); return; }
@@ -450,10 +463,12 @@ module.exports = async function handler(req, res) {
             // "Bacardi" must not touch "Bacardi Spiced"), replace, then unmask.
             var masked = st.instruction, masks = [];
             longerNames.forEach(function (ln, mi) {
-              var mre = new RegExp(escRe(ln), 'gi');
+              var mre = new RegExp(escRe(ln), 'g');
               masked = masked.replace(mre, function (m) { masks.push(m); return '\u0000' + (masks.length - 1) + '\u0000'; });
             });
-            var re = new RegExp('\\b' + escRe(fromName) + '\\b', 'gi');
+            // Exact, same-case name only: a generic word in prose ("a mint
+            // sprig") must never be rewritten into a product name.
+            var re = new RegExp('\\b' + escRe(fromName) + '\\b', 'g');
             if (re.test(masked)) {
               masked = masked.replace(re, toName);
               st.instruction = masked.replace(/\u0000(\d+)\u0000/g, function (_, i) { return masks[+i]; });
@@ -472,7 +487,7 @@ module.exports = async function handler(req, res) {
         if (toIp) {
           // Merge: the kept ingredient picks up anything only the old one had.
           var fill = {};
-          ['category', 'shelf_life_hours', 'photo_url', 'frame_height', 'prep_group'].forEach(function (f) {
+          ['category', 'shelf_life_hours', 'photo_url', 'frame_height', 'prep_group', 'label_name'].forEach(function (f) {
             if ((toIp[f] === null || toIp[f] === undefined || toIp[f] === '') && fromIp[f] !== null && fromIp[f] !== undefined && fromIp[f] !== '') fill[f] = fromIp[f];
           });
           if (fill.frame_height !== undefined && !(fill.photo_url || toIp.photo_url)) delete fill.frame_height;

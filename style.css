@@ -190,6 +190,8 @@ body {
 }
 .label-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
 .label-date { color: var(--muted); font-size: 0.9rem; }
+.label-use { font-size: 0.85rem; color: var(--accent); margin-bottom: 6px; }
+.label-use-none { color: var(--danger); }
 
 @media print {
   #login-screen, #app-header, #prep-labels-btn, #labels-print-btn, #labels-note {
@@ -847,3 +849,7 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
    different natural line heights, which nudged the whole layout by 1px. */
 .build-nav .btn { height: 56px; line-height: 1; padding-top: 0; padding-bottom: 0; }
 #build-overlay .step-ingredient-list { max-width: 300px; }
+
+.ing-details-grid label.ing-nolabel { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 0.85rem; }
+.ing-details-grid label.ing-nolabel input { width: auto; }
+@media print { .label-use { color: #000; } }

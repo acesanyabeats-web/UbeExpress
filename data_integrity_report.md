@@ -177,6 +177,41 @@ Syrups + 44 Sweets & Garnish, verified to match exactly), editable in
 the Ingredients table roll-down, and carried along by renames, swaps
 and merges.
 
+### 2026-10-01 — Alex's pink list transcribed + label mapping + 2 merges
+The pink handwritten note (re-sent clearly) is now transcribed. It
+lists which printed label the bar actually uses for products whose own
+name has no label. Now stored per ingredient (`label_name`, `no_label`)
+and shown on every Label List card ("Use label: …" / "No label exists"):
+
+| Ingredient | Label used | Shelf life set |
+|---|---|---|
+| Birds Eye Chillies | Red Chilli | 3 days (unchanged) |
+| Blackberry | Raspberries (Alex: "???") | 3 days |
+| Cherries | Glace Cherries | 14 days |
+| Homemade Raspberry Lemonade | Homemade Lemonade | 28 days |
+| Lime Juice – Fresh | Cordial – Lime | 28 days |
+| Lychee | Tinned Lychee | 7 days |
+| Mint – Fresh | Mint Leaves | 3 days (unchanged) |
+| Giant Marshmallows | Marshmallows | 7 days |
+| Popping Balls – Blueberry | Popping Balls – Mango | 14 days |
+| Peach, Pomegranate Seeds, Chai Seeds, Dried Dragonfruit | **no label exists** | — |
+
+Orange Zest is on the list with no label named — left blank. A small
+circled note next to Cherries, Lychee and Orange Zest is not legible
+enough to act on (possibly "(ai)") — waiting on Alex.
+
+**Merges (Alex-confirmed)**: "Mint" → "Mint – Fresh" (8 drinks, 0
+using both; now 49 drinks) and "Mixed Berry Coulis – VAT PACK" →
+"Mixed Berry Coulis" (Pink Moon). Done directly on ingredient rows and
+step ingredient lists only — step text left untouched. 158 → 156
+ingredients.
+
+**Real bug found and fixed while doing this**: the swap/merge tool
+rewrote the old name inside step text case-insensitively — merging
+"Mint" that way would have turned every "a mint sprig" into "a Mint –
+Fresh sprig" across 30+ drinks. It now only replaces an exact,
+same-case name.
+
 ---
 
 ## Unresolved

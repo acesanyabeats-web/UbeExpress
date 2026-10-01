@@ -219,7 +219,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null, label_name: row.label_name || '', no_label: !!row.no_label };
       });
     });
   }
@@ -714,6 +714,8 @@
       '<div class="ing-details-grid">' +
         '<label>Shelf life (days)<input type="number" min="0" step="0.5" class="ing-shelf-input" value="' + days + '" placeholder="not set"></label>' +
         '<label>Most recent label<input type="datetime-local" class="ing-label-input" value="' + (info.labelAt ? toLocalInputValue(info.labelAt) : '') + '"></label>' +
+        '<label>Label used (if the printed label has a different name)<input type="text" class="ing-labelname-input" value="' + escapeHtml((state.ingredientPhotos[name.toLowerCase()] || {}).label_name || '') + '" placeholder="same as ingredient"></label>' +
+        '<label class="ing-nolabel"><input type="checkbox" class="ing-nolabel-input"' + ((state.ingredientPhotos[name.toLowerCase()] || {}).no_label ? ' checked' : '') + '> No label exists for this</label>' +
         '<label>On Fruit Prep<select class="ing-prep-select">' +
           [['', 'Not on Fruit Prep'], ['fruit_syrup', '🍓 Fruit & Syrups to portion'], ['sweets_garnish', '🍬 Sweets & garnish stock']].map(function (o) {
             return '<option value="' + o[0] + '"' + ((ingredientCategory(name) || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
@@ -865,6 +867,20 @@
         renderIngredientsTable();
       }).catch(function (e) { shelf.disabled = false; alert('Could not save the shelf life: ' + e.message); });
     });
+    function saveLabelFields(changes, el) {
+      el.disabled = true;
+      apiUpdateIngredient(name, changes).then(function () {
+        var key = name.toLowerCase();
+        var p = state.ingredientPhotos[key] || (state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: null, prep_group: null, label_name: '', no_label: false });
+        if (changes.label_name !== undefined) p.label_name = changes.label_name || '';
+        if (changes.no_label !== undefined) p.no_label = !!changes.no_label;
+        renderIngredientsTable();
+      }).catch(function (e) { el.disabled = false; alert('Could not save: ' + e.message); });
+    }
+    var lblInput = row.querySelector('.ing-labelname-input');
+    lblInput.addEventListener('change', function () { saveLabelFields({ label_name: lblInput.value.trim() }, lblInput); });
+    var noLbl = row.querySelector('.ing-nolabel-input');
+    noLbl.addEventListener('change', function () { saveLabelFields({ no_label: noLbl.checked }, noLbl); });
     var prepSel = row.querySelector('.ing-prep-select');
     prepSel.addEventListener('change', function () {
       var g = prepSel.value || null;
@@ -1512,8 +1528,13 @@
     html += '<div id="label-grid" class="label-grid">' + items.map(function (name) {
       var hours = shelfLifeHours(name);
       var useBy = hours ? new Date(now.getTime() + hours * 3600 * 1000) : null;
+      var ip = state.ingredientPhotos[String(name).toLowerCase()] || {};
+      var labelHint = ip.no_label
+        ? '<div class="label-use label-use-none">No label exists for this — write it on by hand</div>'
+        : (ip.label_name && ip.label_name.toLowerCase() !== String(name).toLowerCase()
+            ? '<div class="label-use">Use label: <strong>' + escapeHtml(ip.label_name) + '</strong></div>' : '');
       return '<div class="label-card">' +
-        '<div class="label-name">' + escapeHtml(name) + '</div>' +
+        '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
         '<div class="label-date">Prepped: ' + fmtLabelDate(now) + '</div>' +
         '<div class="label-date">Use by: ' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</div>' +
         '</div>';
