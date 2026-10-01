@@ -525,3 +525,32 @@ badge says why (Thrown out — prep / Back on — prep / Needs prepping). Each
 Fruit Prep row now has a slim left column with its colour-key symbol at
 checkbox size, and the whole row takes that colour's hue. Display-only change,
 no data changed.
+
+### Orange Zest off Fruit Prep; Mint split into Leaves + Sprigs; "Thank you Trav" label mapping (Oct 1 2026)
+**Orange Zest** — `prep_group` and `label_name` cleared. Still in Peach Pony Club's
+spec; the zest comes from the prepped Oranges, so it is no longer its own prep item.
+
+**Mint** — `ingredient_photos` "Mint - Fresh" renamed **Mint Leaves** (label name now
+its own, so "right name"); new row **Mint Sprigs** (fruit_syrup, 72h shelf life,
+label machine name "Mint Leaves" → shown as "🙏 Thank you Trav"). Every recipe
+step that listed Mint - Fresh was reassigned by its instruction text:
+muddle / "mint leaves" → Mint Leaves, every other (garnish/dress/serve) → Mint Sprigs.
+Result: 8 drinks use Mint Leaves (Mojito ×5, Apple Cooler, Peach Iced Tea, Pink
+Paloma), 50 use Mint Sprigs. Garnish steps that already said "mint sprig" but listed
+no mint now list Mint Sprigs, and those drinks gained a `cocktail_ingredients` row
+"Mint Sprigs 1 sprig" — the 8 Leaves drinks above (all garnish with a sprig) plus
+**Bathtub**, which had no mint listed at all. Existing amounts kept as they were;
+the leaves drinks keep their original grams on Mint Leaves.
+Judgement calls to confirm: Pimms Jug's mint (step "Serve with… glasses, ice and
+straws") went to Sprigs; Dr Popper, Dragon Fruit and Lychee Soda, Orange +
+Passionfruit Soda, Peach Crumble, Sweet Shop and Passionfruit Cooler have no step
+naming mint, so they defaulted to Sprigs.
+Reverse if needed: rename Mint Leaves/Sprigs back to Mint - Fresh in steps and
+ingredient lists, delete the added "Mint Sprigs 1 sprig" rows and the Mint Sprigs
+registry row.
+
+**Label mapping** — no schema change: Ingredients table now shows Label needed
+(`no_label`), Right name (derived: label machine name empty or same) and Name on
+label machine (`label_name`) as columns in the Fruit Prep groups; the old fields in
+the expander were removed. Label List shows "🙏 Thank you Trav — print <machine
+name>" on each wrong-name item plus a banner counting them.

@@ -687,7 +687,7 @@
   // existing call site's prior behaviour — only Home-level screens need to
   // pass a different target).
   function setHeader(title, showBack, backFn) {
-    document.getElementById('app-main').classList.remove('is-home');
+    document.getElementById('app-main').classList.remove('is-home', 'is-wide');
     document.getElementById('app-title').textContent = title;
     document.getElementById('nav-back-btn').hidden = !showBack;
     state.backTarget = backFn || goToMenu;
@@ -768,8 +768,6 @@
       '<div class="ing-details-grid">' +
         '<label>Shelf life (days)<input type="number" min="0" step="0.5" class="ing-shelf-input" value="' + days + '" placeholder="not set"></label>' +
         '<label>Most recent label<input type="datetime-local" class="ing-label-input" value="' + (info.labelAt ? toLocalInputValue(info.labelAt) : '') + '"></label>' +
-        '<label>Label used (if the printed label has a different name)<input type="text" class="ing-labelname-input" value="' + escapeHtml((state.ingredientPhotos[name.toLowerCase()] || {}).label_name || '') + '" placeholder="same as ingredient"></label>' +
-        '<label class="ing-nolabel"><input type="checkbox" class="ing-nolabel-input"' + ((state.ingredientPhotos[name.toLowerCase()] || {}).no_label ? ' checked' : '') + '> No label exists for this</label>' +
         '<label>On Fruit Prep<select class="ing-prep-select">' +
           [['', 'Not on Fruit Prep'], ['fruit_syrup', '🍓 Fruit & Syrups to portion'], ['sweets_garnish', '🍬 Sweets & garnish stock']].map(function (o) {
             return '<option value="' + o[0] + '"' + ((ingredientCategory(name) || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
@@ -785,6 +783,7 @@
   }
   function renderIngredientsTable() {
     setHeader('🧾 Ingredients', true, renderHome);
+    document.getElementById('app-main').classList.add('is-wide');
     var main = document.getElementById('app-main');
     var usage = ingredientUsage();
     var filterEl = document.getElementById('ing-table-filter');
@@ -820,7 +819,9 @@
       // items — spirits etc. never get labels, so their names keep the room.
       var showLabelCol = rows.some(function (n) { return !!ingredientCategory(n) || activeBatches(n).length > 0; });
       html += '<h3 class="ing-group-title">' + escapeHtml(type) + ' <span class="ing-group-count">' + rows.length + '</span></h3>' +
-        '<table class="ing-table' + (showLabelCol ? ' has-label-col' : '') + '"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th>' + (showLabelCol ? '<th>Last label</th>' : '') + '</tr></thead><tbody>' +
+        (showLabelCol ? '<div class="ing-table-scroll">' : '') +
+        '<table class="ing-table' + (showLabelCol ? ' has-label-col' : '') + '"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th>' +
+          (showLabelCol ? '<th>Last label</th><th>Label needed</th><th>Right name</th><th>Name on label machine</th>' : '') + '</tr></thead><tbody>' +
         rows.map(function (n) {
           var p = state.ingredientPhotos[n.toLowerCase()];
           var used = usage[n.toLowerCase()] || 0;
@@ -831,10 +832,10 @@
               expiryBadgeHtml(n) + '</td>' +
             '<td class="ing-cell-photo"><button type="button" class="ing-frame-btn" aria-label="Photo for ' + escapeHtml(n) + '">' + ingredientTableFrameHtml(n) + '</button></td>' +
             '<td class="ing-cell-type"><select class="ing-type-select" aria-label="Type">' + typeOptions(p && p.category) + '</select></td>' +
-            (showLabelCol ? '<td class="ing-cell-label">' + lastLabelCellHtml(n) + '</td>' : '') +
+            (showLabelCol ? '<td class="ing-cell-label">' + lastLabelCellHtml(n) + '</td>' + labelCellsHtml(n) : '') +
           '</tr>' +
-          (openIngDetails[n.toLowerCase()] ? '<tr class="ing-details-row" data-ing-details="' + escapeHtml(n) + '"><td colspan="' + (showLabelCol ? 4 : 3) + '">' + ingredientDetailsHtml(n) + '</td></tr>' : '');
-        }).join('') + '</tbody></table>';
+          (openIngDetails[n.toLowerCase()] ? '<tr class="ing-details-row" data-ing-details="' + escapeHtml(n) + '"><td colspan="' + (showLabelCol ? 7 : 3) + '">' + ingredientDetailsHtml(n) + '</td></tr>' : '');
+        }).join('') + '</tbody></table>' + (showLabelCol ? '</div>' : '');
     });
     main.innerHTML = html;
     window.scrollTo(0, scrollY);
@@ -849,6 +850,7 @@
 
     Array.prototype.forEach.call(main.querySelectorAll('tr[data-ing]'), function (tr) {
       var name = tr.getAttribute('data-ing');
+      wireLabelCells(tr, name);
       tr.querySelector('.ing-frame-btn').addEventListener('click', function () {
         openIngredientFrameEditor(name, function (changed) { if (changed) renderIngredientsTable(); });
       });
@@ -925,20 +927,6 @@
         renderIngredientsTable();
       }).catch(function (e) { shelf.disabled = false; alert('Could not save the shelf life: ' + e.message); });
     });
-    function saveLabelFields(changes, el) {
-      el.disabled = true;
-      apiUpdateIngredient(name, changes).then(function () {
-        var key = name.toLowerCase();
-        var p = state.ingredientPhotos[key] || (state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: null, prep_group: null, label_name: '', no_label: false });
-        if (changes.label_name !== undefined) p.label_name = changes.label_name || '';
-        if (changes.no_label !== undefined) p.no_label = !!changes.no_label;
-        renderIngredientsTable();
-      }).catch(function (e) { el.disabled = false; alert('Could not save: ' + e.message); });
-    }
-    var lblInput = row.querySelector('.ing-labelname-input');
-    lblInput.addEventListener('change', function () { saveLabelFields({ label_name: lblInput.value.trim() }, lblInput); });
-    var noLbl = row.querySelector('.ing-nolabel-input');
-    noLbl.addEventListener('change', function () { saveLabelFields({ no_label: noLbl.checked }, noLbl); });
     var prepSel = row.querySelector('.ing-prep-select');
     prepSel.addEventListener('change', function () {
       var g = prepSel.value || null;
@@ -971,6 +959,55 @@
         swapBtn.disabled = false;
         alert('Could not swap: ' + e.message);
       });
+    });
+  }
+  // Label-machine mapping. "Right name" = the label machine prints this
+  // ingredient's own name; when it doesn't, staff print the machine's name
+  // instead and get a "Thank you Trav" (Alex's running joke) so everyone
+  // sees the system still needs fixing.
+  function labelMapping(name) {
+    var p = state.ingredientPhotos[String(name).toLowerCase()] || {};
+    var machine = (p.label_name || '').trim();
+    var right = !machine || machine.toLowerCase() === String(name).toLowerCase();
+    return { needed: !p.no_label, right: right, machine: right ? '' : machine };
+  }
+  var TRAV = '🙏 Thank you Trav';
+  function labelCellsHtml(name) {
+    var m = labelMapping(name);
+    var yn = function (cls, val, disabled) {
+      return '<select class="' + cls + '"' + (disabled ? ' disabled' : '') + '><option value="yes"' + (val ? ' selected' : '') + '>Yes</option><option value="no"' + (!val ? ' selected' : '') + '>No</option></select>';
+    };
+    return '<td class="ing-cell-lbl">' + yn('ing-lbl-needed', m.needed) + '</td>' +
+      '<td class="ing-cell-lbl">' + (m.needed ? yn('ing-lbl-right' + (m.right ? '' : ' is-wrong'), m.right) : '<span class="ing-label-none">—</span>') + '</td>' +
+      '<td class="ing-cell-lbl ing-cell-machine">' + (m.needed
+        ? '<input type="text" class="ing-lbl-machine" placeholder="' + (m.right ? 'same name' : 'name on machine') + '" value="' + escapeHtml(m.machine) + '"' + (m.right ? ' hidden' : '') + '>' +
+          (m.right ? '<span class="ing-label-none">—</span>' : '<span class="trav-tag">' + TRAV + '</span>')
+        : '<span class="ing-label-none">—</span>') + '</td>';
+  }
+  function wireLabelCells(tr, name) {
+    function save(changes, el) {
+      el.disabled = true;
+      apiUpdateIngredient(name, changes).then(function () {
+        var key = name.toLowerCase();
+        var p = state.ingredientPhotos[key] || (state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: null, prep_group: null, label_name: '', no_label: false });
+        if (changes.label_name !== undefined) p.label_name = changes.label_name || '';
+        if (changes.no_label !== undefined) p.no_label = !!changes.no_label;
+        renderIngredientsTable();
+      }).catch(function (e) { el.disabled = false; alert('Could not save: ' + e.message); });
+    }
+    var needed = tr.querySelector('.ing-lbl-needed');
+    if (needed) needed.addEventListener('change', function () { save({ no_label: needed.value === 'no' }, needed); });
+    var right = tr.querySelector('.ing-lbl-right');
+    var machine = tr.querySelector('.ing-lbl-machine');
+    if (right) right.addEventListener('change', function () {
+      if (right.value === 'yes') { save({ label_name: '' }, right); return; }
+      // "No": ask for the machine's name before saving anything.
+      machine.hidden = false; machine.placeholder = 'name on machine'; machine.focus();
+    });
+    if (machine) machine.addEventListener('change', function () {
+      var v = machine.value.trim();
+      if (v && v.toLowerCase() === name.toLowerCase()) v = '';
+      save({ label_name: v }, machine);
     });
   }
   function lastLabelCellHtml(name) {
@@ -1480,7 +1517,8 @@
   var RED_TEXT = { thrown: 'Thrown out — prep', restocked: 'Back on — prep', empty: 'Needs prepping' };
   function expiryBadgeHtml(name) {
     var st = itemStatus(name);
-    if (st.colour === 'none') return '';
+    // Not a Fruit Prep item and nothing prepped: no status to show.
+    if (st.colour === 'red' && st.reason === 'empty' && !ingredientCategory(name)) return '';
     var info = expiryInfo(name);
     var text = st.colour === 'red' ? RED_TEXT[st.reason] : st.colour === 'light' && info.throwOutDay ? 'Good until ' + fmtDay(info.throwOutDay) : COLOUR_TEXT[st.colour];
     if (st.colour === 'light' && info.status === 'no_shelf_life') text = 'Stocked · shelf life not set';
@@ -1699,15 +1737,18 @@
       '</div>' +
       '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + batches.length + ' container' + (batches.length === 1 ? '' : 's') +
       ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above on each one.</p>';
+    var travCount = batches.filter(function (b) { var m = labelMapping(b.item_name); return m.needed && !m.right; }).length;
+    if (travCount) html += '<div class="trav-banner">' + TRAV + ' — ' + travCount + ' label' + (travCount === 1 ? '' : 's') +
+      ' on this list ' + (travCount === 1 ? 'is' : 'are') + ' under the wrong name on the label machine. Print the name shown, and tell a manager it still needs fixing.</div>';
     html += '<div id="label-grid" class="label-grid">' + batches.map(function (b) {
       var name = b.item_name;
       var hours = shelfLifeHours(name);
       var useBy = hours ? new Date(now.getTime() + hours * 3600 * 1000) : null;
       var ip = state.ingredientPhotos[String(name).toLowerCase()] || {};
+      var lm = labelMapping(name);
       var labelHint = ip.no_label
         ? '<div class="label-use label-use-none">No label exists for this — write it on by hand</div>'
-        : (ip.label_name && ip.label_name.toLowerCase() !== String(name).toLowerCase()
-            ? '<div class="label-use">Use label: <strong>' + escapeHtml(ip.label_name) + '</strong></div>' : '');
+        : (!lm.right ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>' : '');
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
         '<div class="label-date">Use by: <span class="label-useby" data-hours="' + (hours || '') + '">' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</span></div>' +
