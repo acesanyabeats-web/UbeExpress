@@ -1812,6 +1812,41 @@
           '<div class="cheers-line"><span class="cheers-k">App:</span> ' + escapeHtml(d.app_says || '—') + '</div>';
       }).join('<hr class="cheers-hr">') + '</div>';
   }
+  // Evidence screenshot slot (menu or app side). Admin taps to add/replace/
+  // remove; anyone taps a set one to see it full size.
+  function evidenceSlotHtml(d, side) {
+    var url = d[side + '_evidence_url'];
+    if (url) return '<button type="button" class="ct-ev has-photo" data-side="' + side + '"><img src="' + escapeHtml(url) + '" alt="' + (side === 'menu' ? 'Menu' : 'Chilled Pubs app') + ' screenshot" loading="lazy"></button>';
+    return state.role === 'admin' ? '<button type="button" class="ct-ev" data-side="' + side + '">📷 Add ' + (side === 'menu' ? 'menu' : 'app') + ' screenshot</button>' : '';
+  }
+  function showEvidenceFull(url) {
+    var o = document.createElement('div');
+    o.id = 'photo-modal-overlay';
+    o.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Evidence">';
+    o.addEventListener('click', function () { o.remove(); });
+    document.body.appendChild(o);
+  }
+  function wireEvidenceSlot(btn, d, onChange) {
+    var side = btn.getAttribute('data-side'), col = side + '_evidence_url';
+    btn.addEventListener('click', function () {
+      var url = d[col];
+      if (state.role !== 'admin') { if (url) showEvidenceFull(url); return; }
+      showPhotoActionMenu(!!url, function (action) {
+        if (!action) return;
+        if (action === 'remove') {
+          apiSaveDiscrepancy((function () { var f = { id: d.id }; f[col] = null; return f; })()).then(onChange).catch(function (e) { alert('Could not remove: ' + e.message); });
+          return;
+        }
+        pickPhotoAndUpload(action, function (base64) {
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          apiUploadPhoto(base64, 'discrepancy', { discrepancy_id: d.id, side: side }).then(function (r) {
+            state.discrepancies.forEach(function (x) { if (x.id === d.id) x[col] = r.photo_url; });
+            onChange();
+          }).catch(function (e) { alert('Could not upload: ' + e.message); onChange(); });
+        });
+      });
+    });
+  }
   function apiSaveDiscrepancy(fields) {
     return apiWrite('save_menu_discrepancy', fields).then(function (res) {
       var row = res.row; if (!row) return;
@@ -1833,14 +1868,15 @@
     var html = '<p class="ing-table-intro">Where the printed menu and the Chilled Pubs app disagree. Every open row gets a ' + CHEERS +
       ' until it is fixed at the source. ' + openN + ' open · ' + (all.length - openN) + ' fixed.</p>' +
       '<div class="ct-chips">' + chip('open', 'Open') + chip('fixed', 'Fixed') + chip('all', 'All') + '</div>' +
-      '<div class="ing-table-scroll"><table class="ing-table ct-table"><thead><tr><th>Drink</th><th>Menu says</th><th>Chilled Pubs app says</th><th>Fixed?</th>' + (admin ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      '<div class="ct-actions"><button type="button" id="ct-report-btn" class="btn btn-secondary">📄 Report (print / PDF)</button></div>' +
+      '<div class="ing-table-scroll"><table class="ing-table ct-table"><thead><tr><th>Drink</th><th>Menu says</th><th>Chilled Pubs app says</th><th>What to change</th><th>Fixed?</th>' + (admin ? '<th></th>' : '') + '</tr></thead><tbody>' +
       rows.map(function (d) {
         var cell = function (field) {
           return admin ? '<textarea class="ct-edit" data-field="' + field + '" rows="2">' + escapeHtml(d[field] || '') + '</textarea>' : escapeHtml(d[field] || '—');
         };
         var drink = d.cocktail_id ? '<button type="button" class="ct-drink" data-cid="' + d.cocktail_id + '">' + escapeHtml(d.drink_name) + '</button>' : escapeHtml(d.drink_name);
         return '<tr data-id="' + d.id + '" class="' + (d.resolved ? 'is-fixed' : '') + '">' +
-          '<td class="ct-drink-cell">' + drink + '</td><td>' + cell('menu_says') + '</td><td>' + cell('app_says') + '</td>' +
+          '<td class="ct-drink-cell">' + drink + '</td><td>' + cell('menu_says') + evidenceSlotHtml(d, 'menu') + '</td><td>' + cell('app_says') + evidenceSlotHtml(d, 'app') + '</td><td>' + cell('change_needed') + '</td>' +
           '<td class="ct-fixed">' + (admin
             ? '<select class="ct-resolved"><option value="no"' + (d.resolved ? '' : ' selected') + '>No</option><option value="yes"' + (d.resolved ? ' selected' : '') + '>Yes</option></select>'
             : (d.resolved ? 'Yes' : 'No')) +
@@ -1848,7 +1884,7 @@
           (admin ? '<td><button type="button" class="ct-del" aria-label="Delete">🗑</button></td>' : '') +
         '</tr>';
       }).join('') +
-      (rows.length ? '' : '<tr><td colspan="' + (admin ? 5 : 4) + '" class="ct-empty">' + (filter === 'fixed' ? 'Nothing fixed yet.' : 'Nothing open — no Cheers Trav needed.') + '</td></tr>') +
+      (rows.length ? '' : '<tr><td colspan="' + (admin ? 6 : 5) + '" class="ct-empty">' + (filter === 'fixed' ? 'Nothing fixed yet.' : 'Nothing open — no Cheers Trav needed.') + '</td></tr>') +
       '</tbody></table></div>' +
       (admin ? '<div class="ct-add"><h3>Add a discrepancy</h3>' +
         '<input type="text" id="ct-new-drink" list="ct-drinks" placeholder="Drink">' +
@@ -1873,6 +1909,8 @@
           apiSaveDiscrepancy(f).then(function () { ta.disabled = false; }).catch(fail);
         });
       });
+      var drow = state.discrepancies.filter(function (x) { return x.id === id; })[0];
+      Array.prototype.forEach.call(tr.querySelectorAll('.ct-ev'), function (btn) { wireEvidenceSlot(btn, drow, function () { renderCheersTrav(filter); }); });
       var res = tr.querySelector('.ct-resolved');
       if (res) res.addEventListener('change', function () {
         res.disabled = true;
@@ -1886,6 +1924,7 @@
         }).catch(fail);
       });
     });
+    document.getElementById('ct-report-btn').addEventListener('click', function () { renderCheersTravReport(filter); });
     var add = document.getElementById('ct-add-btn');
     if (add) add.addEventListener('click', function () {
       var name = document.getElementById('ct-new-drink').value.trim();
@@ -1896,6 +1935,36 @@
         menu_says: document.getElementById('ct-new-menu').value, app_says: document.getElementById('ct-new-app').value })
         .then(function () { renderCheersTrav('open'); }).catch(fail);
     });
+  }
+
+  // Presentable "what to change" report: one card per discrepancy, menu and
+  // app evidence side by side. Prints cleanly (or Save as PDF) to hand over.
+  function renderCheersTravReport(filter) {
+    setHeader('📄 Cheers Trav Report', true, function () { renderCheersTrav(filter); });
+    var main = document.getElementById('app-main');
+    main.classList.add('is-wide');
+    var rows = (state.discrepancies || []).filter(function (d) { return !d.resolved; });
+    var withBoth = rows.filter(function (d) { return d.menu_evidence_url && d.app_evidence_url; }).length;
+    var side = function (label, text, url) {
+      return '<div class="ctr-side"><div class="ctr-side-label">' + label + '</div>' +
+        '<div class="ctr-says">' + escapeHtml(text || '—') + '</div>' +
+        (url ? '<img class="ctr-shot" src="' + escapeHtml(url) + '" alt="' + label + ' screenshot">' : '<div class="ctr-missing">No screenshot yet</div>') + '</div>';
+    };
+    var today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    main.innerHTML =
+      '<div class="ctr-head"><h2>🍻 Cheers Trav — menu vs Chilled Pubs app</h2>' +
+        '<p>' + rows.length + ' discrepanc' + (rows.length === 1 ? 'y' : 'ies') + ' to fix · ' + escapeHtml(today) +
+        (withBoth < rows.length ? ' · <span class="ctr-warn">' + (rows.length - withBoth) + ' still missing a screenshot</span>' : '') + '</p>' +
+        '<button type="button" id="ctr-print" class="btn btn-primary ctr-print">🖨 Print / Save as PDF</button></div>' +
+      rows.map(function (d, i) {
+        return '<section class="ctr-card">' +
+          '<h3><span class="ctr-num">' + (i + 1) + '</span> ' + escapeHtml(d.drink_name) + '</h3>' +
+          (d.change_needed ? '<div class="ctr-change"><strong>Change:</strong> ' + escapeHtml(d.change_needed) + '</div>' : '') +
+          '<div class="ctr-sides">' + side('Printed menu', d.menu_says, d.menu_evidence_url) + side('Chilled Pubs app', d.app_says, d.app_evidence_url) + '</div>' +
+        '</section>';
+      }).join('') +
+      (rows.length ? '' : '<p class="ct-empty">Nothing open — nothing to report.</p>');
+    document.getElementById('ctr-print').addEventListener('click', function () { window.print(); });
   }
 
   // ---------- DETAIL VIEW ----------

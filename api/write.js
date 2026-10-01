@@ -168,6 +168,12 @@ module.exports = async function handler(req, res) {
           headers: sbHeaders(),
           body: JSON.stringify({ photo_url: photoUrl, updated_at: new Date().toISOString() })
         });
+      } else if (payload.target === 'discrepancy') {
+        // Cheers Trav evidence screenshot: side = 'menu' | 'app'.
+        var evCol = payload.side === 'app' ? 'app_evidence_url' : payload.side === 'menu' ? 'menu_evidence_url' : null;
+        if (!evCol || !payload.discrepancy_id) { res.status(400).json({ error: 'Bad evidence target' }); return; }
+        var evRow = { updated_at: new Date().toISOString() }; evRow[evCol] = photoUrl;
+        await sbFetch('menu_discrepancies?id=eq.' + encodeURIComponent(payload.discrepancy_id), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(evRow) });
       } else {
         res.status(400).json({ error: 'Bad target' });
         return;
@@ -535,6 +541,9 @@ module.exports = async function handler(req, res) {
       if (payload.cocktail_id !== undefined) md.cocktail_id = payload.cocktail_id || null;
       if (payload.menu_says !== undefined) md.menu_says = clip(payload.menu_says, 600);
       if (payload.app_says !== undefined) md.app_says = clip(payload.app_says, 600);
+      if (payload.change_needed !== undefined) md.change_needed = clip(payload.change_needed, 600);
+      if (payload.menu_evidence_url !== undefined) md.menu_evidence_url = payload.menu_evidence_url || null;
+      if (payload.app_evidence_url !== undefined) md.app_evidence_url = payload.app_evidence_url || null;
       if (payload.resolved !== undefined) { md.resolved = !!payload.resolved; md.resolved_at = payload.resolved ? md.updated_at : null; }
       var mdOut;
       if (payload.id) {

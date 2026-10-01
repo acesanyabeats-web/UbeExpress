@@ -957,11 +957,12 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ct-chips { display: flex; gap: 8px; margin: 4px 0 12px; flex-wrap: wrap; }
 .ct-chip { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; }
 .ct-chip.is-on { background: var(--st-amber); color: #1a1410; border-color: transparent; font-weight: 700; }
-.ct-table { min-width: 720px; }
-.ct-table th:nth-child(1) { width: 150px; }
+.ct-table { min-width: 900px; }
+.ct-table th:nth-child(1) { width: 140px; }
 .ct-table th:nth-child(2), .ct-table th:nth-child(3) { width: auto; text-align: left; }
-.ct-table th:nth-child(4) { width: 120px; text-align: left; }
-.ct-table th:nth-child(5) { width: 44px; }
+.ct-table th:nth-child(4) { width: 190px; text-align: left; }
+.ct-table th:nth-child(5) { width: 120px; text-align: left; }
+.ct-table th:nth-child(6) { width: 44px; }
 .ct-table td { vertical-align: top; font-size: 0.85rem; line-height: 1.35; }
 .ct-table tr:not(.is-fixed) td { background: color-mix(in srgb, var(--st-amber) 8%, transparent); }
 .ct-table tr.is-fixed td { opacity: 0.6; }
@@ -979,3 +980,35 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .cheers-line { font-size: 0.88rem; }
 .cheers-k { font-weight: 700; }
 .cheers-hr { border: none; border-top: 1px solid var(--border); margin: 6px 0; }
+
+/* Cheers Trav evidence + report */
+.ct-ev { display: block; margin-top: 6px; width: 100%; background: var(--card); color: var(--muted); border: 1px dashed var(--border); border-radius: 6px; padding: 6px; font-size: 0.78rem; cursor: pointer; text-align: center; }
+.ct-ev.has-photo { padding: 0; border-style: solid; overflow: hidden; }
+.ct-ev img { display: block; width: 100%; max-height: 140px; object-fit: contain; background: #000; }
+.ct-actions { margin: 0 0 10px; }
+.ct-actions .btn { width: auto; padding: 8px 14px; font-size: 0.9rem; }
+.ctr-head { margin-bottom: 16px; }
+.ctr-head h2 { margin: 0 0 4px; font-size: 1.25rem; text-wrap: balance; }
+.ctr-head p { margin: 0 0 10px; color: var(--muted); }
+.ctr-warn { color: var(--st-amber); font-weight: 700; }
+.ctr-print { width: auto; }
+.ctr-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; break-inside: avoid; }
+.ctr-card h3 { margin: 0 0 8px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+.ctr-num { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; background: var(--st-amber); color: #1a1410; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.ctr-change { background: color-mix(in srgb, var(--st-light) 14%, var(--card)); border-left: 3px solid var(--st-light); padding: 8px 10px; border-radius: 4px; margin-bottom: 10px; font-size: 0.9rem; }
+.ctr-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .ctr-sides { grid-template-columns: 1fr; } }
+.ctr-side-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+.ctr-says { font-size: 0.9rem; margin-bottom: 8px; }
+.ctr-shot { display: block; width: 100%; max-height: 420px; object-fit: contain; border: 1px solid var(--border); border-radius: 6px; background: #000; }
+.ctr-missing { border: 1px dashed var(--border); border-radius: 6px; padding: 18px; text-align: center; color: var(--muted); font-size: 0.8rem; }
+@media print {
+  .ctr-print, #nav-back-btn { display: none !important; }
+  body, #app-main { background: #fff !important; color: #000 !important; }
+  #app-main.is-wide { max-width: none; }
+  .ctr-head p, .ctr-side-label, .ctr-missing { color: #333 !important; }
+  .ctr-card { background: #fff !important; border: 1px solid #999; color: #000; }
+  .ctr-change { background: #eef7ee !important; color: #000; }
+  .ctr-sides { grid-template-columns: 1fr 1fr !important; }
+  .ctr-shot { background: #fff; max-height: 360px; }
+}

@@ -582,3 +582,12 @@ read-only; admin edits text inline, marks Fixed, deletes, adds rows), and a bann
 each affected drink's spec page. Within-app recipe inconsistencies (method text vs
 ingredient list, unit oddities) are NOT in this table — they're app-only, still listed
 above in this report.
+
+### Cheers Trav evidence + report (Oct 1 2026)
+`menu_discrepancies` gained `menu_evidence_url`, `app_evidence_url` (screenshots,
+stored in the same `photos` bucket via `upload_photo` target `discrepancy`) and
+`change_needed` (the "what to change" instruction). Table shows both screenshot
+slots and a What-to-change column; a "📄 Report" view lays each open discrepancy
+out as a numbered card — change instruction, then printed menu vs Chilled Pubs app
+side by side with their screenshots — and prints / saves as PDF cleanly. The report
+header counts rows still missing a screenshot.
