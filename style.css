@@ -314,8 +314,14 @@ body {
   justify-content: center;
   padding: 20px;
   text-align: center;
+  /* Defense in depth: frames are now a fixed size (so this shouldn't be
+     needed for a photo alone), but a long instruction or a long ingredient
+     list could still in principle grow taller than the viewport — this
+     keeps Back/Next always reachable either way, never pushed off-screen. */
+  overflow-y: auto;
+  min-height: 0;
 }
-.equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
+.equip-icon { width: 150px; height: 150px; color: var(--accent); margin-bottom: 12px; }
 .step-media-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .step-media-row .equip-icon { margin-bottom: 0; }
 .step-ing-photo {
@@ -424,9 +430,14 @@ body {
 .photo-btn.uploading { opacity: 0.5; pointer-events: none; }
 
 .equip-icon.is-photo {
-  width: 100%;
-  max-width: 260px;
-  height: auto;
+  /* Same fixed footprint as the plain icon state (below), cropped to fill
+     via object-fit — not width:100%/height:auto, which let a portrait photo
+     render arbitrarily tall and, on Galaxy Soda's step 2, push Build Mode's
+     Back/Next bar off-screen entirely. Every step's frame is now the same
+     size regardless of what photo (if any) is in it, both here and in the
+     admin edit form's step frames (same shared class, same fix for both). */
+  width: 150px;
+  height: 150px;
   border-radius: 12px;
   object-fit: cover;
 }
