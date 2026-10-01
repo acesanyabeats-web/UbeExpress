@@ -799,3 +799,20 @@ Alex: "Merge the straws as straws, depending on glass it long or short."
 - 21 method steps that named the old straw were rewritten to the matching new name. A re-check found 0 old names left.
 - The two `ingredient_photos` rows were renamed in place (Red/White → Long, Green/White → Short), so their category stays the same.
 - Garnish free-text ("red and white straw", "stripy straw") was left as written. It is descriptive text, not an ingredient.
+
+## 1 Oct 2026 — Mint sprigs, glace cherries, straws (long / short / boba)
+
+Alex's rules: mint sprig is 1 per drink; there are no fresh cherries, only glace cherries, 1 each time; straws are only long or short, with no colours; a boba straw goes in drinks that have boba inside the drink, not as the final garnish; wine glass = long; plain "straws" = 1 long; Elmo = long; Bathtub = 2 long (one each side) + 4 short (two per tea cup); Pimm's = 1 long.
+
+- **Mint Sprigs**: every row is now `1 sprig`. That was 36 rows in grams plus 2 with no unit.
+- **Cherries → Glace Cherries**: Dr Popper and Homemade Cherry Cola were changed in the ingredient, garnish and method. All 7 Glace Cherries rows are now `1 each`. Two new Cheers Trav (menu vs app) rows flag "Cherries" for both drinks. The Nonsense notes for Mint Sprigs, Glace Cherries and Cherries now say what the app should change to.
+- **Straws** (44 ingredient rows added; ingredient-list totals below):
+  - `Straw - Boba`: 8 drinks — the 4 Double Dutches and 4 Pop Stars, where boba is layered in the drink. Not added to Galaxy, Pink & Purple or DF&L Soda, where boba is only the final garnish.
+  - `Straw - Long`: 41 drinks.
+  - `Straw - Short`: 18 drinks. Blue Heat, Sakura Pink, Pink Gin Sling and Yuzu Kiss take 2 each ("two straws" in the method); Bathtub takes 4.
+  - All colour wording ("black", "stripy", "striped", "red and white", "curly") was replaced with long/short. 0 instances remain.
+  - Each straw is linked to the method step that mentions it.
+- **Left as-is**:
+  - Dancing Queen's "dry end of a straw" is a tool for the glitter, not a serve.
+  - Honey and Lemon Soda already had a long straw in its ingredients, but no step mentions a straw (this was already the case before today).
+  - The stray "Cherries" row in Fruit Prep is not yet removed: the delete needs Alex's confirmation.
