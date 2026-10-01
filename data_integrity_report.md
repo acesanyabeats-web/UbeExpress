@@ -267,7 +267,7 @@ Popping Balls – Lychee/Strawberry/Raspberry/Passionfruit all match
 cleanly across whichever of the three real sources mention them. Stated
 here so a future pass doesn't have to re-check them from scratch.
 
-### L. Step granularity — a real, now-explicit rule, 2 of 86 cocktails done
+### L. Step granularity — a real, now-explicit rule, gated on photos existing first
 Alex's own direct observation, walking Blue Heat step-by-step: "most
 recipes will have steps merge, no point in many steps where it can be
 combined." Galaxy Soda's pass (above) made the actual rule explicit:
@@ -280,10 +280,19 @@ folded together.
 
 **2 of 86 done**: Blue Heat (5→3 steps) and Galaxy Soda (8→5 steps),
 both re-verified post-edit with zero data lost and every resulting step
-carrying a real photo. **84 cocktails still untouched** — this is a
-real, mechanical, repeatable pass now, not a design question, so it can
-move faster than Blue Heat's own first bespoke pass did; still real
-work, not done in this same session beyond the 2 above.
+carrying a real photo.
+
+**Real, checked finding, 2026-10-01**: queried all 86 cocktails'
+`method_steps` directly before touching anything further — every one of
+the other **84 cocktails has zero photos on any step.** The merge rule
+has nothing to anchor to on any of them; "next step with a photo"
+doesn't exist yet for a single one. Put to Alex directly rather than
+guessed: **confirmed decision — hold off on merging a cocktail until it
+has real step photos.** Step-photo-taking (via the app, same as Blue
+Heat/Galaxy Soda) comes first, drink by drink; the merge follows
+naturally once photos exist, same two-step order both real cases
+actually happened in. Not a blanket "merge everything now" pass, and
+not applied blind ahead of real photo evidence.
 
 **Open edge case, named in Resolved above, not yet hit**: a trailing
 no-photo step with no later photo'd step to merge into — the rule as
