@@ -533,6 +533,19 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    // Admin switches shared by every device. Only known keys are writable.
+    if (action === 'set_setting') {
+      var SETTING_KEYS = { cheers_trav_staff: 'boolean' };
+      if (!SETTING_KEYS[payload.key]) { res.status(400).json({ error: 'Unknown setting' }); return; }
+      await sbFetch('app_settings?on_conflict=key', {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify({ key: payload.key, value: !!payload.value, updated_at: new Date().toISOString() })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     // Menu ↔ Chilled Pubs app discrepancies ("Cheers Trav" table).
     if (action === 'save_menu_discrepancy') {
       var clip = function (v, n) { return v === undefined ? undefined : (String(v || '').trim().slice(0, n) || null); };

@@ -591,3 +591,10 @@ slots and a What-to-change column; a "📄 Report" view lays each open discrepan
 out as a numbered card — change instruction, then printed menu vs Chilled Pubs app
 side by side with their screenshots — and prints / saves as PDF cleanly. The report
 header counts rows still missing a screenshot.
+
+### Cheers Trav admin-only by default (Oct 1 2026)
+New table `app_settings` (key, value jsonb; anon read-only, admin writes via
+/api/write `set_setting`, whitelisted keys only). `cheers_trav_staff = false`:
+staff see no Cheers Trav home card, page or drink banners. Admin always sees it,
+plus a "Show Cheers Trav to staff" switch under the home card to turn it on for
+everyone. Thank you Trav on the Label List is unaffected (staff need it to print).

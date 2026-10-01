@@ -1012,3 +1012,7 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
   .ctr-sides { grid-template-columns: 1fr 1fr !important; }
   .ctr-shot { background: #fff; max-height: 360px; }
 }
+
+.home-toggle { display: flex; align-items: center; gap: 10px; margin: -4px 4px 14px; font-size: 0.85rem; color: var(--text); cursor: pointer; }
+.home-toggle input { width: 20px; height: 20px; accent-color: var(--st-amber); flex: none; margin: 0; }
+.home-toggle em { color: var(--muted); font-style: normal; }

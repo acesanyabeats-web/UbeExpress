@@ -261,9 +261,12 @@
       sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; }),
       sbSelect('prep_checklist_state', 'select=*').catch(function () { return []; }),
       sbSelect('prep_batches', 'select=*&or=(ended_at.is.null,ended_at.gt.' + new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() + ')').catch(function () { return []; }),
-      sbSelect('menu_discrepancies', 'select=*&order=sort_order.asc,created_at.asc').catch(function () { return []; })
+      sbSelect('menu_discrepancies', 'select=*&order=sort_order.asc,created_at.asc').catch(function () { return []; }),
+      sbSelect('app_settings', 'select=*').catch(function () { return []; })
     ]).then(function (results) {
       state.discrepancies = results[6] || [];
+      state.settings = {};
+      (results[7] || []).forEach(function (r) { state.settings[r.key] = r.value; });
       setPrepState(results[4] || []);
       state.batches = results[5] || [];
       state.photoSubmissions = results[3] || [];
@@ -1258,11 +1261,17 @@
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
       (function () {
+        if (!cheersTravVisible()) return '';
         var open = openDiscrepancies().length;
+        var staffOn = (state.settings || {}).cheers_trav_staff === true;
         return '<div class="home-card' + (open ? ' has-trav' : '') + '" id="home-cheers-trav">' +
           '<div class="home-card-emoji">🍻</div>' +
           '<div class="home-card-text"><h3>Cheers Trav' + (open ? ' <span class="pending-count trav-count">' + open + '</span>' : '') + '</h3><p>Where the menu and the Chilled Pubs app disagree</p></div>' +
-        '</div>';
+        '</div>' +
+        (state.role === 'admin'
+          ? '<label class="home-toggle" for="cheers-staff-toggle"><input type="checkbox" id="cheers-staff-toggle"' + (staffOn ? ' checked' : '') + '>' +
+            '<span>Show Cheers Trav to staff' + (staffOn ? '' : ' <em>(hidden — admin only)</em>') + '</span></label>'
+          : '');
       })() +
       (state.role === 'admin' ?
         '<div class="home-card' + (state.photoSubmissions.length ? ' has-pending' : '') + '" id="home-candidates">' +
@@ -1283,7 +1292,17 @@
     main.classList.add('is-home');
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
-    document.getElementById('home-cheers-trav').addEventListener('click', function () { renderCheersTrav('open'); });
+    var ctCard = document.getElementById('home-cheers-trav');
+    if (ctCard) ctCard.addEventListener('click', function () { renderCheersTrav('open'); });
+    var ctToggle = document.getElementById('cheers-staff-toggle');
+    if (ctToggle) ctToggle.addEventListener('change', function () {
+      var on = ctToggle.checked;
+      ctToggle.disabled = true;
+      apiWrite('set_setting', { key: 'cheers_trav_staff', value: on }).then(function () {
+        state.settings = state.settings || {}; state.settings.cheers_trav_staff = on;
+        renderHome();
+      }).catch(function (e) { alert('Could not save: ' + e.message); renderHome(); });
+    });
     var candCard = document.getElementById('home-candidates');
     if (candCard) candCard.addEventListener('click', function () {
       loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
@@ -1802,8 +1821,11 @@
   // rows carry a "🍻 Cheers Trav" so staff and managers see the system still
   // needs fixing (sibling of the label list's "Thank you Trav").
   var CHEERS = '🍻 Cheers Trav';
+  // Admin always sees Cheers Trav; staff only once the admin switches it on.
+  function cheersTravVisible() { return state.role === 'admin' || (state.settings || {}).cheers_trav_staff === true; }
   function openDiscrepancies() { return (state.discrepancies || []).filter(function (d) { return !d.resolved; }); }
   function cheersTravBannerHtml(cocktailId) {
+    if (!cheersTravVisible()) return '';
     var rows = openDiscrepancies().filter(function (d) { return d.cocktail_id === cocktailId; });
     if (!rows.length) return '';
     return '<div class="trav-banner cheers-banner"><div class="cheers-head"><span class="trav-tag">' + CHEERS + '</span> The menu and the Chilled Pubs app disagree on this drink:</div>' +
@@ -1856,6 +1878,7 @@
     });
   }
   function renderCheersTrav(filter) {
+    if (!cheersTravVisible()) { renderHome(); return; }
     setHeader('🍻 Cheers Trav', true, renderHome);
     var main = document.getElementById('app-main');
     main.classList.add('is-wide');
