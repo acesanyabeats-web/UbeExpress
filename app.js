@@ -762,8 +762,11 @@
     Object.keys(groups).sort(byName).forEach(function (type) {
       var rows = groups[type].sort(byName).filter(function (n) { return !filter || n.toLowerCase().indexOf(filter) !== -1 || type.toLowerCase().indexOf(filter) !== -1; });
       if (!rows.length) return;
+      // The Last label column only appears in groups that hold Fruit Prep
+      // items — spirits etc. never get labels, so their names keep the room.
+      var showLabelCol = rows.some(function (n) { return !!ingredientCategory(n) || !!(state.prep[n.toLowerCase()] && state.prep[n.toLowerCase()].label_at); });
       html += '<h3 class="ing-group-title">' + escapeHtml(type) + ' <span class="ing-group-count">' + rows.length + '</span></h3>' +
-        '<table class="ing-table"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th></tr></thead><tbody>' +
+        '<table class="ing-table' + (showLabelCol ? ' has-label-col' : '') + '"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th>' + (showLabelCol ? '<th>Last label</th>' : '') + '</tr></thead><tbody>' +
         rows.map(function (n) {
           var p = state.ingredientPhotos[n.toLowerCase()];
           var used = usage[n.toLowerCase()] || 0;
@@ -774,8 +777,9 @@
               expiryBadgeHtml(n) + '</td>' +
             '<td class="ing-cell-photo"><button type="button" class="ing-frame-btn" aria-label="Photo for ' + escapeHtml(n) + '">' + ingredientTableFrameHtml(n) + '</button></td>' +
             '<td class="ing-cell-type"><select class="ing-type-select" aria-label="Type">' + typeOptions(p && p.category) + '</select></td>' +
+            (showLabelCol ? '<td class="ing-cell-label">' + lastLabelCellHtml(n) + '</td>' : '') +
           '</tr>' +
-          (openIngDetails[n.toLowerCase()] ? '<tr class="ing-details-row" data-ing-details="' + escapeHtml(n) + '"><td colspan="3">' + ingredientDetailsHtml(n) + '</td></tr>' : '');
+          (openIngDetails[n.toLowerCase()] ? '<tr class="ing-details-row" data-ing-details="' + escapeHtml(n) + '"><td colspan="' + (showLabelCol ? 4 : 3) + '">' + ingredientDetailsHtml(n) + '</td></tr>' : '');
         }).join('') + '</tbody></table>';
     });
     main.innerHTML = html;
@@ -914,6 +918,13 @@
         alert('Could not swap: ' + e.message);
       });
     });
+  }
+  function lastLabelCellHtml(name) {
+    var info = expiryInfo(name);
+    if (!info.labelAt) return '<span class="ing-label-none">—</span>';
+    var d = info.labelAt;
+    return '<div class="ing-label-when">' + escapeHtml(d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + '<br>' +
+      escapeHtml(d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })) + '</div>';
   }
   function ingredientTableFrameHtml(name) {
     var p = state.ingredientPhotos[String(name).toLowerCase()];
@@ -1369,11 +1380,13 @@
     }]);
   }
   // Label List "Done": the label time for everything on the list is now.
-  function recordLabels(names) {
-    var now = new Date().toISOString();
+  function recordLabels(names, atIso) {
+    var now = atIso || new Date().toISOString();
     return prepUpsert(names.map(function (n) {
       var ex = state.prep[n.toLowerCase()] || {};
-      return { item_name: prepRowName(n), category: ex.category || ingredientCategory(n), checked: true, checked_at: ex.checked_at || now, label_at: now, updated_at: now };
+      // checked_at = label time too, so a label time edited earlier than
+      // the tick still counts as 'labelled' (not 'Needs label').
+      return { item_name: prepRowName(n), category: ex.category || ingredientCategory(n), checked: true, checked_at: now, label_at: now, updated_at: new Date().toISOString() };
     }));
   }
   // Closer throws it out: it drops back to unticked (so the next opener sees
@@ -1519,12 +1532,15 @@
       return;
     }
 
-    var html = '<p id="labels-note" style="color:var(--muted);margin-bottom:14px;">' + items.length + ' item' + (items.length === 1 ? '' : 's') +
-      ' to label. Print, label everything, then press <strong>Done</strong> — that saves today\'s label time for each one.</p>';
-    html += '<div style="display:flex;gap:10px;margin-bottom:18px;">' +
-      '<button id="labels-print-btn" class="btn btn-secondary" style="flex:1;">🖨 Print Labels</button>' +
-      '<button id="labels-done-btn" class="btn btn-primary" style="flex:1;">✅ Done</button>' +
-      '</div>';
+    // The label time is captured the moment this page is opened (when the
+    // colleague starts labelling), shown in an editable field, and saved for
+    // every item when they press Done.
+    var html = '<div class="label-time-box">' +
+        '<label for="label-time-input">Label date &amp; time — write this on every label</label>' +
+        '<input type="datetime-local" id="label-time-input" value="' + toLocalInputValue(now) + '">' +
+      '</div>' +
+      '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + items.length + ' item' + (items.length === 1 ? '' : 's') +
+      ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above as each item\'s label time.</p>';
     html += '<div id="label-grid" class="label-grid">' + items.map(function (name) {
       var hours = shelfLifeHours(name);
       var useBy = hours ? new Date(now.getTime() + hours * 3600 * 1000) : null;
@@ -1535,18 +1551,26 @@
             ? '<div class="label-use">Use label: <strong>' + escapeHtml(ip.label_name) + '</strong></div>' : '');
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
-        '<div class="label-date">Prepped: ' + fmtLabelDate(now) + '</div>' +
-        '<div class="label-date">Use by: ' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</div>' +
+        '<div class="label-date">Use by: <span class="label-useby" data-hours="' + (hours || '') + '">' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</span></div>' +
         '</div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' +
+    '<button id="labels-done-btn" class="btn btn-primary labels-done-btn">✅ Done</button>';
 
     main.innerHTML = html;
-    document.getElementById('labels-print-btn').addEventListener('click', function () { window.print(); });
+    var timeInput = document.getElementById('label-time-input');
+    function labelTime() { var d = timeInput.value ? new Date(timeInput.value) : now; return isNaN(d) ? now : d; }
+    timeInput.addEventListener('change', function () {
+      var at = labelTime();
+      Array.prototype.forEach.call(main.querySelectorAll('.label-useby[data-hours]'), function (el) {
+        var h = parseFloat(el.getAttribute('data-hours'));
+        if (h > 0) el.textContent = fmtLabelDate(new Date(at.getTime() + h * 3600 * 1000));
+      });
+    });
     var doneBtn = document.getElementById('labels-done-btn');
     doneBtn.addEventListener('click', function () {
       doneBtn.disabled = true;
       doneBtn.textContent = 'Saving…';
-      recordLabels(items).then(renderFruitPrep).catch(function (e) {
+      recordLabels(items, labelTime().toISOString()).then(renderFruitPrep).catch(function (e) {
         doneBtn.disabled = false;
         doneBtn.textContent = '✅ Done';
         alert('Could not save the label times: ' + e.message);
