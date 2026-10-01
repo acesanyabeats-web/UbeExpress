@@ -45,6 +45,12 @@ var staffSubmitToken = require('./auth.js').staffSubmitToken;
 // rename/swap/merge: moved to the new name, or (if the new name already has
 // its own state) the old row is dropped and the kept one wins.
 async function movePrepState(fromKey, toName) {
+  // Prepped containers follow the ingredient too.
+  var batches = await (await sbFetch('prep_batches?select=id,item_name', { headers: sbHeaders() })).json();
+  var ids = batches.filter(function (b) { return String(b.item_name).toLowerCase() === fromKey; }).map(function (b) { return b.id; });
+  if (ids.length) {
+    await sbFetch('prep_batches?id=in.(' + ids.join(',') + ')', { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ item_name: toName }) });
+  }
   var rows = await (await sbFetch('prep_checklist_state?select=id,item_name', { headers: sbHeaders() })).json();
   var from = rows.filter(function (r) { return String(r.item_name).toLowerCase() === fromKey; })[0];
   if (!from) return;

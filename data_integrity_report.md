@@ -481,3 +481,31 @@ this is the document meant to help phrase what comes next:
    date labels) was wrong, and only real physical evidence caught it** —
    worth remembering as a reason to ask for the real number before
    shipping a placeholder, not just to flag the placeholder and move on.
+
+---
+
+## 2026-10-01 — Fruit Prep colour system (stock status, per container)
+
+Alex's own spec, refined through a real interrogation round. Fruit Prep
+now tracks **each prepped container separately** (new `prep_batches`
+table: prepped time, label time, ended time + reason), and each item is
+coloured by its most urgent container. Every colour also carries a text
+badge (never colour alone):
+
+| Colour | Meaning |
+|---|---|
+| Light green | Stocked + labelled |
+| Dark green | Stocked, needs a label (appears on the Label List) |
+| Amber | Bin at close tonight (expires tomorrow) |
+| Black | Past shelf life — bin now (no relabelling; re-prep with an accurate label) |
+| Red | Thrown out — needs prepping (until re-prepped) |
+| Blue | Out of stock — any colleague sets it, only an admin clears it |
+| Red/green + 🆕 | Back in stock — 🆕 stays until 3 days after it first goes light green |
+
+Prepping asks "Labelled now?" (→ light green, label time = now) or
+"Needs a label" (→ dark green; Label List "Done" stamps the captured
+time). Each container has **Used up** (finished, not waste → no red)
+and **Thrown out** (waste → red). Used up was added beyond Alex's spec
+because without it an emptied tub would wrongly show as waste.
+The old "Untick all" reset is gone (it would wipe real stock state).
+Renames/swaps/merges carry an ingredient's containers along with it.

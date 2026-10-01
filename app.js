@@ -31,16 +31,66 @@
   // be thrown out at close on the day BEFORE its expiry day, so tonight's
   // throw-out list is everything expiring tomorrow or already overdue.
   function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-  function expiryInfo(name) {
-    var prep = state.prep[String(name || '').toLowerCase()];
-    var labelAt = prep && prep.label_at ? new Date(prep.label_at) : null;
+  // Each prepped container is its own batch (prep_batches) with its own
+  // label time. expiry = label time + the ingredient's shelf life.
+  function batchInfo(name, b) {
+    var labelAt = b && b.label_at ? new Date(b.label_at) : null;
     var hours = shelfLifeHours(name);
-    if (!labelAt || !hours) return { labelAt: labelAt, hours: hours, expiresAt: null, throwOutDay: null, status: labelAt ? 'no_shelf_life' : 'no_label' };
+    if (!labelAt) return { labelAt: null, hours: hours, expiresAt: null, throwOutDay: null, status: 'no_label' };
+    if (!hours) return { labelAt: labelAt, hours: null, expiresAt: null, throwOutDay: null, status: 'no_shelf_life' };
     var expiresAt = new Date(labelAt.getTime() + hours * 3600 * 1000);
     var throwOutDay = new Date(startOfDay(expiresAt).getTime() - 24 * 3600 * 1000);
     var now = new Date();
     var status = now >= expiresAt ? 'expired' : (startOfDay(now) >= throwOutDay ? 'throw_tonight' : 'ok');
     return { labelAt: labelAt, hours: hours, expiresAt: expiresAt, throwOutDay: throwOutDay, status: status };
+  }
+  function batchesFor(name) {
+    var k = String(name || '').toLowerCase();
+    return (state.batches || []).filter(function (b) { return String(b.item_name).toLowerCase() === k; });
+  }
+  function activeBatches(name) {
+    return batchesFor(name).filter(function (b) { return !b.ended_at; })
+      .sort(function (a, b) { return new Date(a.label_at || a.created_at) - new Date(b.label_at || b.created_at); });
+  }
+  // Item-level expiry = its OLDEST labelled container (the one that goes first).
+  function expiryInfo(name) {
+    var labelled = activeBatches(name).filter(function (b) { return b.label_at; });
+    if (labelled.length) return batchInfo(name, labelled[0]);
+    return { labelAt: null, hours: shelfLifeHours(name), expiresAt: null, throwOutDay: null, status: activeBatches(name).length ? 'no_label' : 'none' };
+  }
+  // Fruit Prep colour for one container.
+  var BATCH_RANK = { black: 5, amber: 4, dark: 3, light: 2 };
+  function batchColour(name, b) {
+    var s = batchInfo(name, b).status;
+    return s === 'expired' ? 'black' : s === 'throw_tonight' ? 'amber' : s === 'no_label' ? 'dark' : 'light';
+  }
+  var NEW_BADGE_DAYS = 3;
+  // Whole-item colour (Alex's scheme): blue = out of stock; otherwise the
+  // most urgent container (black > amber > dark green > light green); with
+  // no containers: red if the last one was thrown out (or it's just back in
+  // stock), else plain 'none' (needs prepping). isNew = back in stock
+  // recently (until 3 days after it first goes light green again).
+  function itemStatus(name) {
+    var flags = state.prep[String(name || '').toLowerCase()] || {};
+    var all = batchesFor(name);
+    var active = all.filter(function (b) { return !b.ended_at; });
+    var restockedAt = flags.restocked_at ? new Date(flags.restocked_at) : null;
+    var isNew = false;
+    if (restockedAt && !flags.out_of_stock) {
+      var since = all.filter(function (b) { return b.label_at && new Date(b.label_at) >= restockedAt; })
+        .sort(function (a, b) { return new Date(a.label_at) - new Date(b.label_at); });
+      isNew = !since.length || (Date.now() - new Date(since[0].label_at).getTime()) < NEW_BADGE_DAYS * 24 * 3600 * 1000;
+    }
+    if (flags.out_of_stock) return { colour: 'blue', isNew: false, active: active };
+    if (active.length) {
+      var worst = active.map(function (b) { return batchColour(name, b); })
+        .sort(function (a, b) { return BATCH_RANK[b] - BATCH_RANK[a]; })[0];
+      return { colour: worst, isNew: isNew, active: active };
+    }
+    var ended = all.filter(function (b) { return b.ended_at; }).sort(function (a, b) { return new Date(b.ended_at) - new Date(a.ended_at); });
+    var lastThrown = ended[0] && ended[0].end_reason === 'thrown' && (!restockedAt || new Date(ended[0].ended_at) > restockedAt);
+    if (lastThrown || (restockedAt && isNew)) return { colour: 'red', isNew: isNew, active: active };
+    return { colour: 'none', isNew: false, active: active };
   }
   function fmtShelfLife(hours) {
     if (!hours) return 'not set';
@@ -59,7 +109,8 @@
     ingredients: {},     // cocktail_id -> [ingredient rows]
     ingredientPhotos: {}, // lowercase ingredient name -> photo_url
     photoSubmissions: [], // pending staff step-photo candidates (admin reviews)
-    prep: {},             // lowercase prep item -> prep_checklist_state row (checked, checked_at, label_at)
+    prep: {},             // lowercase prep item -> prep_checklist_state row (out_of_stock / restocked_at flags)
+    batches: [],          // prep_batches: one row per prepped container (label_at, ended_at, end_reason)
     seen: readSeen(),
     backTarget: null,    // fn the nav-back-btn calls; set by setHeader
     menuTab: 'cocktail'  // 'cocktail' | 'mocktail' — which sub-list the Cocktail Spec menu shows
@@ -207,9 +258,11 @@
       sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc'),
       sbSelect('ingredient_photos', 'select=*'),
       sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; }),
-      sbSelect('prep_checklist_state', 'select=*').catch(function () { return []; })
+      sbSelect('prep_checklist_state', 'select=*').catch(function () { return []; }),
+      sbSelect('prep_batches', 'select=*&or=(ended_at.is.null,ended_at.gt.' + new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() + ')').catch(function () { return []; })
     ]).then(function (results) {
       setPrepState(results[4] || []);
+      state.batches = results[5] || [];
       state.photoSubmissions = results[3] || [];
       state.cocktails = results[0];
       state.ingredients = {};
@@ -764,7 +817,7 @@
       if (!rows.length) return;
       // The Last label column only appears in groups that hold Fruit Prep
       // items — spirits etc. never get labels, so their names keep the room.
-      var showLabelCol = rows.some(function (n) { return !!ingredientCategory(n) || !!(state.prep[n.toLowerCase()] && state.prep[n.toLowerCase()].label_at); });
+      var showLabelCol = rows.some(function (n) { return !!ingredientCategory(n) || activeBatches(n).length > 0; });
       html += '<h3 class="ing-group-title">' + escapeHtml(type) + ' <span class="ing-group-count">' + rows.length + '</span></h3>' +
         '<table class="ing-table' + (showLabelCol ? ' has-label-col' : '') + '"><thead><tr><th>Ingredient</th><th>Photo</th><th>Type</th>' + (showLabelCol ? '<th>Last label</th>' : '') + '</tr></thead><tbody>' +
         rows.map(function (n) {
@@ -1341,126 +1394,154 @@
     state.prep = {};
     rows.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; });
   }
-  function fetchPrepCheckState() {
-    return sbSelect('prep_checklist_state', 'select=*').then(function (rows) { setPrepState(rows); return rows; });
+  function fetchPrepState() {
+    return Promise.all([
+      sbSelect('prep_checklist_state', 'select=*'),
+      sbSelect('prep_batches', 'select=*&or=(ended_at.is.null,ended_at.gt.' + new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() + ')')
+    ]).then(function (r) { setPrepState(r[0]); state.batches = r[1]; });
   }
 
   // Direct anon-key writes, deliberately bypassing the admin-secret-gated
-  // /api/write proxy: any logged-in staff member ticks prep, records labels
-  // and throws things out — not just admin (see the table's RLS policy).
-  function prepUpsert(rows) {
-    return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?on_conflict=item_name', {
-      method: 'POST',
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation'
-      },
-      body: JSON.stringify(rows)
-    }).then(function (r) {
-      if (!r.ok) throw new Error('Save failed: ' + r.status);
-      return r.json();
-    }).then(function (saved) {
-      saved.forEach(function (row) { state.prep[String(row.item_name).toLowerCase()] = row; });
-      return saved;
-    });
+  // /api/write proxy: any logged-in colleague preps, labels, bins and marks
+  // stock out (see the tables' RLS policies). Clearing "out of stock" is
+  // admin-only in the UI.
+  function anonFetch(path, method, body, prefer) {
+    var headers = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    if (prefer) headers.Prefer = prefer;
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { if (!r.ok) throw new Error('Save failed: ' + r.status); return r.status === 204 ? null : r.json(); });
   }
   function prepRowName(name) {
     var existing = state.prep[String(name).toLowerCase()];
     return existing ? existing.item_name : name;
   }
-  function setPrepChecked(itemName, category, checked) {
-    return prepUpsert([{
-      item_name: prepRowName(itemName),
-      category: category,
-      checked: checked,
-      checked_at: checked ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString()
-    }]);
+  function setStockFlags(name, fields) {
+    var row = { item_name: prepRowName(name), category: ingredientCategory(name), checked: false, updated_at: new Date().toISOString() };
+    for (var k in fields) if (fields.hasOwnProperty(k)) row[k] = fields[k];
+    return anonFetch('prep_checklist_state?on_conflict=item_name', 'POST', [row], 'resolution=merge-duplicates,return=representation')
+      .then(function (saved) { saved.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; }); });
   }
-  // Label List "Done": the label time for everything on the list is now.
-  function recordLabels(names, atIso) {
-    var now = atIso || new Date().toISOString();
-    return prepUpsert(names.map(function (n) {
-      var ex = state.prep[n.toLowerCase()] || {};
-      // checked_at = label time too, so a label time edited earlier than
-      // the tick still counts as 'labelled' (not 'Needs label').
-      return { item_name: prepRowName(n), category: ex.category || ingredientCategory(n), checked: true, checked_at: now, label_at: now, updated_at: new Date().toISOString() };
-    }));
+  // A new container: labelled now (light green) or still needs a label (dark green).
+  function addBatch(name, labelledNow) {
+    var now = new Date().toISOString();
+    return anonFetch('prep_batches', 'POST', { item_name: name, created_at: now, label_at: labelledNow ? now : null }, 'return=representation')
+      .then(function (rows) { state.batches = state.batches.concat(rows); });
   }
-  // Closer throws it out: it drops back to unticked (so the next opener sees
-  // it needs prepping) and its label is cleared.
-  function markThrownOut(name) {
-    return prepUpsert([{ item_name: prepRowName(name), category: ingredientCategory(name), checked: false, checked_at: null, label_at: null, updated_at: new Date().toISOString() }]);
+  function endBatch(id, reason) {
+    return anonFetch('prep_batches?id=eq.' + id, 'PATCH', { ended_at: new Date().toISOString(), end_reason: reason }, 'return=representation')
+      .then(function (rows) { var r = rows[0]; state.batches = state.batches.map(function (b) { return b.id === id ? r : b; }); });
   }
-  // Set/correct an item's label time by hand (Ingredients table).
+  // Label List "Done": the captured label time on every listed container.
+  function recordLabels(batchIds, atIso) {
+    if (!batchIds.length) return Promise.resolve();
+    return anonFetch('prep_batches?id=in.(' + batchIds.join(',') + ')', 'PATCH', { label_at: atIso }, 'return=representation')
+      .then(function (rows) {
+        var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
+        state.batches = state.batches.map(function (b) { return byId[b.id] || b; });
+      });
+  }
+  // Ingredients-table correction: set the oldest container's label time
+  // (creating a container if there is none).
   function setLabelTime(name, iso) {
-    var ex = state.prep[String(name).toLowerCase()] || {};
-    return prepUpsert([{ item_name: prepRowName(name), category: ex.category || ingredientCategory(name), checked: iso ? true : !!ex.checked, checked_at: ex.checked_at || (iso ? iso : null), label_at: iso, updated_at: new Date().toISOString() }]);
+    var act = activeBatches(name);
+    if (act.length) {
+      return anonFetch('prep_batches?id=eq.' + act[0].id, 'PATCH', { label_at: iso }, 'return=representation')
+        .then(function (rows) { state.batches = state.batches.map(function (b) { return b.id === rows[0].id ? rows[0] : b; }); });
+    }
+    if (!iso) return Promise.resolve();
+    return anonFetch('prep_batches', 'POST', { item_name: name, created_at: iso, label_at: iso }, 'return=representation')
+      .then(function (rows) { state.batches = state.batches.concat(rows); });
   }
 
-  // Unticks everything but keeps each item's label time, so expiry tracking
-  // survives a reset.
-  function resetPrepChecklist() {
-    return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?item_name=not.is.null', {
-      method: 'PATCH',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checked: false, checked_at: null, updated_at: new Date().toISOString() })
-    }).then(function (r) { if (!r.ok) throw new Error('Reset failed: ' + r.status); });
+  function labelQueue() {
+    return state.batches.filter(function (b) { return !b.ended_at && !b.label_at; })
+      .sort(function (a, b) { return a.item_name.localeCompare(b.item_name) || new Date(a.created_at) - new Date(b.created_at); });
   }
-
-  // Ticked items whose label hasn't been recorded since they were ticked.
-  function labelQueue(lists) {
-    return lists.fruitSyrup.concat(lists.sweetsGarnish).filter(function (n) {
-      var p = state.prep[n.toLowerCase()];
-      if (!p || !p.checked) return false;
-      return !p.label_at || (p.checked_at && new Date(p.label_at) < new Date(p.checked_at));
-    }).sort(function (a, b) { return a.localeCompare(b); });
-  }
-  // Everything labelled whose expiry falls tomorrow or earlier.
+  // Containers to bin: past shelf life (black) or expiring tomorrow (amber).
   function throwOutList() {
-    return Object.keys(state.prep).map(function (k) { return state.prep[k].item_name; })
-      .map(function (n) { return { name: n, info: expiryInfo(n) }; })
-      .filter(function (x) { return x.info.status === 'throw_tonight' || x.info.status === 'expired'; })
+    return state.batches.filter(function (b) { return !b.ended_at && b.label_at; })
+      .map(function (b) { return { b: b, info: batchInfo(b.item_name, b) }; })
+      .filter(function (x) { return x.info.status === 'expired' || x.info.status === 'throw_tonight'; })
       .sort(function (a, b) { return a.info.expiresAt - b.info.expiresAt; });
   }
+  var COLOUR_TEXT = { light: 'Stocked', dark: 'Needs label', amber: 'Bin tonight', black: 'Out of date — bin now', red: 'Thrown out — prep', blue: 'Out of stock', none: 'Needs prepping' };
   function expiryBadgeHtml(name) {
+    var st = itemStatus(name);
+    if (st.colour === 'none') return '';
     var info = expiryInfo(name);
-    if (info.status === 'expired') return '<span class="exp-badge exp-expired">Out of date</span>';
-    if (info.status === 'throw_tonight') return '<span class="exp-badge exp-tonight">Throw out tonight</span>';
-    if (info.status === 'ok') return '<span class="exp-badge exp-ok">Good until ' + escapeHtml(fmtDay(info.throwOutDay)) + '</span>';
-    return '';
+    var text = st.colour === 'light' && info.throwOutDay ? 'Good until ' + fmtDay(info.throwOutDay) : COLOUR_TEXT[st.colour];
+    if (st.colour === 'light' && info.status === 'no_shelf_life') text = 'Stocked · shelf life not set';
+    return '<span class="exp-badge st-' + st.colour + '">' + escapeHtml(text) + '</span>' + (st.isNew ? '<span class="new-badge-stock" title="Back in stock recently">🆕 back in stock</span>' : '');
   }
 
-  function prepRowHtml(name, checked) {
-    var p = state.prep[String(name).toLowerCase()];
-    var waitingLabel = checked && p && (!p.label_at || (p.checked_at && new Date(p.label_at) < new Date(p.checked_at)));
-    return '<label class="prep-row' + (checked ? ' checked' : '') + '" data-item="' + escapeHtml(name) + '">' +
-      '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
-      '<span>' + escapeHtml(name) + '</span>' +
-      (waitingLabel ? '<span class="exp-badge exp-label">Needs label</span>' : (checked ? expiryBadgeHtml(name) : '')) +
-      '</label>';
+  function batchChipHtml(name, b, idx) {
+    var c = batchColour(name, b);
+    var info = batchInfo(name, b);
+    var when = b.label_at ? 'Labelled ' + fmtLabelDate(new Date(b.label_at)) : 'Prepped ' + fmtLabelDate(new Date(b.created_at)) + ' · needs label';
+    var exp = info.expiresAt
+      ? (info.status === 'expired' ? ' · out of date' : info.status === 'throw_tonight' ? ' · bin tonight' : ' · bin ' + fmtDay(info.throwOutDay))
+      : (info.status === 'no_shelf_life' ? ' · shelf life not set' : '');
+    return '<div class="batch-chip st-' + c + '" data-batch="' + b.id + '">' +
+      '<span class="batch-text">#' + (idx + 1) + ' · ' + escapeHtml(when + exp) + '</span>' +
+      '<span class="batch-actions">' +
+        '<button type="button" class="batch-btn" data-end="used">Used up</button>' +
+        '<button type="button" class="batch-btn batch-btn-danger" data-end="thrown">Thrown out</button>' +
+      '</span></div>';
+  }
+  function prepRowHtml(name) {
+    var st = itemStatus(name);
+    var oos = st.colour === 'blue';
+    return '<div class="prep-item st-' + st.colour + '" data-item="' + escapeHtml(name) + '">' +
+      '<div class="prep-item-head">' +
+        '<span class="prep-dot"></span>' +
+        '<span class="prep-name">' + escapeHtml(name) + '</span>' +
+        expiryBadgeHtml(name) +
+        '<span class="prep-item-actions">' +
+          (oos
+            ? (state.role === 'admin' ? '<button type="button" class="prep-btn prep-restock-btn">Back in stock</button>' : '')
+            : '<button type="button" class="prep-btn prep-add-btn" aria-label="Prepped a container">＋ Prepped</button>' +
+              '<button type="button" class="prep-btn prep-oos-btn" title="Can\'t stock it — out of stock">Out of stock</button>') +
+        '</span>' +
+      '</div>' +
+      (st.active.length ? '<div class="batch-list">' + st.active.map(function (b, i) { return batchChipHtml(name, b, i); }).join('') + '</div>' : '') +
+    '</div>';
+  }
+  // Ticking: did they label it now (light green) or does it still need a label (dark green)?
+  function askLabelled(name, onPick) {
+    var sheet = document.createElement('div');
+    sheet.id = 'prep-ask-overlay';
+    sheet.innerHTML = '<div class="prep-ask">' +
+      '<h3>' + escapeHtml(name) + '</h3><p>New container prepped. Has it been labelled?</p>' +
+      '<button type="button" class="btn prep-ask-light">🟢 Labelled now</button>' +
+      '<button type="button" class="btn prep-ask-dark">🌲 Needs a label</button>' +
+      '<button type="button" class="btn btn-secondary prep-ask-cancel">Cancel</button></div>';
+    document.body.appendChild(sheet);
+    function close() { sheet.remove(); }
+    sheet.querySelector('.prep-ask-light').onclick = function () { close(); onPick(true); };
+    sheet.querySelector('.prep-ask-dark').onclick = function () { close(); onPick(false); };
+    sheet.querySelector('.prep-ask-cancel').onclick = close;
+    sheet.addEventListener('click', function (e) { if (e.target === sheet) close(); });
   }
 
+  var PREP_LEGEND = [['light', 'Stocked & labelled'], ['dark', 'Stocked, needs label'], ['amber', 'Bin at close tonight'], ['black', 'Out of date — bin now'], ['red', 'Thrown out — needs prepping'], ['blue', 'Out of stock'], ['none', 'Needs prepping']];
   function renderFruitPrep() {
     setHeader('🍋 Fruit Prep', true, renderHome);
     var main = document.getElementById('app-main');
     main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
     var lists = computePrepLists();
 
-    fetchPrepCheckState().then(function () {
-      var isChecked = function (n) { var p = state.prep[n.toLowerCase()]; return !!(p && p.checked); };
-      var queue = labelQueue(lists);
+    fetchPrepState().then(function () {
+      var queue = labelQueue();
       var toss = throwOutList();
+      var html = '<details class="prep-legend"><summary>Colour key</summary><div class="prep-legend-grid">' +
+        PREP_LEGEND.map(function (l) { return '<span class="legend-item st-' + l[0] + '"><span class="prep-dot"></span>' + l[1] + '</span>'; }).join('') +
+        '<span class="legend-item"><span class="new-badge-stock">🆕</span> Back in stock (3 days)</span></div></details>';
 
-      var html = '';
-      // Closers: what has to go in the bin tonight.
       html += '<div class="section-label">🗑 Throw Out Tonight</div>';
       html += toss.length
         ? '<div class="toss-list">' + toss.map(function (x) {
-            return '<div class="toss-row" data-item="' + escapeHtml(x.name) + '">' +
-              '<div class="toss-text"><div class="toss-name">' + escapeHtml(x.name) + '</div>' +
+            return '<div class="toss-row st-' + (x.info.status === 'expired' ? 'black' : 'amber') + '" data-batch="' + x.b.id + '">' +
+              '<div class="toss-text"><div class="toss-name">' + escapeHtml(x.b.item_name) + '</div>' +
               '<div class="toss-meta">' + (x.info.status === 'expired' ? 'Out of date since ' : 'Out of date ') + escapeHtml(fmtLabelDate(x.info.expiresAt)) +
               ' · labelled ' + escapeHtml(fmtLabelDate(x.info.labelAt)) + '</div></div>' +
               '<button type="button" class="btn btn-danger toss-btn">Thrown out</button>' +
@@ -1468,80 +1549,71 @@
           }).join('') + '</div>'
         : '<p class="toss-empty">Nothing to throw out tonight.</p>';
 
-      html += '<div style="display:flex;gap:10px;margin:18px 0;">' +
-        '<button id="prep-reset-btn" class="btn btn-secondary" style="flex:1;">🔄 Untick all</button>' +
-        '<button id="prep-labels-btn" class="btn btn-primary" style="flex:1;">🏷 Label List' + (queue.length ? ' (' + queue.length + ')' : '') + '</button>' +
-        '</div>';
+      html += '<button id="prep-labels-btn" class="btn btn-primary prep-labels-btn">🏷 Label List' + (queue.length ? ' (' + queue.length + ')' : '') + '</button>';
 
       html += '<div class="section-label">🍓 Fruit &amp; Syrups to Portion</div>';
-      html += '<div class="prep-list">' + (lists.fruitSyrup.length ?
-        lists.fruitSyrup.map(function (n) { return prepRowHtml(n, isChecked(n)); }).join('') :
+      html += '<div class="prep-list">' + (lists.fruitSyrup.length ? lists.fruitSyrup.map(prepRowHtml).join('') :
         '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
-
       html += '<div class="section-label">🍬 Sweets Garnish Stock to Replenish</div>';
-      html += '<div class="prep-list">' + (lists.sweetsGarnish.length ?
-        lists.sweetsGarnish.map(function (n) { return prepRowHtml(n, isChecked(n)); }).join('') :
+      html += '<div class="prep-list">' + (lists.sweetsGarnish.length ? lists.sweetsGarnish.map(prepRowHtml).join('') :
         '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
-
       main.innerHTML = html;
 
-      Array.prototype.forEach.call(main.querySelectorAll('.prep-row'), function (row) {
-        var checkbox = row.querySelector('input');
-        checkbox.addEventListener('change', function () {
-          var name = row.getAttribute('data-item');
-          checkbox.disabled = true;
-          setPrepChecked(name, ingredientCategory(name), checkbox.checked).then(renderFruitPrep).catch(function (e) {
-            checkbox.checked = !checkbox.checked;
-            checkbox.disabled = false;
-            alert('Could not save: ' + e.message);
+      function fail(e) { alert('Could not save: ' + e.message); renderFruitPrep(); }
+      Array.prototype.forEach.call(main.querySelectorAll('.prep-item'), function (row) {
+        var name = row.getAttribute('data-item');
+        var add = row.querySelector('.prep-add-btn');
+        if (add) add.addEventListener('click', function () {
+          askLabelled(name, function (labelled) { addBatch(name, labelled).then(renderFruitPrep).catch(fail); });
+        });
+        var oos = row.querySelector('.prep-oos-btn');
+        if (oos) wireArmConfirm(oos, 'Tap to confirm', function () {
+          setStockFlags(name, { out_of_stock: true, out_of_stock_at: new Date().toISOString() }).then(renderFruitPrep).catch(fail);
+        });
+        var restock = row.querySelector('.prep-restock-btn');
+        if (restock) restock.addEventListener('click', function () {
+          setStockFlags(name, { out_of_stock: false, restocked_at: new Date().toISOString() }).then(renderFruitPrep).catch(fail);
+        });
+        Array.prototype.forEach.call(row.querySelectorAll('.batch-chip'), function (chip) {
+          Array.prototype.forEach.call(chip.querySelectorAll('[data-end]'), function (btn) {
+            wireArmConfirm(btn, 'Confirm', function () { endBatch(chip.getAttribute('data-batch'), btn.getAttribute('data-end')).then(renderFruitPrep).catch(fail); });
           });
         });
       });
-
       Array.prototype.forEach.call(main.querySelectorAll('.toss-row'), function (row) {
-        var btn = row.querySelector('.toss-btn');
-        wireArmConfirm(btn, 'Tap to confirm', function () {
-          markThrownOut(row.getAttribute('data-item')).then(renderFruitPrep).catch(function (e) { alert('Could not save: ' + e.message); });
+        wireArmConfirm(row.querySelector('.toss-btn'), 'Tap to confirm', function () {
+          endBatch(row.getAttribute('data-batch'), 'thrown').then(renderFruitPrep).catch(fail);
         });
       });
-
-      wireArmConfirm(document.getElementById('prep-reset-btn'), 'Tap again to untick all', function () {
-        resetPrepChecklist().then(renderFruitPrep).catch(function (e) { alert('Reset failed: ' + e.message); });
-      });
-
-      document.getElementById('prep-labels-btn').addEventListener('click', function () {
-        renderLabelList(labelQueue(lists));
-      });
+      document.getElementById('prep-labels-btn').addEventListener('click', function () { renderLabelList(labelQueue()); });
     }).catch(function (e) {
       main.innerHTML = '<p>Could not load the prep list: ' + escapeHtml(e.message) + '</p>';
     });
   }
 
-  // Everything ticked off on Fruit Prep that still needs a label. Pressing
-  // Done saves "now" as the label time for every item on the list — that
-  // time + the ingredient's shelf life is what drives the throw-out list.
-  function renderLabelList(items) {
+  // Every container that still needs a label. The label time is captured
+  // the moment this page opens (editable), and Done saves it on every
+  // listed container — that time + shelf life drives every colour.
+  function renderLabelList(batches) {
     setHeader('🏷 Label List', true, renderFruitPrep);
     var main = document.getElementById('app-main');
     var now = new Date();
 
-    if (!items.length) {
-      main.innerHTML = '<p style="color:var(--muted)">No labels needed — tick items off on Fruit Prep as you prep them and they appear here.</p>' +
+    if (!batches.length) {
+      main.innerHTML = '<p style="color:var(--muted)">No labels needed — containers you mark "Needs a label" on Fruit Prep appear here.</p>' +
         '<button id="labels-back-btn" class="btn btn-secondary">← Back to Fruit Prep</button>';
       document.getElementById('labels-back-btn').addEventListener('click', renderFruitPrep);
       return;
     }
 
-    // The label time is captured the moment this page is opened (when the
-    // colleague starts labelling), shown in an editable field, and saved for
-    // every item when they press Done.
     var html = '<div class="label-time-box">' +
         '<label for="label-time-input">Label date &amp; time — write this on every label</label>' +
         '<input type="datetime-local" id="label-time-input" value="' + toLocalInputValue(now) + '">' +
       '</div>' +
-      '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + items.length + ' item' + (items.length === 1 ? '' : 's') +
-      ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above as each item\'s label time.</p>';
-    html += '<div id="label-grid" class="label-grid">' + items.map(function (name) {
+      '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + batches.length + ' container' + (batches.length === 1 ? '' : 's') +
+      ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above on each one.</p>';
+    html += '<div id="label-grid" class="label-grid">' + batches.map(function (b) {
+      var name = b.item_name;
       var hours = shelfLifeHours(name);
       var useBy = hours ? new Date(now.getTime() + hours * 3600 * 1000) : null;
       var ip = state.ingredientPhotos[String(name).toLowerCase()] || {};
@@ -1555,8 +1627,8 @@
         '</div>';
     }).join('') + '</div>' +
     '<button id="labels-done-btn" class="btn btn-primary labels-done-btn">✅ Done</button>';
-
     main.innerHTML = html;
+
     var timeInput = document.getElementById('label-time-input');
     function labelTime() { var d = timeInput.value ? new Date(timeInput.value) : now; return isNaN(d) ? now : d; }
     timeInput.addEventListener('change', function () {
@@ -1570,7 +1642,7 @@
     doneBtn.addEventListener('click', function () {
       doneBtn.disabled = true;
       doneBtn.textContent = 'Saving…';
-      recordLabels(items, labelTime().toISOString()).then(renderFruitPrep).catch(function (e) {
+      recordLabels(batches.map(function (b) { return b.id; }), labelTime().toISOString()).then(renderFruitPrep).catch(function (e) {
         doneBtn.disabled = false;
         doneBtn.textContent = '✅ Done';
         alert('Could not save the label times: ' + e.message);
