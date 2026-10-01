@@ -598,3 +598,12 @@ New table `app_settings` (key, value jsonb; anon read-only, admin writes via
 staff see no Cheers Trav home card, page or drink banners. Admin always sees it,
 plus a "Show Cheers Trav to staff" switch under the home card to turn it on for
 everyone. Thank you Trav on the Label List is unaffected (staff need it to print).
+
+### Thank you Trav folded into Cheers Trav (Oct 1 2026)
+The Cheers Trav page now has two sections: menu vs Chilled Pubs app, and
+"🙏 Thank you Trav — label machine" (every ingredient whose Right name = No, with
+what the machine prints vs what it should print; admin "Machine renamed" clears the
+machine name). The home-card count covers both. The printable report adds a
+"rename on the label machine" table. Both follow the same admin switch: while it's
+off, staff's Label List still says "Use label: <machine name>" (so they print the
+right sticker) but without the Thank you Trav sign or banner.

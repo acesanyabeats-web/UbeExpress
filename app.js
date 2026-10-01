@@ -1262,11 +1262,11 @@
       '</div>' +
       (function () {
         if (!cheersTravVisible()) return '';
-        var open = openDiscrepancies().length;
+        var open = travTotal();
         var staffOn = (state.settings || {}).cheers_trav_staff === true;
         return '<div class="home-card' + (open ? ' has-trav' : '') + '" id="home-cheers-trav">' +
           '<div class="home-card-emoji">🍻</div>' +
-          '<div class="home-card-text"><h3>Cheers Trav' + (open ? ' <span class="pending-count trav-count">' + open + '</span>' : '') + '</h3><p>Where the menu and the Chilled Pubs app disagree</p></div>' +
+          '<div class="home-card-text"><h3>Cheers Trav' + (open ? ' <span class="pending-count trav-count">' + open + '</span>' : '') + '</h3><p>Menu vs Chilled Pubs app, and label machine names to fix</p></div>' +
         '</div>' +
         (state.role === 'admin'
           ? '<label class="home-toggle" for="cheers-staff-toggle"><input type="checkbox" id="cheers-staff-toggle"' + (staffOn ? ' checked' : '') + '>' +
@@ -1774,7 +1774,7 @@
       '</div>' +
       '<p id="labels-note" style="color:var(--muted);margin:10px 0 14px;">' + batches.length + ' container' + (batches.length === 1 ? '' : 's') +
       ' to label. Label everything, then press <strong>Done</strong> — that saves the date &amp; time above on each one.</p>';
-    var travCount = batches.filter(function (b) { var m = labelMapping(b.item_name); return m.needed && m.trav; }).length;
+    var travCount = cheersTravVisible() ? batches.filter(function (b) { var m = labelMapping(b.item_name); return m.needed && m.trav; }).length : 0;
     if (travCount) html += '<div class="trav-banner">' + TRAV + ' — ' + travCount + ' label' + (travCount === 1 ? '' : 's') +
       ' on this list ' + (travCount === 1 ? 'is' : 'are') + ' under the wrong name on the label machine. Print the name shown, and tell a manager it still needs fixing.</div>';
     html += '<div id="label-grid" class="label-grid">' + batches.map(function (b) {
@@ -1785,7 +1785,7 @@
       var lm = labelMapping(name);
       var labelHint = ip.no_label
         ? '<div class="label-use label-use-none">No label exists for this — write it on by hand</div>'
-        : lm.trav ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>'
+        : lm.trav && cheersTravVisible() ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>'
         : lm.machine ? '<div class="label-use">Use label: <strong>' + escapeHtml(lm.machine) + '</strong></div>' : '';
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
@@ -1823,6 +1823,14 @@
   var CHEERS = '🍻 Cheers Trav';
   // Admin always sees Cheers Trav; staff only once the admin switches it on.
   function cheersTravVisible() { return state.role === 'admin' || (state.settings || {}).cheers_trav_staff === true; }
+  // Thank you Trav: every ingredient whose label machine prints a wrong name
+  // (set in the Ingredients table: Right name = No). Part of Cheers Trav.
+  function travLabels() {
+    return Object.keys(state.ingredientPhotos || {}).map(function (k) { return state.ingredientPhotos[k]; })
+      .filter(function (p) { var m = labelMapping(p.name); return m.needed && m.trav; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
+  }
+  function travTotal() { return openDiscrepancies().length + travLabels().length; }
   function openDiscrepancies() { return (state.discrepancies || []).filter(function (d) { return !d.resolved; }); }
   function cheersTravBannerHtml(cocktailId) {
     if (!cheersTravVisible()) return '';
@@ -1869,6 +1877,21 @@
       });
     });
   }
+  function travLabelsSectionHtml(admin) {
+    var labels = travLabels();
+    return '<h2 class="ct-section">' + TRAV + ' — label machine</h2>' +
+      '<p class="ing-table-intro">Ingredients the label machine prints under the wrong name. Staff print the machine\'s name for now; ' +
+      'once the machine is renamed, mark it fixed. Set these in Ingredients → Right name.</p>' +
+      '<div class="ing-table-scroll"><table class="ing-table ct-table ct-label-table"><thead><tr><th>Ingredient</th><th>Label machine prints</th><th>Should print</th><th>Fixed?</th></tr></thead><tbody>' +
+      (labels.length ? labels.map(function (p) {
+        var m = labelMapping(p.name);
+        return '<tr data-ing="' + escapeHtml(p.name) + '"><td class="ct-drink-cell">' + escapeHtml(p.name) + '</td>' +
+          '<td>' + escapeHtml(m.machine) + '</td><td>' + escapeHtml(p.name) + '</td>' +
+          '<td class="ct-fixed">' + (admin ? '<button type="button" class="btn btn-secondary ct-label-fixed">Machine renamed</button>' : 'No') +
+          '<span class="trav-tag">' + TRAV + '</span></td></tr>';
+      }).join('') : '<tr><td colspan="4" class="ct-empty">Every label prints the right name — no Thank you Trav needed.</td></tr>') +
+      '</tbody></table></div>';
+  }
   function apiSaveDiscrepancy(fields) {
     return apiWrite('save_menu_discrepancy', fields).then(function (res) {
       var row = res.row; if (!row) return;
@@ -1888,7 +1911,8 @@
     var openN = all.filter(function (d) { return !d.resolved; }).length;
     var drinkOpts = state.cocktails.map(function (c) { return '<option value="' + escapeHtml(c.name) + '">'; }).join('');
     var chip = function (k, label) { return '<button type="button" class="ct-chip' + (filter === k ? ' is-on' : '') + '" data-f="' + k + '">' + label + '</button>'; };
-    var html = '<p class="ing-table-intro">Where the printed menu and the Chilled Pubs app disagree. Every open row gets a ' + CHEERS +
+    var html = '<h2 class="ct-section">' + CHEERS + ' — menu vs Chilled Pubs app</h2>' +
+      '<p class="ing-table-intro">Where the printed menu and the Chilled Pubs app disagree. Every open row gets a ' + CHEERS +
       ' until it is fixed at the source. ' + openN + ' open · ' + (all.length - openN) + ' fixed.</p>' +
       '<div class="ct-chips">' + chip('open', 'Open') + chip('fixed', 'Fixed') + chip('all', 'All') + '</div>' +
       '<div class="ct-actions"><button type="button" id="ct-report-btn" class="btn btn-secondary">📄 Report (print / PDF)</button></div>' +
@@ -1914,7 +1938,8 @@
         '<datalist id="ct-drinks">' + drinkOpts + '</datalist>' +
         '<textarea id="ct-new-menu" rows="2" placeholder="Menu says…"></textarea>' +
         '<textarea id="ct-new-app" rows="2" placeholder="Chilled Pubs app says…"></textarea>' +
-        '<button type="button" id="ct-add-btn" class="btn btn-primary">＋ Add</button></div>' : '');
+        '<button type="button" id="ct-add-btn" class="btn btn-primary">＋ Add</button></div>' : '') +
+      travLabelsSectionHtml(admin);
     main.innerHTML = html;
     function fail(e) { alert('Could not save: ' + e.message); renderCheersTrav(filter); }
     Array.prototype.forEach.call(main.querySelectorAll('.ct-chip'), function (b) {
@@ -1948,6 +1973,17 @@
       });
     });
     document.getElementById('ct-report-btn').addEventListener('click', function () { renderCheersTravReport(filter); });
+    Array.prototype.forEach.call(main.querySelectorAll('.ct-label-table tr[data-ing]'), function (tr) {
+      var btn = tr.querySelector('.ct-label-fixed');
+      if (!btn) return;
+      var name = tr.getAttribute('data-ing');
+      wireArmConfirm(btn, 'Tap to confirm', function () {
+        apiUpdateIngredient(name, { label_name: '', label_ok: false }).then(function () {
+          var p = state.ingredientPhotos[name.toLowerCase()]; if (p) { p.label_name = ''; p.label_ok = false; }
+          renderCheersTrav(filter);
+        }).catch(fail);
+      });
+    });
     var add = document.getElementById('ct-add-btn');
     if (add) add.addEventListener('click', function () {
       var name = document.getElementById('ct-new-drink').value.trim();
@@ -1975,8 +2011,8 @@
     };
     var today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     main.innerHTML =
-      '<div class="ctr-head"><h2>🍻 Cheers Trav — menu vs Chilled Pubs app</h2>' +
-        '<p>' + rows.length + ' discrepanc' + (rows.length === 1 ? 'y' : 'ies') + ' to fix · ' + escapeHtml(today) +
+      '<div class="ctr-head"><h2>🍻 Cheers Trav — what to change</h2>' +
+        '<p>' + rows.length + ' menu discrepanc' + (rows.length === 1 ? 'y' : 'ies') + ' · ' + travLabels().length + ' label' + (travLabels().length === 1 ? '' : 's') + ' to rename · ' + escapeHtml(today) +
         (withBoth < rows.length ? ' · <span class="ctr-warn">' + (rows.length - withBoth) + ' still missing a screenshot</span>' : '') + '</p>' +
         '<button type="button" id="ctr-print" class="btn btn-primary ctr-print">🖨 Print / Save as PDF</button></div>' +
       rows.map(function (d, i) {
@@ -1986,7 +2022,15 @@
           '<div class="ctr-sides">' + side('Printed menu', d.menu_says, d.menu_evidence_url) + side('Chilled Pubs app', d.app_says, d.app_evidence_url) + '</div>' +
         '</section>';
       }).join('') +
-      (rows.length ? '' : '<p class="ct-empty">Nothing open — nothing to report.</p>');
+      (rows.length ? '' : '<p class="ct-empty">No menu discrepancies open.</p>') +
+      (function () {
+        var labels = travLabels();
+        if (!labels.length) return '';
+        return '<section class="ctr-card ctr-labels"><h3>' + TRAV + ' — rename on the label machine</h3>' +
+          '<table class="ctr-label-table"><thead><tr><th>Ingredient</th><th>Machine prints now</th><th>Change to</th></tr></thead><tbody>' +
+          labels.map(function (p) { return '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(labelMapping(p.name).machine) + '</td><td><strong>' + escapeHtml(p.name) + '</strong></td></tr>'; }).join('') +
+          '</tbody></table></section>';
+      })();
     document.getElementById('ctr-print').addEventListener('click', function () { window.print(); });
   }
 
