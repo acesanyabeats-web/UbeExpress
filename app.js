@@ -217,6 +217,7 @@
         (s.photo_url ? frameResizeHandleHtml() : '') +
         '<div class="frame-editor-actions">' +
           '<button type="button" class="btn btn-primary frame-editor-change-btn">' + (s.photo_url ? '📷 Change Photo' : '📷 Add Photo') + '</button>' +
+          (s.photo_url ? '<button type="button" class="btn btn-danger frame-editor-remove-btn">🗑 Remove Photo</button>' : '') +
         '</div>';
 
       overlay.querySelector('.frame-editor-done-btn').addEventListener('click', function () {
@@ -231,6 +232,16 @@
             render();
           });
         }, function () { /* cancelled, nothing to undo */ });
+      });
+
+      // Visible remove (was only reachable inside Change Photo's menu).
+      var removeBtn = overlay.querySelector('.frame-editor-remove-btn');
+      if (removeBtn) wireArmConfirm(removeBtn, 'Tap again to remove', function () {
+        removeBtn.disabled = true;
+        onPhotoChanged(null, true, function (newPhotoUrl) {
+          s.photo_url = newPhotoUrl || '';
+          render();
+        });
       });
 
       var handle = overlay.querySelector('.frame-resize-handle');

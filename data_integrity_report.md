@@ -607,3 +607,12 @@ machine name). The home-card count covers both. The printable report adds a
 "rename on the label machine" table. Both follow the same admin switch: while it's
 off, staff's Label List still says "Use label: <machine name>" (so they print the
 right sticker) but without the Thank you Trav sign or banner.
+
+### Galaxy Soda steps 1+2 merged; visible Remove Photo (Oct 1 2026)
+Galaxy Soda: step 1 ("Fill the glass a third with crushed ice") merged into step 2 —
+now "Fill the glass a third with crushed ice, add the sala syrup and mix, then add a
+straw", keeping step 2's photo (frame 317), same rule as earlier merges. 5 → 4 steps.
+Old step-1 photo (`step/1790814081265-t6u5rbkuqz.jpg`) no longer referenced; file
+left in storage. Frame Editor gained a visible "🗑 Remove Photo" button (tap twice)
+for step, finished-drink and ingredient photos — previously only reachable inside
+the Change Photo menu.
