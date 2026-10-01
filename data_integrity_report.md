@@ -776,3 +776,14 @@ inconsistencies, EHO-standard risks and training gaps.
   not a discrepancy.
 - **Dragon Fruit and Lychee Soda**: method entered from Alex's Chilled Pubs app
   screenshot (6 steps) + garnish; its ingredients already matched the screenshot.
+
+## SESSION CLOSE-OUT (addendum) — 1 Oct 2026, second /Bedtime
+Since the first close-out: /Routine ran (`daily_priorities_2026-10-01.txt`), then the
+Dyslexia + Nonsense categories and Alex's answers (card above, commit `5b5a7ef`).
+Live state: 15 menu-vs-app, 2 dyslexia, 52 nonsense, 7 label rows open; staff switch
+off; 0 screenshots attached. Vercel deploy still unconfirmed from here (connector
+can list the 3 projects but can't open them) — Alex to check `app.js?v=48` in the
+page source and which of the 3 Vercel projects is the linked one.
+Still open: Mint Nonsense rows merge (cancelled), Popping Balls – Mango product?,
+the pink list's circled note, screenshots, hand-test pass, the monetary
+investigation (menu / app / till). Next session on Ube Express: open with /Routine.
