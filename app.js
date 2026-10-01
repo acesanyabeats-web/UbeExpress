@@ -606,9 +606,16 @@
       '<div class="home-card" id="home-fruit-prep">' +
         '<div class="home-card-emoji">🍋</div>' +
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
-      '</div>';
+      '</div>' +
+      '<button type="button" id="logout-btn" class="btn btn-secondary logout-btn">Log out</button>';
     document.getElementById('home-cocktail-spec').addEventListener('click', renderMenu);
     document.getElementById('home-fruit-prep').addEventListener('click', renderFruitPrep);
+    document.getElementById('logout-btn').addEventListener('click', function () {
+      if (!confirm('Log out of Ube Express?')) return;
+      localStorage.removeItem('bar_role');
+      localStorage.removeItem('bar_admin_secret');
+      location.reload();
+    });
   }
 
   // ---------- MENU VIEW ----------

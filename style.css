@@ -661,3 +661,6 @@ body {
 .frame-editor-actions { display: flex; justify-content: center; margin-top: 12px; }
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
 .batch-input-row .field-group { flex: 1; margin-bottom: 0; }
+
+/* ---- Home: log out ---- */
+.logout-btn { display: block; width: 100%; margin-top: 24px; }
