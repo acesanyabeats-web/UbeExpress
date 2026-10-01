@@ -1516,9 +1516,9 @@
     var sheet = document.createElement('div');
     sheet.id = 'prep-ask-overlay';
     sheet.innerHTML = '<div class="prep-ask">' +
-      '<h3>' + escapeHtml(name) + '</h3>' + (note ? '<p class="prep-ask-note">' + escapeHtml(note) + '</p>' : '') + '<p>New container prepped. Has it been labelled?</p>' +
-      '<button type="button" class="btn prep-ask-light">🟢 Labelled now</button>' +
-      '<button type="button" class="btn prep-ask-dark">🌲 Needs a label</button>' +
+      '<h3>' + escapeHtml(name) + '</h3>' + (note ? '<p class="prep-ask-note">' + escapeHtml(note) + '</p>' : '') + '<p>New container — has it been labelled yet?</p>' +
+      '<button type="button" class="btn prep-ask-light">Prepped and Labelled</button>' +
+      '<button type="button" class="btn prep-ask-dark">Prepped / Not Labelled</button>' +
       '<button type="button" class="btn btn-secondary prep-ask-cancel">Cancel</button></div>';
     document.body.appendChild(sheet);
     function close() { sheet.remove(); }
@@ -1643,7 +1643,7 @@
     var now = new Date();
 
     if (!batches.length) {
-      main.innerHTML = '<p style="color:var(--muted)">No labels needed — containers you mark "Needs a label" on Fruit Prep appear here.</p>' +
+      main.innerHTML = '<p style="color:var(--muted)">No labels needed — containers you mark "Prepped / Not Labelled" on Fruit Prep appear here.</p>' +
         '<button id="labels-back-btn" class="btn btn-secondary">← Back to Fruit Prep</button>';
       document.getElementById('labels-back-btn').addEventListener('click', renderFruitPrep);
       return;

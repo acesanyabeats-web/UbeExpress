@@ -502,8 +502,8 @@ badge (never colour alone):
 | Blue | Out of stock — any colleague sets it, only an admin clears it |
 | Red/green + 🆕 | Back in stock — 🆕 stays until 3 days after it first goes light green |
 
-Prepping asks "Labelled now?" (→ light green, label time = now) or
-"Needs a label" (→ dark green; Label List "Done" stamps the captured
+Prepping asks "Prepped and Labelled" (→ light green, label time = now) or
+"Prepped / Not Labelled" (→ dark green; Label List "Done" stamps the captured
 time). Each container has **Used up** (finished, not waste → no red)
 and **Thrown out** (waste → red). Used up was added beyond Alex's spec
 because without it an emptied tub would wrongly show as waste.
