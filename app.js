@@ -2223,6 +2223,9 @@
   function fmtAmtUnit(amount, unit) {
     var amt = fmtAmt(amount);
     unit = unit || '';
+    // Count units read as plurals above 1 ("8 leaves", "2 sprigs"); the stored unit stays singular.
+    var PLURAL = { leaf: 'leaves', sprig: 'sprigs', wedge: 'wedges', scoop: 'scoops', dash: 'dashes', splash: 'splashes', barspoon: 'barspoons' };
+    if (PLURAL[unit] && Number(amount) > 1) unit = PLURAL[unit];
     if (amt && unit) return amt + ' ' + unit;
     return amt || unit;
   }
