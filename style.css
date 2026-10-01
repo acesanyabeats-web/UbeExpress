@@ -315,7 +315,7 @@ body {
   padding: 20px;
   text-align: center;
 }
-.build-step .equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
+.equip-icon { width: 130px; height: 130px; color: var(--accent); margin-bottom: 12px; }
 .step-media-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .step-media-row .equip-icon { margin-bottom: 0; }
 .step-ing-photo {
@@ -423,7 +423,7 @@ body {
 .photo-btn svg { width: 20px; height: 20px; }
 .photo-btn.uploading { opacity: 0.5; pointer-events: none; }
 
-.build-step .equip-icon.is-photo {
+.equip-icon.is-photo {
   width: 100%;
   max-width: 260px;
   height: auto;
@@ -544,41 +544,27 @@ body {
 .step-photos-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.8rem; flex-shrink: 0; }
 .step-photos-btn svg { width: 16px; height: 16px; }
 
-/* ---- Step photo slots screen ---- */
-#step-photo-slots-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  z-index: 350;
-  overflow-y: auto;
-  padding: 20px;
-}
-.slots-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.slots-header h3 { margin: 0; }
-.slots-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 16px; }
-.slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
-.photo-slot {
+/* ---- Step photo frames (inline in the edit form) ----
+   Deliberately reuses .equip-icon/.equip-icon.is-photo as-is (same rules
+   Build Mode itself uses) so an empty frame shows the exact same
+   equipment/glass icon, and a filled frame the exact same cropped photo
+   presentation, that Build Mode will actually show for that step — a true
+   preview, not a lookalike. */
+.step-frame-grid { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+.step-frame {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  aspect-ratio: 1;
   background: var(--card);
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   color: var(--muted);
   cursor: pointer;
-  padding: 8px;
-  overflow: hidden;
-  position: relative;
+  padding: 10px;
 }
-.photo-slot .slot-icon { width: 32px; height: 32px; }
-.photo-slot .slot-label { font-size: 0.8rem; }
-.photo-slot.has-photo { border-style: solid; border-color: var(--accent2); color: var(--text); padding: 0; }
-.photo-slot.has-photo img { width: 100%; height: 100%; object-fit: cover; }
-.photo-slot.has-photo .slot-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); padding: 4px; margin: 0; }
-.photo-slot.uploading { opacity: 0.5; pointer-events: none; }
+.step-frame.has-photo { border-style: solid; border-color: var(--accent2); color: var(--text); }
+.step-frame .step-frame-label { font-size: 0.8rem; margin-top: -4px; }
+.step-frame.uploading { opacity: 0.5; pointer-events: none; }
 
 /* ---- Batch calculator ---- */
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }

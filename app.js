@@ -92,6 +92,21 @@
     return '<svg class="' + (cls || '') + '"><use href="#icon-' + name + '"></use></svg>';
   }
 
+  // Shared by Build Mode and the admin edit form's step-photo frames, so both
+  // show the exact same icon (and, once set, the exact same cropped photo)
+  // for a given step — a step row's own frame in the edit form is meant to
+  // be a true preview of what Build Mode will actually show.
+  function iconForStep(glass, s) {
+    if (s.equipment === 'glass') return glass ? 'glass_' + glass : 'glass_rocks';
+    if (EQUIPMENT_OPTIONS.indexOf(s.equipment) !== -1) return s.equipment;
+    return glass ? 'glass_' + glass : 'glass_rocks';
+  }
+  function stepMediaHtml(glass, s) {
+    return s.photo_url
+      ? '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">'
+      : iconSvg(iconForStep(glass, s), 'equip-icon');
+  }
+
   // ---------- Supabase reads ----------
   function sbSelect(table, query) {
     return fetch(SUPABASE_URL + '/rest/v1/' + table + '?' + query, {
@@ -349,82 +364,25 @@
     });
   }
 
-  // Full-screen "set a photo for every step" screen, reached from the edit
-  // form's "📷 Step Photos" button. Shows one slot per step of the cocktail
-  // AS CURRENTLY SAVED in Supabase (cocktail.method_steps at the moment this
-  // was opened) — not the in-progress, possibly-edited-but-unsaved rows in
-  // the form — since every slot writes straight to that saved row via the
-  // same upload_photo/remove_photo actions the old per-row button used.
-  // Tapping an empty slot inserts a photo; tapping a filled slot replaces it;
-  // either way you're returned to this same grid afterward so the next slot
-  // can be done, until Confirm closes it. Each pick saves immediately (same
-  // safe pattern as every other photo button in this app), so nothing is
-  // lost by closing the screen partway through.
-  function showStepPhotoSlots(cocktail, onClose) {
-    var steps = (Array.isArray(cocktail.method_steps) ? cocktail.method_steps : []).map(function (s) {
-      return { instruction: s.instruction || '', photo_url: s.photo_url || '' };
+  // Opens the OS's native multi-select file picker (no camera option, no
+  // crop step — bulk-added photos are used as-is, same reasoning as "Use
+  // Full Photo": reviewing/cropping N images one at a time defeats the
+  // point of a bulk add; any individual frame can still be tapped afterward
+  // to crop or replace just that one). Used by the edit form's "Add
+  // Multiple" button to fill several step frames in one picker session.
+  function pickMultiplePhotos(onFiles) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      if (input.parentNode) input.parentNode.removeChild(input);
+      if (files.length) onFiles(files);
     });
-    if (!steps.length) {
-      alert('This cocktail has no method steps yet — add some and hit Save first.');
-      if (onClose) onClose();
-      return;
-    }
-
-    var overlay = document.createElement('div');
-    overlay.id = 'step-photo-slots-overlay';
-    document.body.appendChild(overlay);
-
-    // Keeps each step ROW's own data-photo-url attribute (the edit form's
-    // Save button reads this, per step row, to build its method_steps
-    // payload) in sync with a slot change made here — otherwise a later
-    // "Save" on the full form would silently overwrite method_steps with
-    // each row's stale attribute value and wipe out a photo just added here.
-    function syncRowAttr(i, url) {
-      var row = document.querySelectorAll('#step-rows .repeat-row')[i];
-      if (row) row.setAttribute('data-photo-url', url || '');
-    }
-
-    function render() {
-      overlay.innerHTML =
-        '<div class="slots-header"><h3>Step Photos</h3><button type="button" id="slots-confirm-btn" class="btn btn-primary">Confirm</button></div>' +
-        '<p class="slots-hint">Tap a slot to add a photo. Tap a filled slot to replace it.</p>' +
-        '<div class="slots-grid">' +
-          steps.map(function (s, i) {
-            return '<button type="button" class="photo-slot' + (s.photo_url ? ' has-photo' : '') + '" data-slot-idx="' + i + '">' +
-              (s.photo_url ? '<img src="' + escapeHtml(s.photo_url) + '">' : iconSvg('camera', 'slot-icon')) +
-              '<span class="slot-label">Step ' + (i + 1) + '</span>' +
-            '</button>';
-          }).join('') +
-        '</div>';
-
-      document.getElementById('slots-confirm-btn').addEventListener('click', function () {
-        overlay.remove();
-        if (onClose) onClose();
-      });
-
-      Array.prototype.forEach.call(overlay.querySelectorAll('[data-slot-idx]'), function (btn) {
-        btn.addEventListener('click', function () {
-          var i = parseInt(btn.getAttribute('data-slot-idx'), 10);
-          choosePhotoAndUpload(!!steps[i].photo_url, function (base64, isRemoval) {
-            btn.classList.add('uploading');
-            var req = isRemoval
-              ? apiRemovePhoto('step', { cocktail_id: cocktail.id, step_index: i })
-              : apiUploadPhoto(base64, 'step', { cocktail_id: cocktail.id, step_index: i });
-            req.then(function (res) {
-              steps[i].photo_url = isRemoval ? '' : res.photo_url;
-              syncRowAttr(i, steps[i].photo_url);
-              render();
-              loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
-            }).catch(function (e) {
-              btn.classList.remove('uploading');
-              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
-            });
-          }, function () { /* cancelled — stay on the grid, nothing to undo */ });
-        });
-      });
-    }
-
-    render();
+    input.click();
   }
 
   function apiFetchStockPhoto(ingredientName) {
@@ -961,12 +919,6 @@
     var ingByName = {};
     (ings || []).forEach(function (i) { ingByName[String(i.name || '').toLowerCase()] = i; });
 
-    function iconForStep(s) {
-      if (s.equipment === 'glass') return c.glass ? 'glass_' + c.glass : 'glass_rocks';
-      if (EQUIPMENT_OPTIONS.indexOf(s.equipment) !== -1) return s.equipment;
-      return c.glass ? 'glass_' + c.glass : 'glass_rocks';
-    }
-
     function ingredientRowHtml(name, overrideAmt) {
       var match = ingByName[String(name).toLowerCase()];
       var amtVal = overrideAmt != null ? overrideAmt : (match ? match.amount : null);
@@ -986,9 +938,7 @@
       var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(function (n) {
         return ingredientRowHtml(n, overrideAmts[String(n).toLowerCase()]);
       }).join('') + '</ul>' : '';
-      var mediaHtml = s.photo_url ?
-        '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">' :
-        iconSvg(iconForStep(s), 'equip-icon');
+      var mediaHtml = stepMediaHtml(c.glass, s);
       overlay.innerHTML =
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
@@ -1136,8 +1086,9 @@
       '<button id="add-ing-btn" class="add-row-btn">+ Add ingredient</button>' +
 
       '<div class="section-label-row"><div class="section-label">Method steps</div>' +
-      (existing ? '<button type="button" id="step-photos-btn" class="btn btn-secondary step-photos-btn">' + iconSvg('camera') + ' Step Photos</button>' : '') +
+      (existing ? '<button type="button" id="bulk-photo-btn" class="btn btn-secondary step-photos-btn">📦 Add Multiple</button>' : '') +
       '</div>' +
+      '<div id="step-frames"></div>' +
       '<div id="step-rows">' + steps.map(function (s, idx) { return stepRowHtml(s, idx); }).join('') + '</div>' +
       '<button id="add-step-btn" class="add-row-btn">+ Add step</button>' +
 
@@ -1155,10 +1106,116 @@
       document.getElementById('step-rows').insertAdjacentHTML('beforeend', stepRowHtml({ instruction: '', equipment: 'shaker', ingredient_names: '' }, Date.now()));
       wireRemoveButtons();
     });
-    var stepPhotosBtn = document.getElementById('step-photos-btn');
-    if (stepPhotosBtn) stepPhotosBtn.addEventListener('click', function () {
-      showStepPhotoSlots(existing, function () {});
+
+    // Keeps a step ROW's own data-photo-url attribute (the Save button below
+    // reads this, per row, to build its method_steps payload) in sync with a
+    // frame change — otherwise a later Save would silently overwrite
+    // method_steps with the row's stale attribute value and wipe out a photo
+    // just set via a frame (frames write straight to Supabase, bypassing Save).
+    function syncStepRowAttr(i, url) {
+      var row = document.querySelectorAll('#step-rows .repeat-row')[i];
+      if (row) row.setAttribute('data-photo-url', url || '');
+    }
+
+    // The frame strip only applies to steps as already SAVED in Supabase
+    // (this same `steps` array, sourced from existing.method_steps above) —
+    // a step added via "+ Add step" and not yet saved has no frame, same
+    // precondition the old per-row button always had.
+    function renderStepFrames() {
+      var framesEl = document.getElementById('step-frames');
+      if (!existing) {
+        framesEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Save this cocktail first, then reopen Edit to add step photos.</p>';
+        return;
+      }
+      framesEl.innerHTML = '<div class="step-frame-grid">' +
+        steps.map(function (s, i) {
+          return '<button type="button" class="step-frame' + (s.photo_url ? ' has-photo' : '') + '" data-frame-idx="' + i + '">' +
+            stepMediaHtml(existing.glass, s) +
+            '<span class="step-frame-label">Step ' + (i + 1) + '</span>' +
+          '</button>';
+        }).join('') +
+        '</div>';
+
+      Array.prototype.forEach.call(framesEl.querySelectorAll('[data-frame-idx]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var i = parseInt(btn.getAttribute('data-frame-idx'), 10);
+          choosePhotoAndUpload(!!steps[i].photo_url, function (base64, isRemoval) {
+            btn.classList.add('uploading');
+            var req = isRemoval
+              ? apiRemovePhoto('step', { cocktail_id: existing.id, step_index: i })
+              : apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: i });
+            req.then(function (res) {
+              steps[i].photo_url = isRemoval ? '' : res.photo_url;
+              syncStepRowAttr(i, steps[i].photo_url);
+              renderStepFrames();
+              loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
+            }).catch(function (e) {
+              btn.classList.remove('uploading');
+              alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
+            });
+          }, function () { /* cancelled, nothing to undo */ });
+        });
+      });
+    }
+    renderStepFrames();
+
+    // Live-update an empty frame's icon if the admin changes that step's
+    // equipment dropdown before saving (cosmetic only — a frame that already
+    // has a photo is unaffected, since the photo always takes visual
+    // priority over the equipment icon, same as Build Mode).
+    Array.prototype.forEach.call(document.querySelectorAll('#step-rows .repeat-row'), function (row, i) {
+      var eqSelect = row.querySelector('.step-equipment');
+      if (eqSelect && steps[i]) {
+        eqSelect.addEventListener('change', function () {
+          steps[i].equipment = eqSelect.value;
+          renderStepFrames();
+        });
+      }
     });
+
+    var bulkPhotoBtn = document.getElementById('bulk-photo-btn');
+    if (bulkPhotoBtn) bulkPhotoBtn.addEventListener('click', function () {
+      var emptyIdx = [];
+      steps.forEach(function (s, i) { if (!s.photo_url) emptyIdx.push(i); });
+      if (!emptyIdx.length) { alert('Every step already has a photo — tap a frame to replace one.'); return; }
+      pickMultiplePhotos(function (files) {
+        var targets = emptyIdx.slice(0, files.length);
+        bulkPhotoBtn.classList.add('uploading');
+        // Sequential, not parallel: api/write.js's step-photo write is a
+        // read-whole-array/mutate-one-index/write-whole-array-back PATCH —
+        // two of those in flight at once for the SAME cocktail would race,
+        // and whichever finishes last would silently erase the other's step.
+        var chain = Promise.resolve();
+        targets.forEach(function (stepIdx, j) {
+          chain = chain.then(function () {
+            return new Promise(function (resolve, reject) {
+              compressImageFile(files[j], 1280, function (base64) {
+                apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: stepIdx }).then(function (res) {
+                  steps[stepIdx].photo_url = res.photo_url;
+                  syncStepRowAttr(stepIdx, res.photo_url);
+                  renderStepFrames();
+                  resolve();
+                }).catch(reject);
+              });
+            });
+          });
+        });
+        chain.then(function () {
+          bulkPhotoBtn.classList.remove('uploading');
+          var extra = files.length - targets.length;
+          if (extra > 0) {
+            alert('Added ' + targets.length + ' photo' + (targets.length === 1 ? '' : 's') + ' — ' + extra +
+              ' extra photo' + (extra === 1 ? ' was' : 's were') + ' not used (only ' + targets.length +
+              ' empty step' + (targets.length === 1 ? '' : 's') + ' available).');
+          }
+          return loadAllData();
+        }).catch(function (e) {
+          bulkPhotoBtn.classList.remove('uploading');
+          alert('Bulk photo add failed partway through: ' + e.message);
+        });
+      });
+    });
+
     document.getElementById('f-batchable').addEventListener('change', function (e) {
       document.getElementById('batch-target-group').style.display = e.target.checked ? '' : 'none';
     });
