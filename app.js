@@ -846,7 +846,23 @@
         if (!newName) { input.value = name; return; }
         if (newName === name) return;
         var used = usage[name.toLowerCase()] || 0;
-        if (!confirm('Rename "' + name + '" to "' + newName + '"' + (used ? (used > 1 ? ' in all ' + used + ' drinks' : ' in the 1 drink that uses it') + ' (ingredients and build steps)' : '') + '?')) { input.value = name; return; }
+        var inDrinks = used ? (used > 1 ? ' in all ' + used + ' drinks' : ' in the 1 drink that uses it') : '';
+        // Renaming onto another ingredient's name = merging the two (e.g. a
+        // "- VAT PACK" duplicate into the main one).
+        var target = newName.toLowerCase() !== name.toLowerCase() && allIngredientNames().concat(Object.keys(state.ingredientPhotos).map(function (k) { return state.ingredientPhotos[k].name; }))
+          .filter(function (n) { return n && n.toLowerCase() === newName.toLowerCase(); })[0];
+        if (target) {
+          if (!confirm('"' + target + '" already exists. Merge "' + name + '" into it?\n\nEvery drink using "' + name + '" will use "' + target + '" instead' + (used ? ' (' + used + ' drink' + (used > 1 ? 's' : '') + ')' : '') + ', and "' + name + '" leaves the list.')) { input.value = name; return; }
+          input.disabled = true;
+          apiWrite('swap_ingredient', { name: name, replacement: target }).then(function () {
+            return loadAllData();
+          }).then(renderIngredientsTable).catch(function (e) {
+            alert('Could not merge: ' + e.message);
+            input.disabled = false; input.value = name;
+          });
+          return;
+        }
+        if (!confirm('Rename "' + name + '" to "' + newName + '"' + (inDrinks ? inDrinks + ' (ingredients and build steps)' : '') + '?')) { input.value = name; return; }
         input.disabled = true;
         apiUpdateIngredient(name, { new_name: newName }).then(function () {
           return loadAllData();

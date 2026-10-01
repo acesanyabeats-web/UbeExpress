@@ -41,6 +41,21 @@ async function uploadPhotoToStorage(base64, contentType, targetLabel) {
 
 var staffSubmitToken = require('./auth.js').staffSubmitToken;
 
+// Fruit Prep tick/label state is keyed by ingredient name, so it follows a
+// rename/swap/merge: moved to the new name, or (if the new name already has
+// its own state) the old row is dropped and the kept one wins.
+async function movePrepState(fromKey, toName) {
+  var rows = await (await sbFetch('prep_checklist_state?select=id,item_name', { headers: sbHeaders() })).json();
+  var from = rows.filter(function (r) { return String(r.item_name).toLowerCase() === fromKey; })[0];
+  if (!from) return;
+  var to = rows.filter(function (r) { return String(r.item_name).toLowerCase() === toName.toLowerCase(); })[0];
+  if (to && to.id !== from.id) {
+    await sbFetch('prep_checklist_state?id=eq.' + from.id, { method: 'DELETE', headers: sbHeaders() });
+  } else {
+    await sbFetch('prep_checklist_state?id=eq.' + from.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ item_name: toName, updated_at: new Date().toISOString() }) });
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
 
@@ -355,6 +370,7 @@ module.exports = async function handler(req, res) {
         if (ipRow) {
           await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ name: newName, updated_at: now }) });
         }
+        if (newKey !== oldKey || newName !== oldName) await movePrepState(oldKey, newName);
         res.status(200).json({ ok: true, renamed_rows: ciRows.length, drinks_with_steps_updated: stepsTouched });
         return;
       }
@@ -374,7 +390,7 @@ module.exports = async function handler(req, res) {
       var fromKey = fromName.toLowerCase(), toKey = toName.toLowerCase();
       if (fromKey === toKey) { res.status(400).json({ error: 'That is the same ingredient' }); return; }
       var stamp = new Date().toISOString();
-      var allIp = await (await sbFetch('ingredient_photos?select=id,name', { headers: sbHeaders() })).json();
+      var allIp = await (await sbFetch('ingredient_photos?select=*', { headers: sbHeaders() })).json();
       var fromIp = allIp.filter(function (r) { return String(r.name).toLowerCase() === fromKey; })[0];
       var toIp = allIp.filter(function (r) { return String(r.name).toLowerCase() === toKey; })[0];
       var allCi = await (await sbFetch('cocktail_ingredients?select=id,name,cocktail_id', { headers: sbHeaders() })).json();
@@ -444,6 +460,16 @@ module.exports = async function handler(req, res) {
       // its type and shelf life (but not its photo — it's a different product).
       if (fromIp) {
         if (toIp) {
+          // Merge: the kept ingredient picks up anything only the old one had.
+          var fill = {};
+          ['category', 'shelf_life_hours', 'photo_url', 'frame_height'].forEach(function (f) {
+            if ((toIp[f] === null || toIp[f] === undefined || toIp[f] === '') && fromIp[f] !== null && fromIp[f] !== undefined && fromIp[f] !== '') fill[f] = fromIp[f];
+          });
+          if (fill.frame_height !== undefined && !(fill.photo_url || toIp.photo_url)) delete fill.frame_height;
+          if (Object.keys(fill).length) {
+            fill.updated_at = stamp;
+            await sbFetch('ingredient_photos?id=eq.' + toIp.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(fill) });
+          }
           await sbFetch('ingredient_photos?id=eq.' + fromIp.id, { method: 'DELETE', headers: sbHeaders() });
         } else {
           await sbFetch('ingredient_photos?id=eq.' + fromIp.id, {
@@ -452,6 +478,7 @@ module.exports = async function handler(req, res) {
           });
         }
       }
+      await movePrepState(fromKey, toName);
       res.status(200).json({ ok: true, replacement: toName, ingredient_rows: fromRows.length, drinks_with_steps_updated: swappedDrinks });
       return;
     }
