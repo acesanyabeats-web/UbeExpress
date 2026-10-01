@@ -25,6 +25,13 @@ Everything else — every batch, every discrepancy — is still exactly as
 first entered. This isn't a guess; it's what `cocktails.updated_at`
 actually shows across all 86 rows.
 
+> **Superseded 1 Oct 2026 (session close-out, see the last section):** that
+> headline was true on 30 Sep and isn't any more. A full day of fixes has
+> landed since — step merges, ingredient renames/merges, the Mint split, the
+> label-machine mapping, shelf lives, and every menu-vs-app conflict moved into
+> the live **🍻 Cheers Trav** tracker. Read the session close-out at the bottom
+> for the current picture.
+
 ---
 
 ## Resolved
@@ -215,6 +222,23 @@ same-case name.
 ---
 
 ## Unresolved
+
+> **1 Oct 2026 — where these now live.** Every *menu vs Chilled Pubs app* item in
+> sections A–E below moved into the app's own **🍻 Cheers Trav** table
+> (`menu_discrepancies`), which is now the source of truth for them — check
+> there, not here. Status per row as of close-out:
+> - **In Cheers Trav, open:** Galaxy Soda (now only strawberry vs *raspberry* —
+>   blueberry was added), Mad Scientist, Witching Hour, Coco Loco, Pornstar
+>   Martini, Mermaid Shake, Give me S'mores, Sweet Shop, Key Lime Pie (C),
+>   Baby Bath (B), Apple Cooler / Strawberry Wizz Fizz / Homemade Ginger-ade /
+>   Bathtub (D), plus a new one: Homemade Raspberry-ade's batch name.
+> - **Removed by Alex as not needed:** Dancing Queen, Pick Me Up, Pink Gin Sling,
+>   the Raspberry/Passionfruit Cooler naming question, and the systemic
+>   "boba balls" question (E).
+> - **Still only here (app-internal, not menu-vs-app, so not in Cheers Trav):**
+>   Mojito Blackberry, Pimms Jug 125/150ml, Homemade Cherry Cola's method,
+>   Dragon's Potion pencil/chai, the 501ml lemonade, Mango Syrup 50g, Lemon
+>   0.05g, Chai vs chia, Coconut "Dessicated", and everything in F.
 
 Organized by which two things disagree — the same split used in the
 [artifact version of this list](https://claude.ai/artifact/25wHFNYnzLGYhhKz7e4MZL),
@@ -642,3 +666,84 @@ the Change Photo menu.
   Cheers Trav discrepancy row was added (change: rename it in the app).
 - Cheers Trav rows deleted by Alex on purpose (not needed): Dancing Queen, All boba
   drinks, Pick Me Up, Pink Gin Sling, Passionfruit Cooler. 15 menu rows now open.
+
+
+---
+
+## SESSION CLOSE-OUT — 1 Oct 2026 (/Bedtime)
+
+Everything shipped since this report was first compiled (30 Sep), in one place.
+Each item has its own dated card above; this is the summary. Verified against
+`git log` (local `main` = remote `main` = `e5aac4c`) and live Supabase at close.
+
+### Live in the app (pushed to `main`)
+**Photos & Build Mode**
+- Frame Editor wraps every photo (steps, finished drink, ingredients); visible
+  🗑 Remove Photo (tap twice) added today.
+- Staff can't edit photos; they submit step-photo candidates for admin review.
+- Build Mode re-laid out: photo fills the card, text under it, "Suggest a photo"
+  next to the step label.
+- Step merges: Peach Pony Club, Pink Gin Sling, Sakura Pink, Berry Butterfly,
+  Blue Heat, Galaxy Soda (twice — now 4 steps).
+
+**Ingredients table** — editable, grouped by type A–Z, photo per ingredient,
+rename / merge / permanent swap, shelf life (from the real labels), Fruit Prep
+membership, and three label columns: Label needed · Right name · Name on label
+machine.
+
+**Fruit Prep**
+- Per-container stock tracking with colours: light green (stocked & labelled),
+  dark green (needs label), amber (bin tonight), black (out of date), red (not
+  at station — thrown out / used up / never prepped), blue (out of stock),
+  🆕 back in stock (3 days). Rows tinted to their colour, symbol column on the
+  left.
+- Ticking asks **Prepped and Labelled** / **Prepped / Not Labelled**; unticking
+  asks Used up / Thrown out.
+- **Needs top up** flag + "Top Up on Next Open" list.
+- Throw Out Tonight list; Label List captures the label time when opened.
+- Orange Zest removed (zest comes from Oranges); Mint split into **Mint Leaves**
+  (muddled, 8 drinks) and **Mint Sprigs** (garnish, 50 drinks).
+
+**🍻 Cheers Trav** (admin-only; switch on the admin home shows it to staff)
+- Menu vs Chilled Pubs app: 15 open rows, What-to-change column, menu + app
+  screenshot slots, banners on each affected drink.
+- 🙏 Thank you Trav — label machine: 7 open (Blueberry balls→Mango, Lime Juice→
+  Cordial - Lime, Homemade Raspberry-ade→Homemade Lemonade, Blackberry→
+  Raspberries ["Bloody blackberry init"], Birds Eye Chillies→Red Chilli, Peach→
+  Mango [TBC], Pomegranate Seeds→"No clue"). Marked fine (shared label):
+  Mint Sprigs, Lychee, Giant Marshmallows, Cherries.
+- 📄 printable report (Save as PDF) covering both.
+
+**Renames today:** Lime Juice - Fresh → **Lime Juice**; Homemade Raspberry
+Lemonade → **Homemade Raspberry-ade**; Mint - Fresh → **Mint Leaves** (+ new
+Mint Sprigs).
+
+**New tables/columns:** `menu_discrepancies`, `app_settings`;
+`prep_checklist_state.needs_topup(_at)`; `ingredient_photos.label_ok`,
+`label_should_print`; evidence/change columns on `menu_discrepancies`.
+
+### Verified how
+Every change passed headless-browser tests (phone and desktop width) with the
+database mocked, plus Node tests of `api/write.js`. **Nothing has been
+hand-tested on the live site or a real phone yet**, and the live Vercel deploy
+couldn't be confirmed from here (deploy listing returned nothing). Fruit Prep
+has 0 real containers logged so far.
+
+### Waiting on Alex
+1. Screenshots for the 15 Cheers Trav rows (none attached yet).
+2. Mint split judgement calls: Pimms Jug → Sprigs; six drinks with no mint step
+   defaulted to Sprigs (Dr Popper, Dragon Fruit & Lychee Soda, Orange +
+   Passionfruit Soda, Peach Crumble, Sweet Shop, Passionfruit Cooler).
+3. Peach shelf life (not set); Pomegranate label (TBC).
+4. The circled note beside Cherries/Lychee/Orange Zest on the pink list.
+5. Add "Popping Balls – Mango" and "Guest Sweets" as products?
+6. Older open items above: app-internal recipe errors, no price column,
+   Butterfly Pea's category, Dragon Fruit & Lychee Soda's missing method,
+   glass icons.
+
+### Housekeeping noted
+- Old Galaxy Soda step-1 photo left in storage, unreferenced.
+- `_test_portrait.jpg` sits untracked in the repo folder (test image, not
+  committed).
+
+**Next session: open with /Routine.**
