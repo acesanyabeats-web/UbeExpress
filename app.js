@@ -1488,18 +1488,23 @@
         '<button type="button" class="batch-btn batch-btn-danger" data-end="thrown">Thrown out</button>' +
       '</span></div>';
   }
+  // Ticked = stocked and usable (light green / dark green / amber);
+  // unticked = red / plain / blue / black (Alex's rule).
+  var TICKED_COLOURS = { light: true, dark: true, amber: true };
   function prepRowHtml(name) {
     var st = itemStatus(name);
     var oos = st.colour === 'blue';
+    var ticked = !!TICKED_COLOURS[st.colour];
     return '<div class="prep-item st-' + st.colour + '" data-item="' + escapeHtml(name) + '">' +
       '<div class="prep-item-head">' +
-        '<span class="prep-dot"></span>' +
+        '<label class="prep-tick"><input type="checkbox" class="prep-tick-input"' + (ticked ? ' checked' : '') + (oos ? ' disabled' : '') +
+          ' aria-label="' + escapeHtml(name) + ' stocked"></label>' +
         '<span class="prep-name">' + escapeHtml(name) + '</span>' +
         expiryBadgeHtml(name) +
         '<span class="prep-item-actions">' +
           (oos
             ? (state.role === 'admin' ? '<button type="button" class="prep-btn prep-restock-btn">Back in stock</button>' : '')
-            : '<button type="button" class="prep-btn prep-add-btn" aria-label="Prepped a container">＋ Prepped</button>' +
+            : (ticked ? '<button type="button" class="prep-btn prep-add-btn" aria-label="Prepped another container">＋ Another</button>' : '') +
               '<button type="button" class="prep-btn prep-oos-btn" title="Can\'t stock it — out of stock">Out of stock</button>') +
         '</span>' +
       '</div>' +
@@ -1507,20 +1512,38 @@
     '</div>';
   }
   // Ticking: did they label it now (light green) or does it still need a label (dark green)?
-  function askLabelled(name, onPick) {
+  function askLabelled(name, onPick, note, onCancel) {
     var sheet = document.createElement('div');
     sheet.id = 'prep-ask-overlay';
     sheet.innerHTML = '<div class="prep-ask">' +
-      '<h3>' + escapeHtml(name) + '</h3><p>New container prepped. Has it been labelled?</p>' +
+      '<h3>' + escapeHtml(name) + '</h3>' + (note ? '<p class="prep-ask-note">' + escapeHtml(note) + '</p>' : '') + '<p>New container prepped. Has it been labelled?</p>' +
       '<button type="button" class="btn prep-ask-light">🟢 Labelled now</button>' +
       '<button type="button" class="btn prep-ask-dark">🌲 Needs a label</button>' +
       '<button type="button" class="btn btn-secondary prep-ask-cancel">Cancel</button></div>';
     document.body.appendChild(sheet);
     function close() { sheet.remove(); }
+    function cancel() { close(); if (onCancel) onCancel(); }
     sheet.querySelector('.prep-ask-light').onclick = function () { close(); onPick(true); };
     sheet.querySelector('.prep-ask-dark').onclick = function () { close(); onPick(false); };
-    sheet.querySelector('.prep-ask-cancel').onclick = close;
-    sheet.addEventListener('click', function (e) { if (e.target === sheet) close(); });
+    sheet.querySelector('.prep-ask-cancel').onclick = cancel;
+    sheet.addEventListener('click', function (e) { if (e.target === sheet) cancel(); });
+  }
+  // Unticking a stocked item: were its containers used up or thrown out?
+  function askEnded(name, count, onPick, onCancel) {
+    var sheet = document.createElement('div');
+    sheet.id = 'prep-ask-overlay';
+    sheet.innerHTML = '<div class="prep-ask">' +
+      '<h3>' + escapeHtml(name) + '</h3><p>' + (count > 1 ? 'All ' + count + ' containers' : 'This container') + ' — what happened?</p>' +
+      '<button type="button" class="btn btn-secondary prep-ask-used">Used up</button>' +
+      '<button type="button" class="btn btn-danger prep-ask-thrown">Thrown out</button>' +
+      '<button type="button" class="btn btn-secondary prep-ask-cancel">Cancel</button></div>';
+    document.body.appendChild(sheet);
+    function close() { sheet.remove(); }
+    function cancel() { close(); if (onCancel) onCancel(); }
+    sheet.querySelector('.prep-ask-used').onclick = function () { close(); onPick('used'); };
+    sheet.querySelector('.prep-ask-thrown').onclick = function () { close(); onPick('thrown'); };
+    sheet.querySelector('.prep-ask-cancel').onclick = cancel;
+    sheet.addEventListener('click', function (e) { if (e.target === sheet) cancel(); });
   }
 
   var PREP_LEGEND = [['light', 'Stocked & labelled'], ['dark', 'Stocked, needs label'], ['amber', 'Bin at close tonight'], ['black', 'Out of date — bin now'], ['red', 'Thrown out — needs prepping'], ['blue', 'Out of stock'], ['none', 'Needs prepping']];
@@ -1565,6 +1588,26 @@
         var add = row.querySelector('.prep-add-btn');
         if (add) add.addEventListener('click', function () {
           askLabelled(name, function (labelled) { addBatch(name, labelled).then(renderFruitPrep).catch(fail); });
+        });
+        var tick = row.querySelector('.prep-tick-input');
+        tick.addEventListener('change', function () {
+          var wasTicked = !tick.checked;
+          tick.checked = wasTicked; // the dialogs decide; the re-render shows the result
+          var st = itemStatus(name);
+          if (!wasTicked) {
+            // Ticking. A black item's out-of-date container(s) are binned first.
+            var expired = st.active.filter(function (b) { return batchColour(name, b) === 'black'; });
+            askLabelled(name, function (labelled) {
+              Promise.all(expired.map(function (b) { return endBatch(b.id, 'thrown'); }))
+                .then(function () { return addBatch(name, labelled); })
+                .then(renderFruitPrep).catch(fail);
+            }, expired.length ? 'The out-of-date container' + (expired.length > 1 ? 's' : '') + ' will be marked as thrown out.' : '');
+          } else {
+            askEnded(name, st.active.length, function (reason) {
+              Promise.all(st.active.map(function (b) { return endBatch(b.id, reason); }))
+                .then(renderFruitPrep).catch(fail);
+            });
+          }
         });
         var oos = row.querySelector('.prep-oos-btn');
         if (oos) wireArmConfirm(oos, 'Tap to confirm', function () {
