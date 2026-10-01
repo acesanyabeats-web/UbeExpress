@@ -630,3 +630,15 @@ the Change Photo menu.
   has no shelf life set in the app (`shelf_life_hours` null).
 - **Pomegranate Seeds** (arils): `no_label` false, machine prints "No clue, haven't
   been told yet :)", should print "Again, you tell me".
+
+### Blackberry label note; "Homemade Raspberry-ade" rename (Oct 1 2026)
+- **Blackberry** (machine prints "Raspberries"): should print set to
+  "Bloody blackberry init".
+- **"Homemade Raspberry Lemonade" → "Homemade Raspberry-ade"** — the batch
+  ingredient now matches the drink's name (Alex: "that should be the name"):
+  `ingredient_photos`, 4 `cocktail_ingredients` rows, 4 drinks' method steps; no prep
+  rows used it. Label machine still prints "Homemade Lemonade" → still Thank you Trav.
+  Because the Chilled Pubs app names the batch "Homemade Raspberry Lemonade", a new
+  Cheers Trav discrepancy row was added (change: rename it in the app).
+- Noted while checking: the "Dancing Queen" and "All boba drinks" Cheers Trav rows
+  were deleted in the live app (not by any script/test) — 18 menu rows now open.
