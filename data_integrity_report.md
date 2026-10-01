@@ -101,6 +101,27 @@ content present, zero data lost.
 
 **The broader pattern this surfaced — see Unresolved L, below.**
 
+### 2026-10-01 — direct data edit (no commit hash, content-only) — Galaxy Soda, same treatment, rule now explicit
+**What was found**: Alex went through Galaxy Soda step-by-step the same
+way and named the actual rule driving these merges, rather than leaving
+it to per-drink judgment: **a step with no photo merges forward into
+the next step that has one.**
+
+**What was fixed**: applied mechanically across Galaxy Soda's real 8
+steps. 3 no-photo steps each absorbed into the next photo'd step —
+"Add the sala syrup and mix" into "Add a straw"; "Add 10 drops of
+butterfly pea..." into "Add the blue curacao..."; "Cap with crushed
+ice" into "Garnish with blueberry and strawberry boba and a mint
+sprig." Galaxy Soda: 8 steps → 5. Verified via direct re-query: 5
+steps, 0 missing a photo — every resulting step now has one, which is
+the actual point of the rule, not just a smaller step count.
+
+**Open edge case, not yet hit by either real example**: the rule has no
+defined behavior for a TRAILING no-photo step with no later photo'd
+step to merge forward into (Blue Heat and Galaxy Soda both happened to
+end on a photo'd step). Will need a real answer — merge backward
+instead, or leave it standalone — whenever a cocktail actually has one.
+
 ---
 
 ## Unresolved
@@ -246,20 +267,27 @@ Popping Balls – Lychee/Strawberry/Raspberry/Passionfruit all match
 cleanly across whichever of the three real sources mention them. Stated
 here so a future pass doesn't have to re-check them from scratch.
 
-### L. Step granularity — likely affects most of the 86 cocktails, flagged for a real pass
+### L. Step granularity — a real, now-explicit rule, 2 of 86 cocktails done
 Alex's own direct observation, walking Blue Heat step-by-step: "most
 recipes will have steps merge, no point in many steps where it can be
-combined." Blue Heat (above) is the one confirmed real instance so far
-— 3 of 5 steps were small enough to fold into one continuous sequence.
-**Not auto-applied across the other 85 cocktails** — deciding what
-genuinely merges needs the same real judgment Blue Heat's fix did (does
-combining the instructions still read naturally, does a photo already
-exist on one of the steps being folded in, does the equipment stay
-consistent across the merge), not a mechanical rule. The real, honest
-scope of this item: walk the rest of the menu the same hands-on way
-(via the step-photo frames, since that's what surfaced it for Blue
-Heat) and merge on a case-by-case basis as each one is actually
-reviewed — a real backlog item, not yet started beyond Blue Heat.
+combined." Galaxy Soda's pass (above) made the actual rule explicit:
+**a step with no photo merges forward into the next step that has
+one.** Mechanical, not a per-drink judgment call each time — the only
+real per-drink work left is writing the merged instruction so it reads
+naturally (a plain "X, then Y" has worked for both real cases so far)
+and double-checking equipment stays consistent across what's being
+folded together.
+
+**2 of 86 done**: Blue Heat (5→3 steps) and Galaxy Soda (8→5 steps),
+both re-verified post-edit with zero data lost and every resulting step
+carrying a real photo. **84 cocktails still untouched** — this is a
+real, mechanical, repeatable pass now, not a design question, so it can
+move faster than Blue Heat's own first bespoke pass did; still real
+work, not done in this same session beyond the 2 above.
+
+**Open edge case, named in Resolved above, not yet hit**: a trailing
+no-photo step with no later photo'd step to merge into — the rule as
+stated has no defined behavior for that shape yet.
 
 ---
 
@@ -320,6 +348,7 @@ or send a straighter, closer photo, and I'll fold it in here.
 | 29 Sep, 02:12–02:22 | The only 2 real resolved fixes in this project's history (above) |
 | 29 Sep | Ingredient stock-photo search; flavour-variant grouping; Home screen split; Fruit Prep + printable labels; Cocktail/Mocktail split; menu alphabetised, new-badge deduped, Mojito/Pop Star/Spritz/Pimm's families grouped; 8 new drinks entered from real menu photos, extensive discrepancies flagged |
 | 30 Sep | This report; real prep-label shelf-life evidence received |
+| 1 Oct | Step-photo frames shipped; Blue Heat + Galaxy Soda step-merges (direct data edits); the explicit merge rule named |
 
 ---
 
@@ -328,15 +357,22 @@ or send a straighter, closer photo, and I'll fold it in here.
 Not a recommendation — just the pattern the evidence itself shows, since
 this is the document meant to help phrase what comes next:
 
-1. **There is no resolution mechanism at all.** ~30 real findings exist;
-   2 have ever been fixed, both by direct SQL/code edits during active
-   development, not through any review workflow. Nothing routes a
-   flagged item back to a decision.
+1. **There is no general resolution mechanism — one narrow, real one now
+   exists for exactly one finding type.** ~30 real findings exist across
+   this whole report; 4 have ever been fixed (re-verified 2026-10-01:
+   the original 2 Sep 29 code fixes, plus Blue Heat and Galaxy Soda's
+   step merges). The step-merge loop specifically now has a real,
+   repeatable shape — walk a drink via the step-photo frames, merge
+   per the explicit rule in section L, log it here — but every other
+   finding in this report still has nothing routing it back to a
+   decision.
 2. **Nothing in Supabase records *what* changed, only *whether* and
-   *when*.** `updated_at` proved a row was touched exactly 3 times in
-   this project's whole life, but the "what" for even those 3 only
-   exists because the git commit messages happened to spell it out in
-   full prose. A row edited via the admin UI alone would leave zero
+   *when*.** `updated_at` now shows 5 rows touched in this project's
+   whole life (re-verified 2026-10-01, up from 3) — but the "what" for
+   Blue Heat and Galaxy Soda's own edits exists only because this report
+   records it by hand; neither was a git commit, so there's no code
+   history to fall back on for those two the way there was for the
+   original 3. A row edited via the admin UI alone would leave zero
    trace of what it used to say.
 3. **The printed menu and the app's tracked recipes are two
    independently-maintained sources of truth, and nothing keeps them in
