@@ -322,21 +322,6 @@ body {
 }
 .build-progress .dot { flex: 1; height: 5px; border-radius: 3px; background: var(--border); }
 .build-progress .dot.done { background: var(--accent); }
-.build-step {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  text-align: center;
-  /* Defense in depth: frames are now a fixed size (so this shouldn't be
-     needed for a photo alone), but a long instruction or a long ingredient
-     list could still in principle grow taller than the viewport — this
-     keeps Back/Next always reachable either way, never pushed off-screen. */
-  overflow-y: auto;
-  min-height: 0;
-}
 .equip-icon { width: 150px; height: 150px; color: var(--accent); margin-bottom: 12px; }
 .step-media-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .step-media-row .equip-icon { margin-bottom: 0; }
@@ -353,9 +338,9 @@ body {
 }
 .step-ing-photo.visible { opacity: 1; }
 .step-ing-photo[hidden] { display: none; }
-.build-step .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-.build-step .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
-.build-step .step-ingredient-list {
+#build-overlay .step-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+#build-overlay .instruction { font-size: 1.4rem; font-weight: 600; margin: 4px 0 14px; max-width: 420px; }
+#build-overlay .step-ingredient-list {
   list-style: none;
   padding: 0;
   margin: 0 0 14px;
@@ -363,7 +348,7 @@ body {
   max-width: 320px;
   text-align: left;
 }
-.build-step .step-ingredient-list li {
+#build-overlay .step-ingredient-list li {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -371,13 +356,13 @@ body {
   border-bottom: 1px solid var(--border);
   font-size: 1.02rem;
 }
-.build-step .step-ingredient-list li:last-child { border-bottom: none; }
-.build-step .step-ingredient-list .ing-name { color: var(--text); }
-.build-step .step-ingredient-list .ing-amt { color: var(--accent2); font-weight: 600; white-space: nowrap; }
-.build-step .step-ingredient-list li.clickable { cursor: pointer; }
-.build-step .step-ingredient-list li.clickable .ing-name { color: var(--accent2); text-decoration: underline dotted; }
-.build-step .step-ingredient-list li.active { border-color: var(--accent2); }
-.build-step .step-ingredient-list li.active .ing-name { color: var(--accent); }
+#build-overlay .step-ingredient-list li:last-child { border-bottom: none; }
+#build-overlay .step-ingredient-list .ing-name { color: var(--text); }
+#build-overlay .step-ingredient-list .ing-amt { color: var(--accent2); font-weight: 600; white-space: nowrap; }
+#build-overlay .step-ingredient-list li.clickable { cursor: pointer; }
+#build-overlay .step-ingredient-list li.clickable .ing-name { color: var(--accent2); text-decoration: underline dotted; }
+#build-overlay .step-ingredient-list li.active { border-color: var(--accent2); }
+#build-overlay .step-ingredient-list li.active .ing-name { color: var(--accent); }
 .build-nav {
   display: flex;
   gap: 10px;
@@ -805,3 +790,46 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 @media print { .no-print-warn { color: #000; } }
 .toss-btn, .ing-swap-btn { width: auto; flex: none; }
 .ing-swap-input { flex: 1 1 auto; width: auto; }
+
+/* ---- Build Mode: anchored layout (nothing bounces between steps) ----
+   progress bar + "Step X of Y" pinned at the top; .build-bottom (ingredients
+   + instruction) pinned directly above the buttons; the photo frame centred
+   in .build-stage, the space between them. Every step's bottom block sits in
+   the SAME grid cell, so .build-bottom is always as tall as the drink's
+   tallest step and its top edge — and therefore the frame's centre — stays
+   put from step to step. */
+#build-overlay .step-label { text-align: center; padding: 10px 16px 0; margin: 0; flex: none; }
+.build-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  overflow: hidden;
+}
+.build-stage .step-media-row { position: relative; }
+/* The ingredient-photo preview floats beside the frame so showing it never
+   pushes the frame sideways. */
+.build-stage .step-ing-photo { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); margin: 0; max-width: calc((100vw - 100%) / 2 - 20px); }
+.build-bottom {
+  flex: none;
+  display: grid;
+  padding: 0 20px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.build-bottom-block {
+  grid-area: 1 / 1;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  visibility: hidden;
+}
+.build-bottom-block.is-current { visibility: visible; }
+#build-overlay .instruction { margin: 4px 0 4px; }
+/* Fixed button height: "✕ Close" vs "← Back" vs "✅ Done" glyphs have
+   different natural line heights, which nudged the whole layout by 1px. */
+.build-nav .btn { height: 56px; line-height: 1; padding-top: 0; padding-bottom: 0; }

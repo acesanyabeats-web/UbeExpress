@@ -1712,29 +1712,42 @@
         (amtLabel ? '<span class="ing-amt">' + escapeHtml(amtLabel) + '</span>' : '') + '</li>';
     }
 
-    function render() {
-      var s = steps[idx];
-      var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
-      var names = s.ingredient_names || [];
-      var overrideAmts = s.ingredient_amounts || {};
+    function bottomBlockHtml(st, i, isCurrent) {
+      var names = st.ingredient_names || [];
+      var overrideAmts = st.ingredient_amounts || {};
       var ingList = names.length ? '<ul class="step-ingredient-list">' + names.map(function (n) {
         return ingredientRowHtml(n, overrideAmts[String(n).toLowerCase()]);
       }).join('') + '</ul>' : '';
+      var extra = '';
+      if (state.role === 'admin') {
+        var n = pendingSubmissionsFor(c.id, i).length;
+        if (n) extra = '<button type="button" class="candidate-badge"' + (isCurrent ? ' id="step-candidates-btn"' : ' tabindex="-1"') + '>📸 ' + n + ' staff photo' + (n > 1 ? 's' : '') + ' to compare</button>';
+      } else {
+        extra = '<button type="button" class="suggest-photo-link"' + (isCurrent ? ' id="step-suggest-btn"' : ' tabindex="-1"') + '>📷 Suggest a photo for this step</button>';
+      }
+      return '<div class="build-bottom-block' + (isCurrent ? ' is-current' : '') + '"' + (isCurrent ? '' : ' aria-hidden="true"') + '>' +
+        extra + ingList +
+        '<div class="instruction">' + escapeHtml(st.instruction || '') + '</div>' +
+      '</div>';
+    }
+
+    function render() {
+      var s = steps[idx];
+      var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
       var mediaHtml = stepMediaHtml(c.glass, s);
+      // Anchored layout: progress bar + "Step X of Y" pinned at the top;
+      // the ingredients + instruction block pinned just above the buttons;
+      // the photo frame centred in the space between. Every step's bottom
+      // block is stacked in the same grid cell (only the current one
+      // visible), so that area is always as tall as this drink's tallest
+      // step — its top edge never moves, so the frame's centre never moves.
       overlay.innerHTML =
         '<div class="build-progress">' + dots + '</div>' +
-        '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        '<div class="step-media-row"><button type="button" class="step-media-btn" title="' + (state.role === 'admin' ? 'Frame Editor' : 'Suggest a photo for this step') + '">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
-        (state.role === 'admin'
-          ? (function () {
-              var n = pendingSubmissionsFor(c.id, idx).length;
-              return n ? '<button type="button" class="candidate-badge" id="step-candidates-btn">📸 ' + n + ' staff photo' + (n > 1 ? 's' : '') + ' to compare</button>' : '';
-            })()
-          : '<button type="button" class="suggest-photo-link" id="step-suggest-btn">📷 Suggest a photo for this step</button>') +
-        ingList +
-        '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
+        '<div class="build-stage">' +
+          '<div class="step-media-row"><button type="button" class="step-media-btn" title="' + (state.role === 'admin' ? 'Frame Editor' : 'Suggest a photo for this step') + '">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
         '</div>' +
+        '<div class="build-bottom">' + steps.map(function (st, i) { return bottomBlockHtml(st, i, i === idx); }).join('') + '</div>' +
         '<div class="build-nav">' +
         (idx > 0 ? '<button id="build-back" class="btn btn-secondary">← Back</button>' : '<button id="build-close" class="btn btn-secondary">✕ Close</button>') +
         (idx < steps.length - 1 ? '<button id="build-next" class="btn btn-primary">Next →</button>' : '<button id="build-done" class="btn btn-primary">✅ Done</button>') +
@@ -1785,7 +1798,7 @@
       if (doneBtn) doneBtn.addEventListener('click', close);
 
       var preview = document.getElementById('step-ing-preview');
-      Array.prototype.forEach.call(overlay.querySelectorAll('[data-ing-view]'), function (li) {
+      Array.prototype.forEach.call(overlay.querySelectorAll('.build-bottom-block.is-current [data-ing-view]'), function (li) {
         li.addEventListener('click', function () {
           var url = li.getAttribute('data-ing-view');
           // Same no-crop frame as everywhere else; height follows the Frame
