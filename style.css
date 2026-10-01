@@ -1027,3 +1027,4 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ctr-label-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .ctr-label-table td { padding: 6px; border-bottom: 1px solid var(--border); }
 @media print { .ctr-label-table th { color: #333 !important; } .ctr-label-table td, .ctr-label-table th { border-color: #bbb; } }
+.label-should { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }

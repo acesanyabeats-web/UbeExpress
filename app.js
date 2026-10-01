@@ -289,7 +289,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null, label_name: row.label_name || '', no_label: !!row.no_label, label_ok: !!row.label_ok };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours, prep_group: row.prep_group || null, label_name: row.label_name || '', no_label: !!row.no_label, label_ok: !!row.label_ok, label_should_print: row.label_should_print || '' };
       });
     });
   }
@@ -987,7 +987,9 @@
     var machine = (p.label_name || '').trim();
     if (machine.toLowerCase() === String(name).toLowerCase()) machine = '';
     var right = !machine || !!p.label_ok;
-    return { needed: !p.no_label, right: right, machine: machine, trav: !!machine && !p.label_ok };
+    // "should" = what the label ought to say; defaults to the ingredient's own
+    // name, or a custom note when nobody has decided yet (e.g. Peach).
+    return { needed: !p.no_label, right: right, machine: machine, trav: !!machine && !p.label_ok, should: (p.label_should_print || '').trim() || String(name) };
   }
   var TRAV = '🙏 Thank you Trav';
   function labelCellsHtml(name) {
@@ -1796,7 +1798,8 @@
       var lm = labelMapping(name);
       var labelHint = ip.no_label
         ? '<div class="label-use label-use-none">No label exists for this — write it on by hand</div>'
-        : lm.trav && cheersTravVisible() ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong></div>'
+        : lm.trav && cheersTravVisible() ? '<div class="label-use label-trav"><span class="trav-tag">' + TRAV + '</span> Label machine has the wrong name — print <strong>' + escapeHtml(lm.machine) + '</strong>' +
+            (lm.should !== name ? '<div class="label-should">Should say: ' + escapeHtml(lm.should) + '</div>' : '') + '</div>'
         : lm.machine ? '<div class="label-use">Use label: <strong>' + escapeHtml(lm.machine) + '</strong></div>' : '';
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' + labelHint +
@@ -1897,7 +1900,9 @@
       (labels.length ? labels.map(function (p) {
         var m = labelMapping(p.name);
         return '<tr data-ing="' + escapeHtml(p.name) + '"><td class="ct-drink-cell">' + escapeHtml(p.name) + '</td>' +
-          '<td>' + escapeHtml(m.machine) + '</td><td>' + escapeHtml(p.name) + '</td>' +
+          '<td>' + escapeHtml(m.machine) + '</td><td>' + (admin
+            ? '<textarea class="ct-edit ct-should" rows="2" placeholder="' + escapeHtml(p.name) + '">' + escapeHtml(p.label_should_print || '') + '</textarea>'
+            : escapeHtml(m.should)) + '</td>' +
           '<td class="ct-fixed">' + (admin ? '<button type="button" class="btn btn-secondary ct-label-fixed">Machine renamed</button>' : 'No') +
           '<span class="trav-tag">' + TRAV + '</span></td></tr>';
       }).join('') : '<tr><td colspan="4" class="ct-empty">Every label prints the right name — no Thank you Trav needed.</td></tr>') +
@@ -1988,9 +1993,17 @@
       var btn = tr.querySelector('.ct-label-fixed');
       if (!btn) return;
       var name = tr.getAttribute('data-ing');
+      var should = tr.querySelector('.ct-should');
+      if (should) should.addEventListener('change', function () {
+        should.disabled = true;
+        apiUpdateIngredient(name, { label_should_print: should.value }).then(function () {
+          var p = state.ingredientPhotos[name.toLowerCase()]; if (p) p.label_should_print = should.value.trim();
+          should.disabled = false;
+        }).catch(fail);
+      });
       wireArmConfirm(btn, 'Tap to confirm', function () {
-        apiUpdateIngredient(name, { label_name: '', label_ok: false }).then(function () {
-          var p = state.ingredientPhotos[name.toLowerCase()]; if (p) { p.label_name = ''; p.label_ok = false; }
+        apiUpdateIngredient(name, { label_name: '', label_ok: false, label_should_print: '' }).then(function () {
+          var p = state.ingredientPhotos[name.toLowerCase()]; if (p) { p.label_name = ''; p.label_ok = false; p.label_should_print = ''; }
           renderCheersTrav(filter);
         }).catch(fail);
       });
@@ -2039,7 +2052,7 @@
         if (!labels.length) return '';
         return '<section class="ctr-card ctr-labels"><h3>' + TRAV + ' — rename on the label machine</h3>' +
           '<table class="ctr-label-table"><thead><tr><th>Ingredient</th><th>Machine prints now</th><th>Change to</th></tr></thead><tbody>' +
-          labels.map(function (p) { return '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(labelMapping(p.name).machine) + '</td><td><strong>' + escapeHtml(p.name) + '</strong></td></tr>'; }).join('') +
+          labels.map(function (p) { return '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(labelMapping(p.name).machine) + '</td><td><strong>' + escapeHtml(labelMapping(p.name).should) + '</strong></td></tr>'; }).join('') +
           '</tbody></table></section>';
       })();
     document.getElementById('ctr-print').addEventListener('click', function () { window.print(); });

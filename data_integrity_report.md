@@ -616,3 +616,17 @@ Old step-1 photo (`step/1790814081265-t6u5rbkuqz.jpg`) no longer referenced; fil
 left in storage. Frame Editor gained a visible "🗑 Remove Photo" button (tap twice)
 for step, finished-drink and ingredient photos — previously only reachable inside
 the Change Photo menu.
+
+### Lime Juice rename; Peach + Pomegranate on Thank you Trav (Oct 1 2026)
+- **"Lime Juice - Fresh" → "Lime Juice"** everywhere: `ingredient_photos`, 28
+  `cocktail_ingredients` rows, 23 drinks' method steps (exact-name match only). No
+  prep/photo/discrepancy rows used the old name. Label machine still prints
+  "Cordial - Lime" → still a Thank you Trav.
+- New column `ingredient_photos.label_should_print` — custom "Should print" text when
+  the answer isn't simply the ingredient's own name (editable on the Cheers Trav page;
+  "Machine renamed" clears it).
+- **Peach**: `no_label` false, machine prints "Mango" (no peach label — staff use
+  mango), should print "Well, you tell me — 5–7 days shelf life, TBC…". Peach still
+  has no shelf life set in the app (`shelf_life_hours` null).
+- **Pomegranate Seeds** (arils): `no_label` false, machine prints "No clue, haven't
+  been told yet :)", should print "Again, you tell me".
