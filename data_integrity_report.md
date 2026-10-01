@@ -816,3 +816,10 @@ Alex's rules: mint sprig is 1 per drink; there are no fresh cherries, only glace
   - Dancing Queen's "dry end of a straw" is a tool for the glitter, not a serve.
   - Honey and Lemon Soda already had a long straw in its ingredients, but no step mentions a straw (this was already the case before today).
   - The stray "Cherries" row in Fruit Prep is not yet removed: the delete needs Alex's confirmation.
+
+## 1 Oct 2026 — Mint leaves counted, not weighed; Honey & Lemon straw; Cherries retired
+
+- **Mint Leaves** (Alex): Mojitos get 8 leaves (5 drinks); Pimms Jug gets 12; Apple Cooler, Peach Iced Tea and Pink Paloma get 5. Unit is `leaf`. The Nonsense note is updated to match.
+- The app now shows count units in the plural when the amount is above 1 ("8 leaves", "4 sprigs"). The stored unit stays singular so the unit dropdown still matches. Checked: `8 leaves | 1 sprig | 2 each | 4 sprigs | 25 ml`. `app.js?v=49`.
+- **Honey and Lemon Soda**: step 5 now reads "Cap with crushed ice and add a long straw" and is linked to Straw - Long.
+- **Cherries** (Fruit Prep): the database tool blocks deletes in this session, so the row was moved out of Fruit Prep instead (`prep_group` cleared, category "Retired (not stocked)"). To remove it for good, run `delete from ingredient_photos where name='Cherries';` in the Supabase SQL editor.
