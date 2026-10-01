@@ -570,6 +570,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Keeps the icon/photo + label vertically CENTERED within whatever total
+     height this card ends up at — matters because .step-frame-grid's flex
+     row stretches every card in a row to match its tallest member, and a
+     shorter/un-resized neighbor would otherwise sit flush at the top with
+     dead space below instead of centering, once per-step frame heights can
+     genuinely differ (see the resize feature). */
+  justify-content: center;
   background: var(--card);
   border: 2px dashed var(--border);
   border-radius: var(--radius);
@@ -607,6 +614,50 @@ body {
 .frame-resize-handle:hover,
 .frame-resize-handle:active { background: var(--accent2); }
 
-/* ---- Batch calculator ---- */
+/* Plain reset — just a click target wrapping Build Mode's own media (img or
+   svg icon); all real visual styling stays on .equip-icon itself. */
+.step-media-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+}
+
+/* ---- Frame Editor ----
+   One reusable wrapper around ANY step's visual media (photo or the
+   fallback equipment/glass icon), opened by tapping a frame in either the
+   admin step-frame grid or Build Mode. Resizing and changing/removing the
+   photo both live here — the one place future frame-level controls should
+   be added, per Alex's own "crucial for future developments" framing. */
+#frame-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  /* Below the crop modal (400) and photo-action menu (410) — both are
+     opened AS CHILD actions from "Change Photo" inside this editor, so they
+     must stack above it, not under it (a real bug caught by testing: at
+     420 this sat on top and silently intercepted every click meant for the
+     menu underneath). Still above ordinary page content (200-300 range). */
+  z-index: 390;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+.frame-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.frame-editor-header h3 { margin: 0; color: var(--text); }
+.frame-editor-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The frame is always vertically (and horizontally) centered within this
+     canvas, regardless of how tall a resize makes it. */
+  min-height: 200px;
+  overflow: auto;
+}
+.frame-editor-actions { display: flex; justify-content: center; margin-top: 12px; }
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
 .batch-input-row .field-group { flex: 1; margin-bottom: 0; }

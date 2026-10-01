@@ -144,6 +144,61 @@
     });
   }
 
+  // The Frame Editor — a single, reusable wrapper around ANY step's visual
+  // media, photo or the fallback equipment/glass icon alike. Tapping a
+  // frame, in both the admin edit form's step-frame grid and Build Mode's
+  // live step view, opens this instead of jumping straight to the photo
+  // picker — resizing and "change/remove the photo" both live inside it as
+  // real, distinct actions. Deliberately a plain, persistence-agnostic UI:
+  // the caller supplies onPhotoChanged/onResized and does the actual
+  // Supabase write + re-render, so this same wrapper can be reused by any
+  // future frame-level control without the editor itself needing to know
+  // which screen opened it or how that screen persists state.
+  //   s             — the step object (read live; caller owns its identity)
+  //   glass         — the cocktail's glass, for the icon fallback
+  //   onPhotoChanged(base64, isRemoval, cb) — caller uploads/removes, then
+  //                   calls cb(newPhotoUrlOrEmptyString) once done
+  //   onResized(newHeightPx) — caller persists the new frame height
+  function openFrameEditor(s, glass, onPhotoChanged, onResized) {
+    var overlay = document.createElement('div');
+    overlay.id = 'frame-editor-overlay';
+    document.body.appendChild(overlay);
+
+    function render() {
+      overlay.innerHTML =
+        '<div class="frame-editor-header"><h3>Frame Editor</h3><button type="button" class="btn btn-secondary frame-editor-done-btn">Done</button></div>' +
+        '<div class="frame-editor-canvas">' + stepMediaHtml(glass, s) + '</div>' +
+        (s.photo_url ? frameResizeHandleHtml() : '') +
+        '<div class="frame-editor-actions">' +
+          '<button type="button" class="btn btn-primary frame-editor-change-btn">' + (s.photo_url ? '📷 Change Photo' : '📷 Add Photo') + '</button>' +
+        '</div>';
+
+      overlay.querySelector('.frame-editor-done-btn').addEventListener('click', function () {
+        overlay.remove();
+      });
+
+      overlay.querySelector('.frame-editor-change-btn').addEventListener('click', function () {
+        choosePhotoAndUpload(!!s.photo_url, function (base64, isRemoval) {
+          onPhotoChanged(base64, isRemoval, function (newPhotoUrl) {
+            s.photo_url = newPhotoUrl || '';
+            render();
+          });
+        }, function () { /* cancelled, nothing to undo */ });
+      });
+
+      var handle = overlay.querySelector('.frame-resize-handle');
+      if (handle) {
+        var img = overlay.querySelector('.frame-editor-canvas img.equip-icon');
+        wireFrameResizeHandle(handle, img, function (newHeight) {
+          s.frame_height = newHeight;
+          onResized(newHeight);
+        });
+      }
+    }
+
+    render();
+  }
+
   // ---------- Supabase reads ----------
   function sbSelect(table, query) {
     return fetch(SUPABASE_URL + '/rest/v1/' + table + '?' + query, {
@@ -991,7 +1046,7 @@
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        '<div class="step-media-row">' + mediaHtml + (s.photo_url ? frameResizeHandleHtml() : '') + '<img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
+        '<div class="step-media-row"><button type="button" class="step-media-btn">' + mediaHtml + '</button><img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
         ingList +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
@@ -1000,16 +1055,26 @@
         (idx < steps.length - 1 ? '<button id="build-next" class="btn btn-primary">Next →</button>' : '<button id="build-done" class="btn btn-primary">✅ Done</button>') +
         '</div>';
 
-      var resizeHandle = overlay.querySelector('.step-media-row .frame-resize-handle');
-      if (resizeHandle) {
-        var buildImg = overlay.querySelector('.step-media-row img.equip-icon');
-        wireFrameResizeHandle(resizeHandle, buildImg, function (newHeight) {
-          s.frame_height = newHeight;
+      overlay.querySelector('.step-media-btn').addEventListener('click', function () {
+        openFrameEditor(s, c.glass, function (base64, isRemoval, cb) {
+          var req = isRemoval
+            ? apiRemovePhoto('step', { cocktail_id: c.id, step_index: idx })
+            : apiUploadPhoto(base64, 'step', { cocktail_id: c.id, step_index: idx });
+          req.then(function (res) {
+            var newUrl = isRemoval ? '' : res.photo_url;
+            s.photo_url = newUrl;
+            render();
+            loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
+            cb(newUrl);
+          }).catch(function (e) {
+            alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
+          });
+        }, function (newHeight) {
           apiUpdateStepFrameHeight(c.id, idx, newHeight).catch(function (e) {
             alert('Could not save the new frame size: ' + e.message);
           });
         });
-      }
+      });
 
       var backBtn = document.getElementById('build-back');
       if (backBtn) backBtn.addEventListener('click', function () { idx--; render(); });
@@ -1186,54 +1251,46 @@
         framesEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Save this cocktail first, then reopen Edit to add step photos.</p>';
         return;
       }
-      // A plain div (not <button>) — a has-photo frame nests a real
-      // resize-handle div inside it, and nested interactive elements inside
-      // a <button> are invalid HTML. role/tabindex keep it click-reachable.
+      // Every frame — photo or fallback icon alike — is just a plain clickable
+      // card now; resizing and photo changes both live inside the Frame
+      // Editor it opens, not bolted onto the card itself.
       framesEl.innerHTML = '<div class="step-frame-grid">' +
         steps.map(function (s, i) {
-          return '<div class="step-frame' + (s.photo_url ? ' has-photo' : '') + '" data-frame-idx="' + i + '" role="button" tabindex="0">' +
+          return '<button type="button" class="step-frame' + (s.photo_url ? ' has-photo' : '') + '" data-frame-idx="' + i + '">' +
             stepMediaHtml(existing.glass, s) +
-            (s.photo_url ? frameResizeHandleHtml() : '') +
             '<span class="step-frame-label">Step ' + (i + 1) + '</span>' +
-          '</div>';
+          '</button>';
         }).join('') +
         '</div>';
 
       Array.prototype.forEach.call(framesEl.querySelectorAll('[data-frame-idx]'), function (frameEl) {
         frameEl.addEventListener('click', function () {
-          // Suppress the click a resize drag's own pointerup would otherwise
-          // also trigger on this same element (see wireFrameResizeHandle).
-          if (frameEl.dataset.justResized) { delete frameEl.dataset.justResized; return; }
           var i = parseInt(frameEl.getAttribute('data-frame-idx'), 10);
-          choosePhotoAndUpload(!!steps[i].photo_url, function (base64, isRemoval) {
+          openFrameEditor(steps[i], existing.glass, function (base64, isRemoval, cb) {
             frameEl.classList.add('uploading');
             var req = isRemoval
               ? apiRemovePhoto('step', { cocktail_id: existing.id, step_index: i })
               : apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: i });
             req.then(function (res) {
-              steps[i].photo_url = isRemoval ? '' : res.photo_url;
-              syncStepRowAttr(i, steps[i].photo_url);
+              frameEl.classList.remove('uploading');
+              var newUrl = isRemoval ? '' : res.photo_url;
+              steps[i].photo_url = newUrl;
+              syncStepRowAttr(i, newUrl);
               renderStepFrames();
               loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
+              cb(newUrl);
             }).catch(function (e) {
               frameEl.classList.remove('uploading');
               alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
             });
-          }, function () { /* cancelled, nothing to undo */ });
-        });
-
-        var handle = frameEl.querySelector('.frame-resize-handle');
-        if (handle) {
-          var img = frameEl.querySelector('img.equip-icon');
-          wireFrameResizeHandle(handle, img, function (newHeight) {
-            frameEl.dataset.justResized = '1';
-            var i = parseInt(frameEl.getAttribute('data-frame-idx'), 10);
-            steps[i].frame_height = newHeight;
-            apiUpdateStepFrameHeight(existing.id, i, newHeight).catch(function (e) {
+          }, function (newHeight) {
+            apiUpdateStepFrameHeight(existing.id, i, newHeight).then(function () {
+              renderStepFrames();
+            }).catch(function (e) {
               alert('Could not save the new frame size: ' + e.message);
             });
           });
-        }
+        });
       });
     }
     renderStepFrames();
