@@ -787,3 +787,15 @@ page source and which of the 3 Vercel projects is the linked one.
 Still open: Mint Nonsense rows merge (cancelled), Popping Balls – Mango product?,
 the pink list's circled note, screenshots, hand-test pass, the monetary
 investigation (menu / app / till). Next session on Ube Express: open with /Routine.
+
+---
+
+## 1 Oct 2026 — Straws merged into Long / Short (by glass)
+
+Alex: "Merge the straws as straws, depending on glass it long or short."
+
+- **Before:** two straw ingredients. `7.75" Red/White Striped Paper Straw` was used in 22 drinks; `7.75" Green/White Striped Paper Straw` was used only in Cherry Bomb.
+- **After:** `Straw - Long` is used in all 15 highball drinks; `Straw - Short` is used in the 8 rocks and coupe drinks (Cherry Bomb, Coconut Cloud, Dragon Fruit Cloud, Dragon's Potion, Mad Scientist, Peach Iced Tea, Ube Cloud, Mermaid Shake).
+- 21 method steps that named the old straw were rewritten to the matching new name. A re-check found 0 old names left.
+- The two `ingredient_photos` rows were renamed in place (Red/White → Long, Green/White → Short), so their category stays the same.
+- Garnish free-text ("red and white straw", "stripy straw") was left as written. It is descriptive text, not an ingredient.
