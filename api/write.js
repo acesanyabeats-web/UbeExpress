@@ -209,6 +209,18 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'update_cocktail_frame_height') {
+      var fh = parseInt(payload.frame_height, 10);
+      if (!payload.cocktail_id || !(fh >= 60 && fh <= 500)) { res.status(400).json({ error: 'Bad frame height' }); return; }
+      await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify({ photo_frame_height: fh, updated_at: new Date().toISOString() })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     if (action === 'fetch_stock_photo') {
       var term = payload && payload.ingredient_name;
       if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }

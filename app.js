@@ -101,14 +101,19 @@
     if (EQUIPMENT_OPTIONS.indexOf(s.equipment) !== -1) return s.equipment;
     return glass ? 'glass_' + glass : 'glass_rocks';
   }
-  function stepMediaHtml(glass, s) {
+  function stepMediaHtml(glass, s, opts) {
+    // opts (optional): { cls, defaultHeight } — lets a non-step frame (the
+    // cocktail overview's finished-drink photo) reuse this exact markup with
+    // its own width class and default height.
+    opts = opts || {};
+    var extra = opts.cls ? ' ' + opts.cls : '';
     // frame_height is a per-step, admin-set override (see wireFrameResizeHandle
     // below) — falls back to the CSS default (150px) when never customized.
     // object-fit:contain (see style.css) means no height ever crops the photo;
     // resizing only changes how much of the available space it fills.
     return s.photo_url
-      ? '<img class="equip-icon is-photo" style="height:' + (s.frame_height || 150) + 'px" src="' + escapeHtml(s.photo_url) + '">'
-      : iconSvg(iconForStep(glass, s), 'equip-icon');
+      ? '<img class="equip-icon is-photo' + extra + '" style="height:' + (s.frame_height || opts.defaultHeight || 150) + 'px" src="' + escapeHtml(s.photo_url) + '">'
+      : iconSvg(iconForStep(glass, s), 'equip-icon' + extra);
   }
   function frameResizeHandleHtml() {
     return '<div class="frame-resize-handle" title="Drag to resize"></div>';
@@ -159,7 +164,7 @@
   //   onPhotoChanged(base64, isRemoval, cb) — caller uploads/removes, then
   //                   calls cb(newPhotoUrlOrEmptyString) once done
   //   onResized(newHeightPx) — caller persists the new frame height
-  function openFrameEditor(s, glass, onPhotoChanged, onResized) {
+  function openFrameEditor(s, glass, onPhotoChanged, onResized, opts) {
     var overlay = document.createElement('div');
     overlay.id = 'frame-editor-overlay';
     document.body.appendChild(overlay);
@@ -167,7 +172,7 @@
     function render() {
       overlay.innerHTML =
         '<div class="frame-editor-header"><h3>Frame Editor</h3><button type="button" class="btn btn-secondary frame-editor-done-btn">Done</button></div>' +
-        '<div class="frame-editor-canvas">' + stepMediaHtml(glass, s) + '</div>' +
+        '<div class="frame-editor-canvas">' + stepMediaHtml(glass, s, opts) + '</div>' +
         (s.photo_url ? frameResizeHandleHtml() : '') +
         '<div class="frame-editor-actions">' +
           '<button type="button" class="btn btn-primary frame-editor-change-btn">' + (s.photo_url ? '📷 Change Photo' : '📷 Add Photo') + '</button>' +
@@ -175,6 +180,7 @@
 
       overlay.querySelector('.frame-editor-done-btn').addEventListener('click', function () {
         overlay.remove();
+        if (opts && opts.onClose) opts.onClose();
       });
 
       overlay.querySelector('.frame-editor-change-btn').addEventListener('click', function () {
@@ -456,6 +462,16 @@
     });
   }
 
+  function apiUpdateCocktailFrameHeight(cocktailId, frameHeight) {
+    return fetch('/api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+      body: JSON.stringify({ action: 'update_cocktail_frame_height', payload: { cocktail_id: cocktailId, frame_height: frameHeight } })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('resize save failed: ' + r.status)); });
+      return r.json();
+    });
+  }
   function apiUpdateStepFrameHeight(cocktailId, stepIndex, frameHeight) {
     return fetch('/api/write', {
       method: 'POST',
@@ -912,10 +928,17 @@
       '<div class="meta">' + escapeHtml(c.build_method || '') + (c.garnish ? ' &middot; garnish: ' + escapeHtml(c.garnish) : '') + '</div>' +
       '</div>';
 
+    // The finished-drink photo is wrapped in the same Frame Editor as every
+    // step photo/icon: never cropped, vertically centred, admin taps it to
+    // resize (height only) or change/remove the photo.
+    var overviewFrame = { photo_url: c.photo_url || '', frame_height: c.photo_frame_height, equipment: 'glass' };
+    var OVERVIEW_FRAME_OPTS = { cls: 'finished-frame', defaultHeight: 260 };
     if (c.photo_url || state.role === 'admin') {
       html += '<div class="finished-photo-wrap">' +
-        (c.photo_url ? '<img class="finished-photo" src="' + escapeHtml(c.photo_url) + '">' : '<div class="finished-photo-placeholder">No finished photo yet</div>') +
-        (state.role === 'admin' ? '<button type="button" id="cocktail-photo-btn" class="photo-btn finished-photo-btn' + (c.photo_url ? ' has-photo' : '') + '" title="Photo of the finished, garnished drink">' + iconSvg('camera') + '</button>' : '') +
+        (state.role === 'admin'
+          ? '<button type="button" id="cocktail-photo-btn" class="step-media-btn finished-media-btn" title="Frame Editor: photo of the finished, garnished drink">' + stepMediaHtml(c.glass, overviewFrame, OVERVIEW_FRAME_OPTS) + '</button>' +
+            (c.photo_url ? '' : '<div class="finished-photo-hint">Tap to add a finished photo</div>')
+          : stepMediaHtml(c.glass, overviewFrame, OVERVIEW_FRAME_OPTS)) +
         '</div>';
     }
 
@@ -960,17 +983,27 @@
 
     var cocktailPhotoBtn = document.getElementById('cocktail-photo-btn');
     if (cocktailPhotoBtn) cocktailPhotoBtn.addEventListener('click', function () {
-      choosePhotoAndUpload(!!c.photo_url, function (base64, isRemoval) {
-        cocktailPhotoBtn.classList.add('uploading');
+      var changed = false;
+      openFrameEditor(overviewFrame, c.glass, function (base64, isRemoval, cb) {
         var req = isRemoval ? apiRemovePhoto('cocktail', { cocktail_id: c.id }) : apiUploadPhoto(base64, 'cocktail', { cocktail_id: c.id });
         req.then(function (res) {
           c.photo_url = isRemoval ? null : res.photo_url;
-          return loadAllData();
-        }).then(function () { openDetail(id); }).catch(function (e) {
-          cocktailPhotoBtn.classList.remove('uploading');
+          changed = true;
+          cb(c.photo_url);
+        }).catch(function (e) {
           alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
         });
-      }, function () {});
+      }, function (newHeight) {
+        c.photo_frame_height = newHeight;
+        changed = true;
+        apiUpdateCocktailFrameHeight(c.id, newHeight).catch(function (e) { alert('Resize save failed: ' + e.message); });
+      }, {
+        cls: OVERVIEW_FRAME_OPTS.cls,
+        defaultHeight: OVERVIEW_FRAME_OPTS.defaultHeight,
+        // Re-render the detail page once the editor closes so the overview
+        // shows the new photo/height straight away.
+        onClose: function () { if (changed) loadAllData().then(function () { openDetail(id); }); }
+      });
     });
 
     var startBtn = document.getElementById('start-build-btn');
