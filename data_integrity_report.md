@@ -562,3 +562,5 @@ other ingredient whose label-machine name differs stays false → Thank you Trav
 (e.g. Popping Balls - Blueberry printing "Popping Balls - Mango"). Admin flips it in
 the Ingredients table's "Right name" column; a shared label marked Yes shows a plain
 "Use label: …" on the Label List.
+Same day, per Alex: `label_ok = true` also for **Lychee** (prints "Tinned Lychee") and
+**Giant Marshmallows** (prints "Marshmallows") — sensible shared labels, no Trav.
