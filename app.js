@@ -48,19 +48,35 @@
     return null;
   }
 
-  // Prep-label shelf life. A real, clearly-flagged assumption, not this
-  // bar's own confirmed practice: 24h is the standard conservative shelf
-  // life for cut fresh fruit/herbs/juice kept refrigerated; the 2 house-made
-  // batches get longer (72h) as a chilled diluted syrup/cordial-style mix.
-  // Adjust PREP_SHELF_LIFE_HOURS/LONG_SHELF_LIFE_ITEMS here if actual
-  // practice differs.
-  var LONG_SHELF_LIFE_ITEMS = ['homemade lemonade', 'homemade raspberry lemonade - batch'];
-  var PREP_SHELF_LIFE_HOURS = 24;
-  var PREP_SHELF_LIFE_HOURS_LONG = 72;
+  // Shelf life lives per ingredient (ingredient_photos.shelf_life_hours),
+  // seeded from the bar's own printed labels and editable in the Ingredients
+  // table. Unknown = null — never a guessed default.
   function shelfLifeHours(name) {
-    return LONG_SHELF_LIFE_ITEMS.indexOf(String(name).toLowerCase()) !== -1 ?
-      PREP_SHELF_LIFE_HOURS_LONG : PREP_SHELF_LIFE_HOURS;
+    var p = state.ingredientPhotos[String(name || '').toLowerCase()];
+    var h = p && p.shelf_life_hours != null ? Number(p.shelf_life_hours) : null;
+    return h > 0 ? h : null;
   }
+  // Expiry rule (Alex): expiry = last label time + shelf life. An item must
+  // be thrown out at close on the day BEFORE its expiry day, so tonight's
+  // throw-out list is everything expiring tomorrow or already overdue.
+  function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+  function expiryInfo(name) {
+    var prep = state.prep[String(name || '').toLowerCase()];
+    var labelAt = prep && prep.label_at ? new Date(prep.label_at) : null;
+    var hours = shelfLifeHours(name);
+    if (!labelAt || !hours) return { labelAt: labelAt, hours: hours, expiresAt: null, throwOutDay: null, status: labelAt ? 'no_shelf_life' : 'no_label' };
+    var expiresAt = new Date(labelAt.getTime() + hours * 3600 * 1000);
+    var throwOutDay = new Date(startOfDay(expiresAt).getTime() - 24 * 3600 * 1000);
+    var now = new Date();
+    var status = now >= expiresAt ? 'expired' : (startOfDay(now) >= throwOutDay ? 'throw_tonight' : 'ok');
+    return { labelAt: labelAt, hours: hours, expiresAt: expiresAt, throwOutDay: throwOutDay, status: status };
+  }
+  function fmtShelfLife(hours) {
+    if (!hours) return 'not set';
+    var d = hours / 24;
+    return Math.abs(d - Math.round(d)) < 1e-9 ? Math.round(d) + ' day' + (Math.round(d) === 1 ? '' : 's') : hours + ' hours';
+  }
+  function fmtDay(d) { return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
   function fmtLabelDate(d) {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
       ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -72,6 +88,7 @@
     ingredients: {},     // cocktail_id -> [ingredient rows]
     ingredientPhotos: {}, // lowercase ingredient name -> photo_url
     photoSubmissions: [], // pending staff step-photo candidates (admin reviews)
+    prep: {},             // lowercase prep item -> prep_checklist_state row (checked, checked_at, label_at)
     seen: readSeen(),
     backTarget: null,    // fn the nav-back-btn calls; set by setHeader
     menuTab: 'cocktail'  // 'cocktail' | 'mocktail' — which sub-list the Cocktail Spec menu shows
@@ -218,8 +235,10 @@
       sbSelect('cocktails', 'select=*&order=name.asc'),
       sbSelect('cocktail_ingredients', 'select=*&order=sort_order.asc'),
       sbSelect('ingredient_photos', 'select=*'),
-      sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; })
+      sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').catch(function () { return []; }),
+      sbSelect('prep_checklist_state', 'select=*').catch(function () { return []; })
     ]).then(function (results) {
+      setPrepState(results[4] || []);
       state.photoSubmissions = results[3] || [];
       state.cocktails = results[0];
       state.ingredients = {};
@@ -229,7 +248,7 @@
       });
       state.ingredientPhotos = {};
       results[2].forEach(function (row) {
-        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '' };
+        state.ingredientPhotos[String(row.name || '').toLowerCase()] = { name: row.name, photo_url: row.photo_url, frame_height: row.frame_height, category: row.category || '', shelf_life_hours: row.shelf_life_hours };
       });
     });
   }
@@ -686,6 +705,53 @@
     for (var k in changes) if (changes.hasOwnProperty(k)) payload[k] = changes[k];
     return apiWrite('update_ingredient', payload);
   }
+  var openIngDetails = {}; // lowercase name -> true while its roll-down is open
+  function drinksUsing(name) {
+    var key = String(name).toLowerCase();
+    return state.cocktails.filter(function (c) {
+      return (state.ingredients[c.id] || []).some(function (i) { return String(i.name || '').toLowerCase() === key; });
+    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+  }
+  function joinList(arr) {
+    if (arr.length <= 1) return arr.join('');
+    return arr.slice(0, -1).join(', ') + ' and ' + arr[arr.length - 1];
+  }
+  function usedInSentence(name) {
+    var drinks = drinksUsing(name);
+    if (!drinks.length) return 'Not used in any cocktail or mocktail right now.';
+    var cocktails = drinks.filter(function (c) { return !c.is_mocktail; }).map(function (c) { return c.name; });
+    var mocktails = drinks.filter(function (c) { return !!c.is_mocktail; }).map(function (c) { return c.name; });
+    var parts = [];
+    if (cocktails.length) parts.push('the cocktail' + (cocktails.length > 1 ? 's ' : ' ') + joinList(cocktails));
+    if (mocktails.length) parts.push('the mocktail' + (mocktails.length > 1 ? 's ' : ' ') + joinList(mocktails));
+    return 'Used in ' + parts.join(', and in ') + '.';
+  }
+  function toLocalInputValue(d) {
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function ingredientDetailsHtml(name) {
+    var info = expiryInfo(name);
+    var days = info.hours ? +(info.hours / 24).toFixed(2) : '';
+    var expiryText = info.expiresAt
+      ? 'Out of date ' + fmtLabelDate(info.expiresAt) + ' · throw out at close on ' + fmtDay(info.throwOutDay)
+      : (info.status === 'no_shelf_life' ? 'Set a shelf life to work out the expiry.' : 'No label recorded yet.');
+    var others = allIngredientNames().filter(function (n) { return n.toLowerCase() !== name.toLowerCase(); });
+    var listId = 'swap-list-' + Math.random().toString(36).slice(2);
+    return '<div class="ing-details">' +
+      '<p class="ing-details-used">' + escapeHtml(usedInSentence(name)) + '</p>' +
+      '<div class="ing-details-grid">' +
+        '<label>Shelf life (days)<input type="number" min="0" step="0.5" class="ing-shelf-input" value="' + days + '" placeholder="not set"></label>' +
+        '<label>Most recent label<input type="datetime-local" class="ing-label-input" value="' + (info.labelAt ? toLocalInputValue(info.labelAt) : '') + '"></label>' +
+      '</div>' +
+      '<div class="ing-details-expiry">' + expiryBadgeHtml(name) + ' <span>' + escapeHtml(expiryText) + '</span></div>' +
+      '<div class="ing-swap">' +
+        '<input type="text" class="ing-swap-input" list="' + listId + '" placeholder="Swap for… (e.g. Duppy Share)">' +
+        '<datalist id="' + listId + '">' + others.map(function (n) { return '<option value="' + escapeHtml(n) + '">'; }).join('') + '</datalist>' +
+        '<button type="button" class="btn btn-secondary ing-swap-btn">🔁 Swap</button>' +
+      '</div>' +
+    '</div>';
+  }
   function renderIngredientsTable() {
     setHeader('🧾 Ingredients', true, renderHome);
     var main = document.getElementById('app-main');
@@ -726,10 +792,13 @@
           var used = usage[n.toLowerCase()] || 0;
           return '<tr data-ing="' + escapeHtml(n) + '">' +
             '<td class="ing-cell-name"><input type="text" class="ing-name-input" aria-label="Ingredient name" value="' + escapeHtml(n) + '">' +
-              '<div class="ing-used">' + (used ? 'in ' + used + ' drink' + (used > 1 ? 's' : '') : 'not in any drink') + '</div></td>' +
+              '<button type="button" class="ing-used ing-used-toggle" aria-expanded="' + (openIngDetails[n.toLowerCase()] ? 'true' : 'false') + '">' +
+                (openIngDetails[n.toLowerCase()] ? '▾ ' : '▸ ') + (used ? 'in ' + used + ' drink' + (used > 1 ? 's' : '') : 'not in any drink') + '</button>' +
+              expiryBadgeHtml(n) + '</td>' +
             '<td class="ing-cell-photo"><button type="button" class="ing-frame-btn" aria-label="Photo for ' + escapeHtml(n) + '">' + ingredientTableFrameHtml(n) + '</button></td>' +
             '<td class="ing-cell-type"><select class="ing-type-select" aria-label="Type">' + typeOptions(p && p.category) + '</select></td>' +
-          '</tr>';
+          '</tr>' +
+          (openIngDetails[n.toLowerCase()] ? '<tr class="ing-details-row" data-ing-details="' + escapeHtml(n) + '"><td colspan="3">' + ingredientDetailsHtml(n) + '</td></tr>' : '');
         }).join('') + '</tbody></table>';
     });
     main.innerHTML = html;
@@ -748,6 +817,13 @@
       tr.querySelector('.ing-frame-btn').addEventListener('click', function () {
         openIngredientFrameEditor(name, function (changed) { if (changed) renderIngredientsTable(); });
       });
+      tr.querySelector('.ing-used-toggle').addEventListener('click', function () {
+        var k = name.toLowerCase();
+        if (openIngDetails[k]) delete openIngDetails[k]; else openIngDetails[k] = true;
+        renderIngredientsTable();
+      });
+      var details = tr.nextElementSibling && tr.nextElementSibling.classList.contains('ing-details-row') ? tr.nextElementSibling : null;
+      if (details) wireIngredientDetails(details, name);
       var sel = tr.querySelector('.ing-type-select');
       sel.addEventListener('change', function () {
         var p = state.ingredientPhotos[name.toLowerCase()];
@@ -781,6 +857,44 @@
       }
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = name; input.blur(); } });
       input.addEventListener('change', commitRename);
+    });
+  }
+  function wireIngredientDetails(row, name) {
+    var shelf = row.querySelector('.ing-shelf-input');
+    shelf.addEventListener('change', function () {
+      var v = shelf.value.trim();
+      var hours = v === '' ? null : Math.round(parseFloat(v) * 24 * 100) / 100;
+      if (v !== '' && !(hours > 0)) { alert('Enter a shelf life in days, e.g. 3'); return; }
+      shelf.disabled = true;
+      apiUpdateIngredient(name, { shelf_life_hours: hours }).then(function () {
+        var key = name.toLowerCase();
+        var p = state.ingredientPhotos[key];
+        if (p) p.shelf_life_hours = hours;
+        else state.ingredientPhotos[key] = { name: name, photo_url: null, frame_height: null, category: '', shelf_life_hours: hours };
+        renderIngredientsTable();
+      }).catch(function (e) { shelf.disabled = false; alert('Could not save the shelf life: ' + e.message); });
+    });
+    var label = row.querySelector('.ing-label-input');
+    label.addEventListener('change', function () {
+      var iso = label.value ? new Date(label.value).toISOString() : null;
+      label.disabled = true;
+      setLabelTime(name, iso).then(renderIngredientsTable).catch(function (e) { label.disabled = false; alert('Could not save the label time: ' + e.message); });
+    });
+    var swapBtn = row.querySelector('.ing-swap-btn');
+    swapBtn.addEventListener('click', function () {
+      var to = row.querySelector('.ing-swap-input').value.trim();
+      if (!to) { alert('Type or pick the ingredient to swap in.'); return; }
+      var n = drinksUsing(name).length;
+      if (!confirm('Permanently swap "' + name + '" for "' + to + '" in ' + (n === 1 ? 'the 1 drink that uses it' : 'all ' + n + ' drinks') + '? "' + name + '" will be removed from the list.')) return;
+      swapBtn.disabled = true;
+      apiWrite('swap_ingredient', { name: name, replacement: to }).then(function (res) {
+        delete openIngDetails[name.toLowerCase()];
+        openIngDetails[String(res.replacement || to).toLowerCase()] = true;
+        return loadAllData();
+      }).then(renderIngredientsTable).catch(function (e) {
+        swapBtn.disabled = false;
+        alert('Could not swap: ' + e.message);
+      });
     });
   }
   function ingredientTableFrameHtml(name) {
@@ -1194,44 +1308,107 @@
     return { fruitSyrup: fruitSyrup, sweetsGarnish: sweetsGarnish };
   }
 
+  function setPrepState(rows) {
+    state.prep = {};
+    rows.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; });
+  }
   function fetchPrepCheckState() {
-    return sbSelect('prep_checklist_state', 'select=item_name,checked');
+    return sbSelect('prep_checklist_state', 'select=*').then(function (rows) { setPrepState(rows); return rows; });
   }
 
-  // Direct anon-key write, deliberately bypassing the admin-secret-gated
-  // /api/write proxy: any logged-in staff member should be able to tick a
-  // prep item off, not just admin (see the migration's own RLS comment).
-  function setPrepChecked(itemName, category, checked) {
+  // Direct anon-key writes, deliberately bypassing the admin-secret-gated
+  // /api/write proxy: any logged-in staff member ticks prep, records labels
+  // and throws things out — not just admin (see the table's RLS policy).
+  function prepUpsert(rows) {
     return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?on_conflict=item_name', {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates'
+        Prefer: 'resolution=merge-duplicates,return=representation'
       },
-      body: JSON.stringify({
-        item_name: itemName,
-        category: category,
-        checked: checked,
-        checked_at: checked ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString()
-      })
-    }).then(function (r) { if (!r.ok) throw new Error('Save failed: ' + r.status); });
+      body: JSON.stringify(rows)
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Save failed: ' + r.status);
+      return r.json();
+    }).then(function (saved) {
+      saved.forEach(function (row) { state.prep[String(row.item_name).toLowerCase()] = row; });
+      return saved;
+    });
+  }
+  function prepRowName(name) {
+    var existing = state.prep[String(name).toLowerCase()];
+    return existing ? existing.item_name : name;
+  }
+  function setPrepChecked(itemName, category, checked) {
+    return prepUpsert([{
+      item_name: prepRowName(itemName),
+      category: category,
+      checked: checked,
+      checked_at: checked ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString()
+    }]);
+  }
+  // Label List "Done": the label time for everything on the list is now.
+  function recordLabels(names) {
+    var now = new Date().toISOString();
+    return prepUpsert(names.map(function (n) {
+      var ex = state.prep[n.toLowerCase()] || {};
+      return { item_name: prepRowName(n), category: ex.category || ingredientCategory(n), checked: true, checked_at: ex.checked_at || now, label_at: now, updated_at: now };
+    }));
+  }
+  // Closer throws it out: it drops back to unticked (so the next opener sees
+  // it needs prepping) and its label is cleared.
+  function markThrownOut(name) {
+    return prepUpsert([{ item_name: prepRowName(name), category: ingredientCategory(name), checked: false, checked_at: null, label_at: null, updated_at: new Date().toISOString() }]);
+  }
+  // Set/correct an item's label time by hand (Ingredients table).
+  function setLabelTime(name, iso) {
+    var ex = state.prep[String(name).toLowerCase()] || {};
+    return prepUpsert([{ item_name: prepRowName(name), category: ex.category || ingredientCategory(name), checked: iso ? true : !!ex.checked, checked_at: ex.checked_at || (iso ? iso : null), label_at: iso, updated_at: new Date().toISOString() }]);
   }
 
+  // Unticks everything but keeps each item's label time, so expiry tracking
+  // survives a reset.
   function resetPrepChecklist() {
     return fetch(SUPABASE_URL + '/rest/v1/prep_checklist_state?item_name=not.is.null', {
-      method: 'DELETE',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checked: false, checked_at: null, updated_at: new Date().toISOString() })
     }).then(function (r) { if (!r.ok) throw new Error('Reset failed: ' + r.status); });
   }
 
+  // Ticked items whose label hasn't been recorded since they were ticked.
+  function labelQueue(lists) {
+    return lists.fruitSyrup.concat(lists.sweetsGarnish).filter(function (n) {
+      var p = state.prep[n.toLowerCase()];
+      if (!p || !p.checked) return false;
+      return !p.label_at || (p.checked_at && new Date(p.label_at) < new Date(p.checked_at));
+    }).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  // Everything labelled whose expiry falls tomorrow or earlier.
+  function throwOutList() {
+    return Object.keys(state.prep).map(function (k) { return state.prep[k].item_name; })
+      .map(function (n) { return { name: n, info: expiryInfo(n) }; })
+      .filter(function (x) { return x.info.status === 'throw_tonight' || x.info.status === 'expired'; })
+      .sort(function (a, b) { return a.info.expiresAt - b.info.expiresAt; });
+  }
+  function expiryBadgeHtml(name) {
+    var info = expiryInfo(name);
+    if (info.status === 'expired') return '<span class="exp-badge exp-expired">Out of date</span>';
+    if (info.status === 'throw_tonight') return '<span class="exp-badge exp-tonight">Throw out tonight</span>';
+    if (info.status === 'ok') return '<span class="exp-badge exp-ok">Good until ' + escapeHtml(fmtDay(info.throwOutDay)) + '</span>';
+    return '';
+  }
+
   function prepRowHtml(name, checked) {
-    var key = String(name).toLowerCase().replace(/"/g, '&quot;');
+    var p = state.prep[String(name).toLowerCase()];
+    var waitingLabel = checked && p && (!p.label_at || (p.checked_at && new Date(p.label_at) < new Date(p.checked_at)));
     return '<label class="prep-row' + (checked ? ' checked' : '') + '" data-item="' + escapeHtml(name) + '">' +
       '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
       '<span>' + escapeHtml(name) + '</span>' +
+      (waitingLabel ? '<span class="exp-badge exp-label">Needs label</span>' : (checked ? expiryBadgeHtml(name) : '')) +
       '</label>';
   }
 
@@ -1241,23 +1418,38 @@
     main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
     var lists = computePrepLists();
 
-    fetchPrepCheckState().then(function (rows) {
-      var checkedMap = {};
-      rows.forEach(function (r) { checkedMap[String(r.item_name).toLowerCase()] = !!r.checked; });
+    fetchPrepCheckState().then(function () {
+      var isChecked = function (n) { var p = state.prep[n.toLowerCase()]; return !!(p && p.checked); };
+      var queue = labelQueue(lists);
+      var toss = throwOutList();
 
-      var html = '<div style="display:flex;gap:10px;margin-bottom:18px;">' +
-        '<button id="prep-reset-btn" class="btn btn-secondary" style="flex:1;">🔄 Reset for new day</button>' +
-        '<button id="prep-labels-btn" class="btn btn-primary" style="flex:1;">🏷 Label List</button>' +
+      var html = '';
+      // Closers: what has to go in the bin tonight.
+      html += '<div class="section-label">🗑 Throw Out Tonight</div>';
+      html += toss.length
+        ? '<div class="toss-list">' + toss.map(function (x) {
+            return '<div class="toss-row" data-item="' + escapeHtml(x.name) + '">' +
+              '<div class="toss-text"><div class="toss-name">' + escapeHtml(x.name) + '</div>' +
+              '<div class="toss-meta">' + (x.info.status === 'expired' ? 'Out of date since ' : 'Out of date ') + escapeHtml(fmtLabelDate(x.info.expiresAt)) +
+              ' · labelled ' + escapeHtml(fmtLabelDate(x.info.labelAt)) + '</div></div>' +
+              '<button type="button" class="btn btn-danger toss-btn">Thrown out</button>' +
+            '</div>';
+          }).join('') + '</div>'
+        : '<p class="toss-empty">Nothing to throw out tonight.</p>';
+
+      html += '<div style="display:flex;gap:10px;margin:18px 0;">' +
+        '<button id="prep-reset-btn" class="btn btn-secondary" style="flex:1;">🔄 Untick all</button>' +
+        '<button id="prep-labels-btn" class="btn btn-primary" style="flex:1;">🏷 Label List' + (queue.length ? ' (' + queue.length + ')' : '') + '</button>' +
         '</div>';
 
       html += '<div class="section-label">🍓 Fruit &amp; Syrups to Portion</div>';
       html += '<div class="prep-list">' + (lists.fruitSyrup.length ?
-        lists.fruitSyrup.map(function (n) { return prepRowHtml(n, checkedMap[n.toLowerCase()]); }).join('') :
+        lists.fruitSyrup.map(function (n) { return prepRowHtml(n, isChecked(n)); }).join('') :
         '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
 
       html += '<div class="section-label">🍬 Sweets Garnish Stock to Replenish</div>';
       html += '<div class="prep-list">' + (lists.sweetsGarnish.length ?
-        lists.sweetsGarnish.map(function (n) { return prepRowHtml(n, checkedMap[n.toLowerCase()]); }).join('') :
+        lists.sweetsGarnish.map(function (n) { return prepRowHtml(n, isChecked(n)); }).join('') :
         '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
 
       main.innerHTML = html;
@@ -1266,66 +1458,77 @@
         var checkbox = row.querySelector('input');
         checkbox.addEventListener('change', function () {
           var name = row.getAttribute('data-item');
-          var cat = ingredientCategory(name);
-          row.classList.toggle('checked', checkbox.checked);
-          // keep the closure's own checkedMap in sync so the Label List
-          // button (which reads it without a fresh fetch) reflects this
-          // tick immediately, not just after a full page reload
-          checkedMap[name.toLowerCase()] = checkbox.checked;
-          setPrepChecked(name, cat, checkbox.checked).catch(function (e) {
+          checkbox.disabled = true;
+          setPrepChecked(name, ingredientCategory(name), checkbox.checked).then(renderFruitPrep).catch(function (e) {
             checkbox.checked = !checkbox.checked;
-            row.classList.toggle('checked', checkbox.checked);
-            checkedMap[name.toLowerCase()] = checkbox.checked;
+            checkbox.disabled = false;
             alert('Could not save: ' + e.message);
           });
         });
       });
 
-      wireArmConfirm(document.getElementById('prep-reset-btn'), 'Tap again to reset', function () {
+      Array.prototype.forEach.call(main.querySelectorAll('.toss-row'), function (row) {
+        var btn = row.querySelector('.toss-btn');
+        wireArmConfirm(btn, 'Tap to confirm', function () {
+          markThrownOut(row.getAttribute('data-item')).then(renderFruitPrep).catch(function (e) { alert('Could not save: ' + e.message); });
+        });
+      });
+
+      wireArmConfirm(document.getElementById('prep-reset-btn'), 'Tap again to untick all', function () {
         resetPrepChecklist().then(renderFruitPrep).catch(function (e) { alert('Reset failed: ' + e.message); });
       });
 
       document.getElementById('prep-labels-btn').addEventListener('click', function () {
-        var stillToDo = lists.fruitSyrup.filter(function (n) { return !checkedMap[n.toLowerCase()]; });
-        renderLabelList(stillToDo);
+        renderLabelList(labelQueue(lists));
       });
     }).catch(function (e) {
       main.innerHTML = '<p>Could not load the prep list: ' + escapeHtml(e.message) + '</p>';
     });
   }
 
-  // Compiled from whatever's currently still unchecked in Fruit & Syrups —
-  // never a separately hand-maintained list, so ticking an item off on the
-  // checklist automatically drops it here next time this is opened. Sweets
-  // Garnish Stock is deliberately excluded: those are restocked from sealed
-  // packaging with its own long shelf life, not daily-prepped into a
-  // container that needs a food-safety date label the way cut fruit does.
+  // Everything ticked off on Fruit Prep that still needs a label. Pressing
+  // Done saves "now" as the label time for every item on the list — that
+  // time + the ingredient's shelf life is what drives the throw-out list.
   function renderLabelList(items) {
-    setHeader('🏷 Prep Labels', true, renderFruitPrep);
+    setHeader('🏷 Label List', true, renderFruitPrep);
     var main = document.getElementById('app-main');
     var now = new Date();
 
     if (!items.length) {
-      main.innerHTML = '<p style="color:var(--muted)">Nothing left to prep — every fruit/syrup item is already ticked off.</p>' +
+      main.innerHTML = '<p style="color:var(--muted)">No labels needed — tick items off on Fruit Prep as you prep them and they appear here.</p>' +
         '<button id="labels-back-btn" class="btn btn-secondary">← Back to Fruit Prep</button>';
       document.getElementById('labels-back-btn').addEventListener('click', renderFruitPrep);
       return;
     }
 
     var html = '<p id="labels-note" style="color:var(--muted);margin-bottom:14px;">' + items.length + ' item' + (items.length === 1 ? '' : 's') +
-      ' still need prepping today. Prepped/use-by times below assume prep happens now — a real, flagged assumption, not a confirmed shelf life for this bar; adjust in the code if your actual practice differs.</p>';
-    html += '<button id="labels-print-btn" class="btn btn-primary" style="margin-bottom:18px;">🖨 Print Labels</button>';
+      ' to label. Print, label everything, then press <strong>Done</strong> — that saves today\'s label time for each one.</p>';
+    html += '<div style="display:flex;gap:10px;margin-bottom:18px;">' +
+      '<button id="labels-print-btn" class="btn btn-secondary" style="flex:1;">🖨 Print Labels</button>' +
+      '<button id="labels-done-btn" class="btn btn-primary" style="flex:1;">✅ Done</button>' +
+      '</div>';
     html += '<div id="label-grid" class="label-grid">' + items.map(function (name) {
-      var useBy = new Date(now.getTime() + shelfLifeHours(name) * 3600 * 1000);
+      var hours = shelfLifeHours(name);
+      var useBy = hours ? new Date(now.getTime() + hours * 3600 * 1000) : null;
       return '<div class="label-card">' +
         '<div class="label-name">' + escapeHtml(name) + '</div>' +
         '<div class="label-date">Prepped: ' + fmtLabelDate(now) + '</div>' +
-        '<div class="label-date">Use by: ' + fmtLabelDate(useBy) + '</div>' +
+        '<div class="label-date">Use by: ' + (useBy ? fmtLabelDate(useBy) : '<span class="no-print-warn">shelf life not set</span>') + '</div>' +
         '</div>';
     }).join('') + '</div>';
 
     main.innerHTML = html;
     document.getElementById('labels-print-btn').addEventListener('click', function () { window.print(); });
+    var doneBtn = document.getElementById('labels-done-btn');
+    doneBtn.addEventListener('click', function () {
+      doneBtn.disabled = true;
+      doneBtn.textContent = 'Saving…';
+      recordLabels(items).then(renderFruitPrep).catch(function (e) {
+        doneBtn.disabled = false;
+        doneBtn.textContent = '✅ Done';
+        alert('Could not save the label times: ' + e.message);
+      });
+    });
   }
 
   // ---------- DETAIL VIEW ----------

@@ -773,3 +773,35 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 }
 #ing-table-filter { padding: 12px; font-size: 1rem; border-radius: 10px; }
 .ing-name-input:focus, .ing-type-select:focus, #ing-table-filter:focus { outline: none; border-color: var(--accent); }
+
+/* ---- Shelf life / expiry ---- */
+.exp-badge { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
+.exp-expired { background: var(--danger); color: #fff; }
+.exp-tonight { background: var(--accent); color: #1a1410; }
+.exp-ok { background: var(--card2); color: var(--muted); }
+.exp-label { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.ing-used-toggle { background: none; border: none; padding: 2px 2px 0; color: var(--muted); font-size: 0.75rem; cursor: pointer; text-align: left; }
+.ing-used-toggle:hover, .ing-used-toggle[aria-expanded="true"] { color: var(--accent); }
+.ing-details-row td { background: var(--card); padding: 12px; }
+.ing-details-used { margin: 0 0 10px; font-size: 0.88rem; line-height: 1.45; }
+.ing-details-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.ing-details-grid input { width: 100%; box-sizing: border-box; }
+@media (min-width: 520px) { .ing-details-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+.ing-details-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+.ing-details-grid input, .ing-swap-input { border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 8px; font-size: 0.9rem; min-width: 0; color-scheme: dark; }
+.ing-details-expiry { margin: 10px 0; font-size: 0.82rem; color: var(--muted); }
+.ing-details-expiry .exp-badge { margin-left: 0; }
+.ing-swap { display: flex; gap: 8px; }
+.ing-swap-input { flex: 1; }
+.ing-swap-btn { flex: none; padding: 8px 12px; }
+.toss-list { display: flex; flex-direction: column; gap: 8px; }
+.toss-row { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--danger); border-radius: var(--radius); padding: 10px 12px; }
+.toss-text { flex: 1; min-width: 0; }
+.toss-name { font-weight: 600; }
+.toss-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.toss-btn { flex: none; padding: 8px 12px; }
+.toss-empty { color: var(--muted); margin: 0 0 4px; }
+.prep-row .exp-badge { margin-left: auto; }
+@media print { .no-print-warn { color: #000; } }
+.toss-btn, .ing-swap-btn { width: auto; flex: none; }
+.ing-swap-input { flex: 1 1 auto; width: auto; }

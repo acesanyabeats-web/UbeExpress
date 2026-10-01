@@ -282,6 +282,16 @@ module.exports = async function handler(req, res) {
       var ipRows = await ipRes.json();
       var ipRow = ipRows.filter(function (r) { return String(r.name).toLowerCase() === oldKey; })[0];
 
+      if (payload.shelf_life_hours !== undefined) {
+        var slh = payload.shelf_life_hours === null || payload.shelf_life_hours === '' ? null : Number(payload.shelf_life_hours);
+        if (slh !== null && !(slh > 0 && slh <= 24 * 365)) { res.status(400).json({ error: 'Shelf life must be between 1 hour and a year' }); return; }
+        if (ipRow) {
+          await sbFetch('ingredient_photos?id=eq.' + ipRow.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ shelf_life_hours: slh, updated_at: now }) });
+        } else {
+          await sbFetch('ingredient_photos', { method: 'POST', headers: sbHeaders(), body: JSON.stringify({ name: oldName, shelf_life_hours: slh, is_stock: false }) });
+        }
+      }
+
       if (payload.category !== undefined) {
         var cat = String(payload.category || '').trim() || null;
         if (ipRow) {
@@ -349,6 +359,100 @@ module.exports = async function handler(req, res) {
         return;
       }
       res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'swap_ingredient') {
+      // Permanent stock swap (e.g. Bacardi -> Duppy Share): every drink that
+      // uses the old ingredient is rewritten to use the replacement (its
+      // ingredient rows AND build steps), then the old ingredient is dropped
+      // from the list. The replacement may be an existing ingredient or a
+      // brand-new name.
+      var fromName = String(payload.name || '').trim();
+      var toName = String(payload.replacement || '').trim().replace(/\s+/g, ' ');
+      if (!fromName || !toName) { res.status(400).json({ error: 'Pick an ingredient and its replacement' }); return; }
+      var fromKey = fromName.toLowerCase(), toKey = toName.toLowerCase();
+      if (fromKey === toKey) { res.status(400).json({ error: 'That is the same ingredient' }); return; }
+      var stamp = new Date().toISOString();
+      var allIp = await (await sbFetch('ingredient_photos?select=id,name', { headers: sbHeaders() })).json();
+      var fromIp = allIp.filter(function (r) { return String(r.name).toLowerCase() === fromKey; })[0];
+      var toIp = allIp.filter(function (r) { return String(r.name).toLowerCase() === toKey; })[0];
+      var allCi = await (await sbFetch('cocktail_ingredients?select=id,name,cocktail_id', { headers: sbHeaders() })).json();
+      // If the replacement already exists, use its exact spelling.
+      var existingTo = allCi.filter(function (r) { return String(r.name).toLowerCase() === toKey; })[0];
+      if (toIp) toName = toIp.name; else if (existingTo) toName = existingTo.name;
+      var fromRows = allCi.filter(function (r) { return String(r.name).toLowerCase() === fromKey; });
+      var toCocktails = {};
+      allCi.forEach(function (r) { if (String(r.name).toLowerCase() === toKey) toCocktails[r.cocktail_id] = true; });
+      var both = fromRows.filter(function (r) { return toCocktails[r.cocktail_id]; });
+      if (both.length) {
+        var bothNames = await (await sbFetch('cocktails?select=name&id=in.(' + both.map(function (r) { return r.cocktail_id; }).join(',') + ')', { headers: sbHeaders() })).json();
+        res.status(409).json({ error: 'Already uses both in: ' + bothNames.map(function (c) { return c.name; }).join(', ') + ' — fix those drinks by hand first' });
+        return;
+      }
+      if (fromRows.length) {
+        await sbFetch('cocktail_ingredients?id=in.(' + fromRows.map(function (r) { return r.id; }).join(',') + ')', {
+          method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ name: toName })
+        });
+      }
+      var escRe = function (s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+      var nameSet = {};
+      allCi.concat(allIp).forEach(function (r) { nameSet[String(r.name)] = true; });
+      var longerNames = Object.keys(nameSet).filter(function (n) {
+        var l = n.toLowerCase(); return l !== fromKey && l.indexOf(fromKey) !== -1;
+      }).sort(function (a, b) { return b.length - a.length; });
+      var cks = await (await sbFetch('cocktails?select=id,method_steps', { headers: sbHeaders() })).json();
+      var swappedDrinks = 0;
+      for (var si = 0; si < cks.length; si++) {
+        var sSteps = cks[si].method_steps;
+        if (!Array.isArray(sSteps)) continue;
+        var sHit = false;
+        sSteps.forEach(function (st) {
+          if (Array.isArray(st.ingredient_names)) {
+            st.ingredient_names = st.ingredient_names.map(function (n) {
+              if (String(n).toLowerCase() === fromKey) { sHit = true; return toName; }
+              return n;
+            });
+          }
+          if (st.ingredient_amounts && typeof st.ingredient_amounts === 'object') {
+            Object.keys(st.ingredient_amounts).forEach(function (k) {
+              if (k.toLowerCase() === fromKey) { var v = st.ingredient_amounts[k]; delete st.ingredient_amounts[k]; st.ingredient_amounts[toKey] = v; sHit = true; }
+            });
+          }
+          if (st.instruction && typeof st.instruction === 'string') {
+            // Mask longer ingredient names that contain this one (e.g. swapping
+            // "Bacardi" must not touch "Bacardi Spiced"), replace, then unmask.
+            var masked = st.instruction, masks = [];
+            longerNames.forEach(function (ln, mi) {
+              var mre = new RegExp(escRe(ln), 'gi');
+              masked = masked.replace(mre, function (m) { masks.push(m); return '\u0000' + (masks.length - 1) + '\u0000'; });
+            });
+            var re = new RegExp('\\b' + escRe(fromName) + '\\b', 'gi');
+            if (re.test(masked)) {
+              masked = masked.replace(re, toName);
+              st.instruction = masked.replace(/\u0000(\d+)\u0000/g, function (_, i) { return masks[+i]; });
+              sHit = true;
+            }
+          }
+        });
+        if (sHit) {
+          swappedDrinks++;
+          await sbFetch('cocktails?id=eq.' + cks[si].id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ method_steps: sSteps, updated_at: stamp }) });
+        }
+      }
+      // The old ingredient leaves the list. A brand-new replacement inherits
+      // its type and shelf life (but not its photo — it's a different product).
+      if (fromIp) {
+        if (toIp) {
+          await sbFetch('ingredient_photos?id=eq.' + fromIp.id, { method: 'DELETE', headers: sbHeaders() });
+        } else {
+          await sbFetch('ingredient_photos?id=eq.' + fromIp.id, {
+            method: 'PATCH', headers: sbHeaders(),
+            body: JSON.stringify({ name: toName, photo_url: null, frame_height: null, updated_at: stamp })
+          });
+        }
+      }
+      res.status(200).json({ ok: true, replacement: toName, ingredient_rows: fromRows.length, drinks_with_steps_updated: swappedDrinks });
       return;
     }
 

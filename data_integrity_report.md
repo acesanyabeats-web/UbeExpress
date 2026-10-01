@@ -122,6 +122,29 @@ step to merge forward into (Blue Heat and Galaxy Soda both happened to
 end on a photo'd step). Will need a real answer — merge backward
 instead, or leave it standalone — whenever a cocktail actually has one.
 
+### 2026-10-01 — shelf life now comes from the real labels (resolves section J)
+**What was wrong**: the Label List used a guessed 24h (fresh) / 72h
+(homemade batches) shelf life, and never labelled sweets/garnish stock.
+
+**What changed**: shelf life is now stored per ingredient
+(`ingredient_photos.shelf_life_hours`) and editable in the admin
+Ingredients table. 22 ingredients were set straight from the 30 Sep
+label photos (3 days fresh produce, 6 days Pineapple, 7 days Tinned
+Lychee, 14 days Popping Balls/Glace Cherries, 28 days Desiccated
+Coconut/Lime Cordial/Homemade Lemonade). The guessed defaults are gone —
+an ingredient with no known shelf life now says "shelf life not set"
+instead of printing a made-up date. Sweets/garnish items are labelled
+too. The label time is saved when a colleague presses **Done** on the
+Label List; expiry = label time + shelf life, and anything expiring
+tomorrow or earlier appears on Fruit Prep's "Throw Out Tonight" list.
+
+**Deliberately left blank, needing Alex's call**: plain "Mint" (the
+label says "Mint – Fresh"), "Giant Marshmallows" (the label says
+"Marshmallows" — maybe not the same product), "Popping Balls –
+Blueberry", "Homemade Raspberry Lemonade – Batch", "Lime Juice – Fresh".
+Still untracked from the labels: "Popping Balls – Mango", "Guest
+Sweets". The pink handwritten note is still not transcribed.
+
 ---
 
 ## Unresolved
