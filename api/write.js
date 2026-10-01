@@ -194,6 +194,21 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'update_step_frame_height') {
+      var getRes3 = await sbFetch('cocktails?id=eq.' + payload.cocktail_id + '&select=method_steps', { headers: sbHeaders() });
+      var rows3 = await getRes3.json();
+      var steps3 = (rows3[0] && rows3[0].method_steps) || [];
+      if (!steps3[payload.step_index]) { res.status(400).json({ error: 'Bad step index' }); return; }
+      steps3[payload.step_index].frame_height = payload.frame_height;
+      await sbFetch('cocktails?id=eq.' + payload.cocktail_id, {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify({ method_steps: steps3, updated_at: new Date().toISOString() })
+      });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     if (action === 'fetch_stock_photo') {
       var term = payload && payload.ingredient_name;
       if (!term) { res.status(400).json({ error: 'Missing ingredient_name' }); return; }

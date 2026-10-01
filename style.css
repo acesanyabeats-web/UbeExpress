@@ -430,16 +430,20 @@ body {
 .photo-btn.uploading { opacity: 0.5; pointer-events: none; }
 
 .equip-icon.is-photo {
-  /* Same fixed footprint as the plain icon state (below), cropped to fill
-     via object-fit — not width:100%/height:auto, which let a portrait photo
-     render arbitrarily tall and, on Galaxy Soda's step 2, push Build Mode's
-     Back/Next bar off-screen entirely. Every step's frame is now the same
-     size regardless of what photo (if any) is in it, both here and in the
-     admin edit form's step frames (same shared class, same fix for both). */
+  /* Fixed width (never resizable — see .frame-resize-handle below for the
+     real control, height only). height defaults to 150px here but is
+     overridden per-step by an inline style (stepMediaHtml's frame_height) the
+     moment it's been resized. object-fit:contain — never cover — so the
+     photo is NEVER cropped, whatever height it ends up at: a portrait photo
+     just pillarboxes (shows the whole image, narrower) rather than cropping,
+     which is what let one push Build Mode's Back/Next bar off-screen before
+     (width:100%/height:auto, no cap at all). Same shared class, same rule,
+     in both Build Mode and the admin edit form's step frames. */
   width: 150px;
   height: 150px;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--card);
 }
 
 .ingredient-list li .name-btn {
@@ -576,6 +580,32 @@ body {
 .step-frame.has-photo { border-style: solid; border-color: var(--accent2); color: var(--text); }
 .step-frame .step-frame-label { font-size: 0.8rem; margin-top: -4px; }
 .step-frame.uploading { opacity: 0.5; pointer-events: none; }
+
+/* Drag-to-resize-height grip, shown under any filled photo frame — both
+   here and on .step-media-row in Build Mode (same markup/class, same
+   wireFrameResizeHandle logic). Resizes the <img> itself only, never the
+   frame/label around it, so surrounding text only shifts position in
+   normal flow and never changes size. */
+.frame-resize-handle {
+  width: 36px;
+  height: 14px;
+  margin: 2px 0 4px;
+  border-radius: 7px;
+  background: var(--border);
+  cursor: ns-resize;
+  touch-action: none;
+  position: relative;
+}
+.frame-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 5px; left: 8px; right: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+.frame-resize-handle:hover,
+.frame-resize-handle:active { background: var(--accent2); }
 
 /* ---- Batch calculator ---- */
 .batch-input-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; }

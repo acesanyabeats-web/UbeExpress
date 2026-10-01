@@ -102,9 +102,46 @@
     return glass ? 'glass_' + glass : 'glass_rocks';
   }
   function stepMediaHtml(glass, s) {
+    // frame_height is a per-step, admin-set override (see wireFrameResizeHandle
+    // below) — falls back to the CSS default (150px) when never customized.
+    // object-fit:contain (see style.css) means no height ever crops the photo;
+    // resizing only changes how much of the available space it fills.
     return s.photo_url
-      ? '<img class="equip-icon is-photo" src="' + escapeHtml(s.photo_url) + '">'
+      ? '<img class="equip-icon is-photo" style="height:' + (s.frame_height || 150) + 'px" src="' + escapeHtml(s.photo_url) + '">'
       : iconSvg(iconForStep(glass, s), 'equip-icon');
+  }
+  function frameResizeHandleHtml() {
+    return '<div class="frame-resize-handle" title="Drag to resize"></div>';
+  }
+  // Shared drag-to-resize-height logic for a step's photo frame, used by both
+  // the admin edit form's step-frame grid and Build Mode's live step view —
+  // one mechanism, two places it's wired in, per Alex's own "overview page
+  // too" ask. Only changes the <img>'s own height (never a transform:scale on
+  // its container), so sibling text below only shifts position in normal
+  // document flow — it never resizes itself.
+  function wireFrameResizeHandle(handle, imgEl, onCommit) {
+    handle.addEventListener('pointerdown', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      handle.setPointerCapture(ev.pointerId);
+      var startY = ev.clientY;
+      var startH = imgEl.getBoundingClientRect().height;
+      var moved = false;
+      function onMove(mv) {
+        var dy = mv.clientY - startY;
+        if (Math.abs(dy) > 3) moved = true;
+        var newH = Math.max(60, Math.min(500, Math.round(startH + dy)));
+        imgEl.style.height = newH + 'px';
+      }
+      function onUp(up) {
+        handle.releasePointerCapture(up.pointerId);
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        if (moved) onCommit(parseInt(imgEl.style.height, 10));
+      }
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
   }
 
   // ---------- Supabase reads ----------
@@ -360,6 +397,17 @@
       body: JSON.stringify({ action: 'remove_photo', payload: payload })
     }).then(function (r) {
       if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('remove failed: ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function apiUpdateStepFrameHeight(cocktailId, stepIndex, frameHeight) {
+    return fetch('/api/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+      body: JSON.stringify({ action: 'update_step_frame_height', payload: { cocktail_id: cocktailId, step_index: stepIndex, frame_height: frameHeight } })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('resize save failed: ' + r.status)); });
       return r.json();
     });
   }
@@ -943,7 +991,7 @@
         '<div class="build-progress">' + dots + '</div>' +
         '<div class="build-step">' +
         '<div class="step-label">Step ' + (idx + 1) + ' of ' + steps.length + '</div>' +
-        '<div class="step-media-row">' + mediaHtml + '<img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
+        '<div class="step-media-row">' + mediaHtml + (s.photo_url ? frameResizeHandleHtml() : '') + '<img id="step-ing-preview" class="step-ing-photo" hidden></div>' +
         ingList +
         '<div class="instruction">' + escapeHtml(s.instruction || '') + '</div>' +
         '</div>' +
@@ -951,6 +999,17 @@
         (idx > 0 ? '<button id="build-back" class="btn btn-secondary">← Back</button>' : '<button id="build-close" class="btn btn-secondary">✕ Close</button>') +
         (idx < steps.length - 1 ? '<button id="build-next" class="btn btn-primary">Next →</button>' : '<button id="build-done" class="btn btn-primary">✅ Done</button>') +
         '</div>';
+
+      var resizeHandle = overlay.querySelector('.step-media-row .frame-resize-handle');
+      if (resizeHandle) {
+        var buildImg = overlay.querySelector('.step-media-row img.equip-icon');
+        wireFrameResizeHandle(resizeHandle, buildImg, function (newHeight) {
+          s.frame_height = newHeight;
+          apiUpdateStepFrameHeight(c.id, idx, newHeight).catch(function (e) {
+            alert('Could not save the new frame size: ' + e.message);
+          });
+        });
+      }
 
       var backBtn = document.getElementById('build-back');
       if (backBtn) backBtn.addEventListener('click', function () { idx--; render(); });
@@ -1127,20 +1186,27 @@
         framesEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Save this cocktail first, then reopen Edit to add step photos.</p>';
         return;
       }
+      // A plain div (not <button>) — a has-photo frame nests a real
+      // resize-handle div inside it, and nested interactive elements inside
+      // a <button> are invalid HTML. role/tabindex keep it click-reachable.
       framesEl.innerHTML = '<div class="step-frame-grid">' +
         steps.map(function (s, i) {
-          return '<button type="button" class="step-frame' + (s.photo_url ? ' has-photo' : '') + '" data-frame-idx="' + i + '">' +
+          return '<div class="step-frame' + (s.photo_url ? ' has-photo' : '') + '" data-frame-idx="' + i + '" role="button" tabindex="0">' +
             stepMediaHtml(existing.glass, s) +
+            (s.photo_url ? frameResizeHandleHtml() : '') +
             '<span class="step-frame-label">Step ' + (i + 1) + '</span>' +
-          '</button>';
+          '</div>';
         }).join('') +
         '</div>';
 
-      Array.prototype.forEach.call(framesEl.querySelectorAll('[data-frame-idx]'), function (btn) {
-        btn.addEventListener('click', function () {
-          var i = parseInt(btn.getAttribute('data-frame-idx'), 10);
+      Array.prototype.forEach.call(framesEl.querySelectorAll('[data-frame-idx]'), function (frameEl) {
+        frameEl.addEventListener('click', function () {
+          // Suppress the click a resize drag's own pointerup would otherwise
+          // also trigger on this same element (see wireFrameResizeHandle).
+          if (frameEl.dataset.justResized) { delete frameEl.dataset.justResized; return; }
+          var i = parseInt(frameEl.getAttribute('data-frame-idx'), 10);
           choosePhotoAndUpload(!!steps[i].photo_url, function (base64, isRemoval) {
-            btn.classList.add('uploading');
+            frameEl.classList.add('uploading');
             var req = isRemoval
               ? apiRemovePhoto('step', { cocktail_id: existing.id, step_index: i })
               : apiUploadPhoto(base64, 'step', { cocktail_id: existing.id, step_index: i });
@@ -1150,11 +1216,24 @@
               renderStepFrames();
               loadAllData().catch(function (e) { console.warn('Background refresh after step photo change failed:', e.message); });
             }).catch(function (e) {
-              btn.classList.remove('uploading');
+              frameEl.classList.remove('uploading');
               alert((isRemoval ? 'Remove' : 'Photo upload') + ' failed: ' + e.message);
             });
           }, function () { /* cancelled, nothing to undo */ });
         });
+
+        var handle = frameEl.querySelector('.frame-resize-handle');
+        if (handle) {
+          var img = frameEl.querySelector('img.equip-icon');
+          wireFrameResizeHandle(handle, img, function (newHeight) {
+            frameEl.dataset.justResized = '1';
+            var i = parseInt(frameEl.getAttribute('data-frame-idx'), 10);
+            steps[i].frame_height = newHeight;
+            apiUpdateStepFrameHeight(existing.id, i, newHeight).catch(function (e) {
+              alert('Could not save the new frame size: ' + e.message);
+            });
+          });
+        }
       });
     }
     renderStepFrames();
