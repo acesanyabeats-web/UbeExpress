@@ -934,3 +934,8 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **No milk in Cold Foam drinks** (Alex: "always 75ml cold foam, get rid of 50ml milk"). The "Add Xml milk" step is removed from all 6 methods; each now has 5 steps (coffee + syrup shot, ice, straw, 75ml cold foam, garnish).
   - The `Milk Semi Skimmed 75ml` ingredient rows in Banoffee, Biscoff, S'mores, Strawberry & White Choc and Tiramisu could not be deleted (deletes are blocked here). Alex can run: `delete from cocktail_ingredients where name='Milk Semi Skimmed' and cocktail_id in (select id from cocktails where name like '%Cold Foam');`
 - **Next: batch-made items and their recipes.** Homemade Lemonade, Homemade Raspberry-ade, Cold Foam, and the cocktail mixes for Cherry Bomb, Pineapple Punch, Bathtub, Mad Scientist and Como Crush. None has a batch recipe stored yet: the app has no batch-recipe table, and Cold Foam's batch exists only as text inside the method steps.
+- **Batch items, Alex's answers:**
+  - **Homemade Lemonade** = 60% homemade lemonade syrup + 40% soda water. Recorded only for now; drink specs are not changed yet. The Homemade Lemonade serve currently says 150ml mix + 150ml soda, which is 50/50.
+  - **Homemade Raspberry-ade** recipe: Alex is asking tomorrow.
+  - **Cocktail mixes** (Cherry Bomb, Pineapple Punch, Bathtub, Mad Scientist, Como Crush) are made every close, with no label and no shelf life.
+  - **Key Lime Pie and Mango Smooth**: Homemade Lemonade 501ml → **50ml** (typo).
