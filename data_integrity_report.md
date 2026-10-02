@@ -901,3 +901,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **Witching Hour uses Cold Foam** (Alex). The sorbet + soda "cold foam" step is replaced with "Pour the cold foam on top without overfilling (batch: 750ml milk + 250ml double cream, whipped)", linked to Cold Foam. The Lemon Sorbet ingredient became `Cold Foam` (to taste, topped up without overfilling).
   - Milk 25ml + Double Cream 50ml were kept, because they are in the shake, not the foam.
   - The leftover `Soda Water (to taste)` row could not be deleted: the database tool blocks deletes in this session. Alex can delete it from the spec editor, or run `delete from cocktail_ingredients where id='74e32e90-727b-4f64-a1c0-89223eb92a24';`.
+- **Double Cream label shelf life = 3 days** (Alex: today's label reads 01/10 – 04/10). `shelf_life_hours = 72` is set on both Cold Foam (which uses the Double Cream label) and Double Cream.
