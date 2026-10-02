@@ -867,3 +867,8 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - Each container on Fruit Prep now has **✏️ Edit** next to Used up / Thrown out. It opens a date & time box on that container, pre-filled with its current label time (or prep time), with Save and Cancel. Saving writes `prep_batches.label_at` for that one container. Its colour, "Good until" and bin day then recalculate from the real date. A container that wasn't labelled yet counts as labelled once saved.
 - A time more than 5 minutes in the future is refused ("check the date").
 - Headless test: the future date was refused with no write. Saving 30 Sep 14:30 sent a PATCH with exactly that `label_at`, and the container re-rendered "Labelled 30 Sept 2026 14:30 · bin tonight". 0 page errors. `app.js?v=52`, `style.css?v=49`.
+
+## 2 Oct 2026 — Label List "Done" reversed (Alex hadn't labelled them)
+
+- Alex pressed Label List **Done** without actually labelling. That one press stamped 9 open containers with the identical label time 2026-10-02 13:05 (BST): Birds Eye Chillies, Blackberry, Cucumber, Lemon, Lime, Lychee, Oranges, Pineapple and Raspberries. Their `label_at` was reset to empty, so all 9 are back on the Label List as "needs label". Their prep times were kept.
+- Only that exact Done timestamp was touched. Containers Alex back-dated individually, and the two boba containers marked "labelled now" when prepped, were left as they are.
