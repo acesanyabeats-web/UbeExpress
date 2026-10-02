@@ -902,3 +902,15 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Milk 25ml + Double Cream 50ml were kept, because they are in the shake, not the foam.
   - The leftover `Soda Water (to taste)` row could not be deleted: the database tool blocks deletes in this session. Alex can delete it from the spec editor, or run `delete from cocktail_ingredients where id='74e32e90-727b-4f64-a1c0-89223eb92a24';`.
 - **Double Cream label shelf life = 3 days** (Alex: today's label reads 01/10 – 04/10). `shelf_life_hours = 72` is set on both Cold Foam (which uses the Double Cream label) and Double Cream.
+
+## 2 Oct 2026 — Purée & syrup brands and labels (Alex)
+
+- **Peach Puree is Real** → `Real - Peach Puree` (4 drinks).
+- **All Real items go on one label, "Mango Puree" (🙏 Thank you Trav)**: Real – Passionfruit / Raspberry / Strawberry / Peach Puree, Real – Lychee Syrup and Real – Dry Dragon are flagged Trav (label says Mango Puree). Real – Mango Syrup is marked correct. All 7 are on Fruit Prep as needing a label.
+- **Elderflower, Elderflower & Rose and Lime cordials are Belvoir** → `Belvoir Elderflower`, `Belvoir Elderflower & Rose`, `Belvoir Lime Cordial`. They share one shelf life with Belvoir Raspberry n Lemon: all 4 are 28 days (the Lime Cordial's existing 672h) and on Fruit Prep with labels.
+- **Monin and Finest Call need no labels**: every Monin / Finest Call item is now Label needed = No and off Fruit Prep. That includes the 4 new Monin rows from the Cold Foams (Brown Sugar, Speculoos, Cheesecake, Banana).
+- **Gimber shelf life 14 days** (label 26/09 → 10/10). **Mixed Berry Coulis 3 days** (label 30/09 → 03/10).
+- **Open**:
+  - "Monin Banana" (Banoffee Cold Foam) vs "Monin Banana Syrup" (Minion): probably the same bottle, merge?
+  - `Belvoir Pink Grapefruit - Presse` exists but isn't on Fruit Prep. Same shelf life or not?
+  - Real items still have no shelf life set.
