@@ -926,3 +926,7 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Still open: Mont Blanc and Tiramisu list 12.5ml in their ingredients but say 25ml in the method.
 - **Cold Foam per drink = 75ml, plus 25ml syrup** (Alex: "we use 25ml of syrup with 75ml of cold foam"). This changes the earlier 100ml: Cold Foam is now 75ml in all 6 Cold Foam drinks.
   - Open: which syrup goes into the foam, and whether the methods should change. Each drink's syrups add up to about 25ml (e.g. Tiramisu: brown sugar 12.5 + cheesecake 12.5). The methods currently put that syrup in the glass with the coffee.
+- **Every Cold Foam drink = a 25ml syrup shot + 75ml cold foam = 100ml** (Alex: "all syrups should come to one shot, then 75ml cold foam, so 100ml regardless").
+  - Mont Blanc: Maple Syrup 25 → 12.5ml. Strawberry & White Choc: Monin White Chocolate Syrup 25 → 12.5ml. All 6 drinks now total exactly 25ml of syrup (checked by query).
+  - Method step 1 in all 6 now names the syrup shot and its split, linked to both syrups. Step 5 now reads "Pour 75ml cold foam on top".
+  - Not changed: Banoffee's 25ml toffee sauce (a sauce, not part of the shot), and the milk amounts (the methods say 50ml in 4 drinks, but the ingredients say 75ml).
