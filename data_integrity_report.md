@@ -823,3 +823,17 @@ Alex's rules: mint sprig is 1 per drink; there are no fresh cherries, only glace
 - The app now shows count units in the plural when the amount is above 1 ("8 leaves", "4 sprigs"). The stored unit stays singular so the unit dropdown still matches. Checked: `8 leaves | 1 sprig | 2 each | 4 sprigs | 25 ml`. `app.js?v=49`.
 - **Honey and Lemon Soda**: step 5 now reads "Cap with crushed ice and add a long straw" and is linked to Straw - Long.
 - **Cherries** (Fruit Prep): the database tool blocks deletes in this session, so the row was moved out of Fruit Prep instead (`prep_group` cleared, category "Retired (not stocked)"). To remove it for good, run `delete from ingredient_photos where name='Cherries';` in the Supabase SQL editor.
+
+## 2 Oct 2026 — Strawberries as garnish only, lemon sorbet in scoops, straw-link correction
+
+- **Strawberries** (Alex): Strawberry Popper and Strawberry Wizz Fizz get 1 strawberry, as garnish only, never in the drink. Como Crush gets 1 strawberry on top.
+  - Popper: "put two strawberries cut in half into glass" removed from step 2.
+  - Wizz Fizz: strawberry taken out of the shake and added to the dress step and the garnish.
+  - All three are now `1 each`. The other 7 strawberry drinks are still in grams, awaiting Alex.
+- **Lemon Sorbet** (Alex: "all lemon sorbet as garnish only uses 1 scoop"):
+  - 1 scoop in 10 drinks: Baby Bath, Cherry Blossom, Como Crush, the three Homemade -ades, Island Gold, Percy's Party, Spectrum, and Witching Hour (already 1 scoop).
+  - 2 scoops in Bathtub and Dragon's Potion, because their own methods say two.
+  - Electric Reef was not touched: it has no amounts and no method at all, which is a separate gap.
+  - A new Nonsense row was added for Lemon Sorbet (the app used ml).
+- **Correction to my own earlier straw pass**: the step-linking matched "straw" inside "strawberry/strawberries". That linked 6 steps in 5 drinks (Galaxy Soda, Mojito Strawberry, Pink and Purple Soda, Strawberry Pop Star, Strawberry Popper) to a straw wrongly. Those links were removed. Re-check: 0 wrong links remain, and every straw is still linked to its correct step.
+- Not applied (the tool cancelled it): updating the Strawberries Nonsense note to say 3 of the 10 drinks are fixed.
