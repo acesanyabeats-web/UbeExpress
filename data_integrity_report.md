@@ -924,3 +924,5 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **Dried Dragonfruit** (the garnish, 4 drinks) prints on the **Guest Sweets** label, marked correct.
 - **Brown sugar syrup is Monin after all** (Alex: "make it Monin brown sugar syrup, since it is the spec"). This reverses the earlier "not Monin" change. In the 3 Cold Foams (Banoffee, Mont Blanc, Tiramisu), `Brown Sugar Syrup` → `Monin Brown Sugar Syrup`, in both the ingredients and the method-step links. The item now matches the other Monin syrups: Label needed = No, off Fruit Prep, no shelf life needed.
   - Still open: Mont Blanc and Tiramisu list 12.5ml in their ingredients but say 25ml in the method.
+- **Cold Foam per drink = 75ml, plus 25ml syrup** (Alex: "we use 25ml of syrup with 75ml of cold foam"). This changes the earlier 100ml: Cold Foam is now 75ml in all 6 Cold Foam drinks.
+  - Open: which syrup goes into the foam, and whether the methods should change. Each drink's syrups add up to about 25ml (e.g. Tiramisu: brown sugar 12.5 + cheesecake 12.5). The methods currently put that syrup in the glass with the coffee.
