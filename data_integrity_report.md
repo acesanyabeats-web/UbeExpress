@@ -914,3 +914,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - "Monin Banana" (Banoffee Cold Foam) vs "Monin Banana Syrup" (Minion): probably the same bottle, merge?
   - `Belvoir Pink Grapefruit - Presse` exists but isn't on Fruit Prep. Same shelf life or not?
   - Real items still have no shelf life set.
+- **Brown sugar syrup is not Monin** (Alex: "apart from brown sugar, those are Monin"). `Monin Brown Sugar Syrup` → `Brown Sugar Syrup` in the 3 Cold Foams (Banoffee, Mont Blanc, Tiramisu). Label needed = Yes, and it is on Fruit Prep. Brand and shelf life still to confirm. Monin Speculoos / Cheesecake / Banana stay as no label.
