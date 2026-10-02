@@ -930,3 +930,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Mont Blanc: Maple Syrup 25 → 12.5ml. Strawberry & White Choc: Monin White Chocolate Syrup 25 → 12.5ml. All 6 drinks now total exactly 25ml of syrup (checked by query).
   - Method step 1 in all 6 now names the syrup shot and its split, linked to both syrups. Step 5 now reads "Pour 75ml cold foam on top".
   - Not changed: Banoffee's 25ml toffee sauce (a sauce, not part of the shot), and the milk amounts (the methods say 50ml in 4 drinks, but the ingredients say 75ml).
+- **Manager confirmed** (via Alex) the 6 Cold Foam drinks' syrup splits and the 25ml syrup + 75ml cold foam setup above. No further changes.
