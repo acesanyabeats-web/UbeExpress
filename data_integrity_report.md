@@ -918,3 +918,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **Monin Banana merged into Monin Banana Syrup** (Alex: same bottle). Both drinks (Minion, Banoffee Cold Foam) now use `Monin Banana Syrup`; the duplicate item is retired.
 - **Pink grapefruit is Fever-Tree, not Belvoir** (Alex: "a Fever-Tree tonic, no label"). In Pink Paloma, `Belvoir Pink Grapefruit - Presse` → `Fever-Tree Pink Grapefruit`; Label needed = No; not on Fruit Prep.
 - Alex gave a label date of 30/09 → 23/10 (23 days). Waiting on whether that is the Brown Sugar Syrup or the Mango Puree label before setting it.
+- **Mango Puree label shelf life = 23 days** (30/09 → 23/10). `shelf_life_hours = 552` is set on all 7 Real items that share that label. Brown Sugar Syrup's shelf life is still to confirm.
