@@ -915,3 +915,6 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - `Belvoir Pink Grapefruit - Presse` exists but isn't on Fruit Prep. Same shelf life or not?
   - Real items still have no shelf life set.
 - **Brown sugar syrup is not Monin** (Alex: "apart from brown sugar, those are Monin"). `Monin Brown Sugar Syrup` → `Brown Sugar Syrup` in the 3 Cold Foams (Banoffee, Mont Blanc, Tiramisu). Label needed = Yes, and it is on Fruit Prep. Brand and shelf life still to confirm. Monin Speculoos / Cheesecake / Banana stay as no label.
+- **Monin Banana merged into Monin Banana Syrup** (Alex: same bottle). Both drinks (Minion, Banoffee Cold Foam) now use `Monin Banana Syrup`; the duplicate item is retired.
+- **Pink grapefruit is Fever-Tree, not Belvoir** (Alex: "a Fever-Tree tonic, no label"). In Pink Paloma, `Belvoir Pink Grapefruit - Presse` → `Fever-Tree Pink Grapefruit`; Label needed = No; not on Fruit Prep.
+- Alex gave a label date of 30/09 → 23/10 (23 days). Waiting on whether that is the Brown Sugar Syrup or the Mango Puree label before setting it.
