@@ -860,3 +860,10 @@ Alex: "the garnish section looks a mess with straws in mix with sweets."
   - **🦆 Garnish Props & Straws**, sub-grouped into **Straws** (Boba / Long / Short) and **Props** (umbrellas, mermaid tails, ducks, disco ball, tassel sticks, ping pong balls, blossom tree).
 - No data was changed. It reuses the types already set on the Ingredients page, so re-typing an item there moves it here too.
 - Headless test with the live types: every item lands under the right heading; 0 page errors. `app.js?v=51`, `style.css?v=48`.
+
+## 2 Oct 2026 — Fruit Prep: edit a container's label date & time
+
+Alex: ticked off what he had left, but couldn't set the label to the real date.
+- Each container on Fruit Prep now has **✏️ Edit** next to Used up / Thrown out. It opens a date & time box on that container, pre-filled with its current label time (or prep time), with Save and Cancel. Saving writes `prep_batches.label_at` for that one container. Its colour, "Good until" and bin day then recalculate from the real date. A container that wasn't labelled yet counts as labelled once saved.
+- A time more than 5 minutes in the future is refused ("check the date").
+- Headless test: the future date was refused with no write. Saving 30 Sep 14:30 sent a PATCH with exactly that `label_at`, and the container re-rendered "Labelled 30 Sept 2026 14:30 · bin tonight". 0 page errors. `app.js?v=52`, `style.css?v=49`.

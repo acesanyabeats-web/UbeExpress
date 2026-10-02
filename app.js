@@ -1603,6 +1603,36 @@
       .then(function (rows) { state.batches = state.batches.concat(rows); });
   }
 
+  // Correct one container's label date & time (e.g. it was labelled earlier
+  // than it was ticked off). Saving also counts as labelled.
+  function setBatchLabel(id, iso) {
+    return anonFetch('prep_batches?id=eq.' + id, 'PATCH', { label_at: iso }, 'return=representation')
+      .then(function (rows) { var r = rows[0]; state.batches = state.batches.map(function (b) { return b.id === id ? r : b; }); });
+  }
+  function openBatchLabelEdit(chip, fail) {
+    var id = chip.getAttribute('data-batch');
+    var b = state.batches.filter(function (x) { return x.id === id; })[0];
+    if (!b) return;
+    var current = new Date(b.label_at || b.created_at);
+    chip.classList.add('batch-editing');
+    chip.innerHTML = '<label class="batch-edit-label">Label date &amp; time' +
+        '<input type="datetime-local" class="batch-edit-input" value="' + toLocalInputValue(current) + '"></label>' +
+      '<span class="batch-actions">' +
+        '<button type="button" class="batch-btn batch-btn-save">Save</button>' +
+        '<button type="button" class="batch-btn batch-btn-cancel">Cancel</button>' +
+      '</span>';
+    var input = chip.querySelector('.batch-edit-input');
+    input.focus();
+    chip.querySelector('.batch-btn-cancel').addEventListener('click', renderFruitPrep);
+    chip.querySelector('.batch-btn-save').addEventListener('click', function () {
+      var d = input.value ? new Date(input.value) : null;
+      if (!d || isNaN(d)) { alert('Pick a date and time first.'); return; }
+      if (d.getTime() > Date.now() + 5 * 60 * 1000) { alert('That label time is in the future — check the date.'); return; }
+      this.disabled = true;
+      setBatchLabel(id, d.toISOString()).then(renderFruitPrep).catch(fail);
+    });
+  }
+
   function labelQueue() {
     return state.batches.filter(function (b) { return !b.ended_at && !b.label_at; })
       .sort(function (a, b) { return a.item_name.localeCompare(b.item_name) || new Date(a.created_at) - new Date(b.created_at); });
@@ -1638,6 +1668,7 @@
       '<span class="batch-actions">' +
         '<button type="button" class="batch-btn" data-end="used">Used up</button>' +
         '<button type="button" class="batch-btn batch-btn-danger" data-end="thrown">Thrown out</button>' +
+        '<button type="button" class="batch-btn" data-edit-label>✏️ Edit</button>' +
       '</span></div>';
   }
   // Ticked = stocked and usable (light green / dark green / amber);
@@ -1807,6 +1838,8 @@
           Array.prototype.forEach.call(chip.querySelectorAll('[data-end]'), function (btn) {
             wireArmConfirm(btn, 'Confirm', function () { endBatch(chip.getAttribute('data-batch'), btn.getAttribute('data-end')).then(renderFruitPrep).catch(fail); });
           });
+          var edit = chip.querySelector('[data-edit-label]');
+          if (edit) edit.addEventListener('click', function () { openBatchLabelEdit(chip, fail); });
         });
       });
       Array.prototype.forEach.call(main.querySelectorAll('.toss-row:not(.topup-row)'), function (row) {
