@@ -889,3 +889,11 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - Problems in the source app, entered as shown and flagged to Alex (not "fixed" by guessing):
   - **Mont Blanc** has no milk or cream syrup in its ingredients, but its method adds 50ml milk. It lists orange juice, "Mayple Syrup 25 milligram" and orange; its garnish (cocoa and ladyfinger) is identical to Tiramisu, and neither is in its ingredients. This looks like a copy-paste error in the source app. Maple was entered as 25 ml.
   - Several methods say "25ml syrup" where the ingredient list says 12.5ml (Mont Blanc, Tiramisu, Biscoff, Strawberry). Several say "Add 50ml milk" where the list says 75ml (Strawberry, Tiramisu, Banoffee).
+
+## 2 Oct 2026 — Raspberry & lemon cordial, and a real Cold Foam batch item
+
+- **Raspberry & lemon cordial** = `Belvoir Raspberry n Lemon`. It is used in Passionfruit Cooler, and through the batch mix in Homemade Raspberry-ade. It is now on Fruit Prep (Fruit & Syrups) as needing a label.
+- **Cold Foam** (Alex): it is not lemon sorbet + soda. It is 75/25 milk/cream whipped together, batch-prepped each morning with 750ml milk + 250ml double cream, and it goes on the Double Cream label.
+  - A new `Cold Foam` item is on Fruit Prep (Fruit & Syrups). Its label is Double Cream, marked correct. No shelf life is set yet.
+  - In all 6 Cold Foam drinks, `Double Cream 50ml` is replaced by `Cold Foam 50ml`. The foam step now reads "Pour the cold foam on top without overfilling (cold foam is batch-prepped each morning: 750ml milk + 250ml double cream, whipped)".
+  - **Not changed yet**: Witching Hour still says "Make cold foam: lemon sorbet + soda in the shaker" and lists Milk 25ml, Double Cream 50ml, Lemon Sorbet and Soda Water. Waiting on Alex for the correct version. The Finest Call/Real purée brands also stay as they are until Alex sends the brand list (the switch is a brand difference, not a Cheers Trav item).
