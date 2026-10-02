@@ -939,3 +939,6 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - **Homemade Raspberry-ade** recipe: Alex is asking tomorrow.
   - **Cocktail mixes** (Cherry Bomb, Pineapple Punch, Bathtub, Mad Scientist, Como Crush) are made every close, with no label and no shelf life.
   - **Key Lime Pie and Mango Smooth**: Homemade Lemonade 501ml → **50ml** (typo).
+- **Homemade Lemonade = 50/50** syrup and soda (Alex: "do 50 50", replacing 60/40). The Homemade Lemonade serve (150ml + 150ml soda) already matches, so nothing changed.
+- **Como Crush mix** (made at close) = citrus vodka 25 + yuzu 25 + grenadine 25 = 75ml. Raspberry-ade (125ml) is added on shift. The method is rewritten: grenadine is now in the mix, not squirted on top at the end (it had been step 5). The method is now 4 steps.
+- Next: proposed mix contents for Cherry Bomb, Pineapple Punch, Bathtub and Mad Scientist, waiting on Alex.
