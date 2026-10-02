@@ -872,3 +872,20 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 
 - Alex pressed Label List **Done** without actually labelling. That one press stamped 9 open containers with the identical label time 2026-10-02 13:05 (BST): Birds Eye Chillies, Blackberry, Cucumber, Lemon, Lime, Lychee, Oranges, Pineapple and Raspberries. Their `label_at` was reset to empty, so all 9 are back on the Label List as "needs label". Their prep times were kept.
 - Only that exact Done timestamp was touched. Containers Alex back-dated individually, and the two boba containers marked "labelled now" when prepped, were left as they are.
+
+## 2 Oct 2026 — Labels & Fruit Prep clean-up, and 6 Cold Foams added
+
+**Label / prep changes (Alex):**
+- **Lychee → Tinned Lychee** ("we only use tinned lychee"). Lychee and Ube Soda and Pink Gin Sling now use Tinned Lychee. The "Lychee" item is retired off Fruit Prep, and its open container was moved to Tinned Lychee.
+- **Cherry Pencils + Jacks Pencil Sweet → Strawberry Pencils** (Cherry Bomb, Dragon's Potion; garnish and method wording too). Label: **Guest Sweets** (marked correct). Jacks' open container moved over; Cherry Pencils retired.
+- **No label needed → off Fruit Prep**: Popping Candy – Wizz Fizz, Vimto Chew Bar, and all 4 Edible Decorations (Drip Icing – Blue, Edible Glitter, Green Food Colouring, Sprinkles). "Label needed" is now No.
+- **Label needed → added to Fruit Prep (Fruit & Syrups)**: Gimber, Mixed Berry Coulis, Coconut Water 330ml, Condensed Milk, Lime Cordial, Elderflower Cordial, Elderflower & Rose Cordial. There is no raspberry & lemon cordial anywhere in the spec, so it was not added.
+- **Finest Call purées → Real** ("all flavours have only real puree"): Real – Passionfruit Puree (8 drinks, also absorbed the unbranded "Passionfruit Puree"), Real – Raspberry Puree (6), Real – Strawberry Puree (3, plus the new Strawberry & White Choc Cold Foam). Added to Fruit Prep as needing a label. 0 Finest Call purées remain.
+- **Denied, not applied**: adding Real Mango/Lychee/Dry Dragon to Fruit Prep, and a Cheers Trav row for the Finest Call → Real switch. Not retried.
+
+**6 Cold Foams added** (Alex's screenshots of the Chilled Pubs app), grouped as one "Cold Foam" menu row with 6 flavours: Mont Blanc, Strawberry & White Choc, S'mores, Biscoff, Tiramisu, Banoffee.
+- Put in the Mocktails tab, since there's no alcohol. Wine glass with a long straw, from the photos (stemless glass, long straw).
+- Entered as the app shows them, except where a standing rule applies: Straw → Long; Finest Call Strawberry Puree → Real; Strawberries 5g → 1; spelling fixed (Speculooos → Speculoos, Mini Marshmellow → Mini Marshmallows, Mayple → Maple).
+- Problems in the source app, entered as shown and flagged to Alex (not "fixed" by guessing):
+  - **Mont Blanc** has no milk or cream syrup in its ingredients, but its method adds 50ml milk. It lists orange juice, "Mayple Syrup 25 milligram" and orange; its garnish (cocoa and ladyfinger) is identical to Tiramisu, and neither is in its ingredients. This looks like a copy-paste error in the source app. Maple was entered as 25 ml.
+  - Several methods say "25ml syrup" where the ingredient list says 12.5ml (Mont Blanc, Tiramisu, Biscoff, Strawberry). Several say "Add 50ml milk" where the list says 75ml (Strawberry, Tiramisu, Banoffee).
