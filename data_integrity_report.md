@@ -838,3 +838,16 @@ Alex's rules: mint sprig is 1 per drink; there are no fresh cherries, only glace
 - **Correction to my own earlier straw pass**: the step-linking matched "straw" inside "strawberry/strawberries". That linked 6 steps in 5 drinks (Galaxy Soda, Mojito Strawberry, Pink and Purple Soda, Strawberry Pop Star, Strawberry Popper) to a straw wrongly. Those links were removed. Re-check: 0 wrong links remain, and every straw is still linked to its correct step.
 - Not applied (the tool cancelled it): updating the Strawberries Nonsense note to say 3 of the 10 drinks are fixed.
 - **Strawberries, the rest** (Alex: "2 slice is 1 apart from the Pimm's drinks"): read as 1 strawberry in every non-Pimm's drink, with the Pimm's drinks keeping the counts proposed earlier. Now `1 each` for Mojito Strawberry, Pink and Purple Soda, Strawberry Double Dutch and Strawberry Pop Star; `2 each` for Pimms Original and Pimms Royale; `6 each` for Pimms Jug. No strawberry is in grams any more.
+
+## 2 Oct 2026 — Cocktail Spec search now finds flavours inside groups
+
+Alex: typing "lychee" didn't surface Double Dutch; you had to type the group name.
+- Each group row (Double Dutch, Pop Star, …) now carries hidden sub-rows for its flavours. When the search matches a flavour but not the group name, the group shows with the matching flavours listed under it (↳ Lychee Double Dutch). Tapping one opens that drink directly, skipping the flavour picker.
+- If the search matches the group name itself ("double"), only the group row shows, as before.
+- Headless test at phone width:
+  - "lychee" shows Double Dutch + ↳ Lychee Double Dutch, Lychee and Ube Soda, and Pop Star + ↳ Lychee Pop Star.
+  - "double" shows only the group row.
+  - "rasp" shows Pop Star + ↳ Raspberry Pop Star.
+  - Tapping ↳ Lychee Double Dutch opens its spec.
+  - 0 page errors.
+- `app.js?v=50`, `style.css?v=47`.

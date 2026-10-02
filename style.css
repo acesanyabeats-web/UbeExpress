@@ -1036,3 +1036,7 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ct-table.ct-table-2 th:nth-child(4) { width: 120px; text-align: left; }
 .ct-table.ct-table-2 th:nth-child(5) { width: 44px; }
 .ct-add select { width: 100%; padding: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+
+/* Flavour hits shown under their group while searching (e.g. "lychee" -> Lychee Double Dutch) */
+.cocktail-row.variant-hit { margin-left: 28px; padding-top: 10px; padding-bottom: 10px; border-left: 3px solid var(--accent); }
+.cocktail-row.variant-hit .name { font-size: 0.98rem; font-weight: 500; }

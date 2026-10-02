@@ -1409,11 +1409,22 @@
   function cocktailRowHtml(item) {
     if (item.isGroup) {
       var anyNew = item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; });
+      // Each flavour also gets a hidden sub-row, so searching "lychee" can
+      // surface "Lychee Double Dutch" under its group (see filterMenu).
+      var memberRows = item.members.slice().sort(function (a, b) {
+        return (a.variant_label || a.name).localeCompare(b.variant_label || b.name);
+      }).map(function (m) {
+        var hay = (m.name + ' ' + (m.variant_label || '')).toLowerCase();
+        return '<div class="cocktail-row variant-hit" data-id="' + m.id + '" data-group-of="' + escapeHtml(item.variant_group) + '" data-name="' + escapeHtml(hay) + '" style="display:none">' +
+          '<div class="name">↳ ' + escapeHtml(m.name) + '</div>' +
+          (state.seen.indexOf(m.id) === -1 ? '<span class="new-badge">New</span>' : '') +
+          '</div>';
+      }).join('');
       return '<div class="cocktail-row" data-group="' + escapeHtml(item.variant_group) + '" data-name="' + escapeHtml(item.variant_group.toLowerCase()) + '">' +
         iconSvg(item.glass ? 'glass_' + item.glass : 'glass_rocks', 'glass-icon') +
         '<div class="name">' + escapeHtml(item.variant_group) + '<span class="variant-count">' + item.members.length + ' flavours</span></div>' +
         (anyNew ? '<span class="new-badge">New</span>' : '') +
-        '</div>';
+        '</div>' + memberRows;
     }
     var isNew = state.seen.indexOf(item.id) === -1;
     return '<div class="cocktail-row" data-id="' + item.id + '" data-name="' + escapeHtml(item.name.toLowerCase()) + '">' +
@@ -1448,10 +1459,29 @@
     });
   }
 
+  // A group row shows if its own name matches OR any flavour inside it does;
+  // in the second case the matching flavours appear under it as sub-rows.
   function filterMenu(q) {
-    Array.prototype.forEach.call(document.querySelectorAll('.cocktail-row'), function (row) {
+    var rows = document.querySelectorAll('#full-list .cocktail-row');
+    var hitsByGroup = {};
+    Array.prototype.forEach.call(rows, function (row) {
+      var g = row.getAttribute('data-group-of');
+      if (!g) return;
+      var hit = !!q && (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+      if (hit) hitsByGroup[g] = true;
+      row.style.display = hit ? '' : 'none';
+    });
+    Array.prototype.forEach.call(rows, function (row) {
+      if (row.getAttribute('data-group-of')) return;
       var name = row.getAttribute('data-name') || '';
-      row.style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
+      var group = row.getAttribute('data-group');
+      var show = !q || name.indexOf(q) !== -1 || (group && hitsByGroup[group]);
+      row.style.display = show ? '' : 'none';
+    });
+    // Group name itself matched: the group row is enough, hide its sub-rows.
+    Array.prototype.forEach.call(rows, function (row) {
+      var g = row.getAttribute('data-group-of');
+      if (g && q && g.toLowerCase().indexOf(q) !== -1) row.style.display = 'none';
     });
   }
 
