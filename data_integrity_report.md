@@ -851,3 +851,12 @@ Alex: typing "lychee" didn't surface Double Dutch; you had to type the group nam
   - Tapping ↳ Lychee Double Dutch opens its spec.
   - 0 page errors.
 - `app.js?v=50`, `style.css?v=47`.
+
+## 2 Oct 2026 — Fruit Prep: garnish split into sweets vs props & straws
+
+Alex: "the garnish section looks a mess with straws in mix with sweets."
+- The single "🍬 Sweets Garnish Stock to Replenish" list is now two sections:
+  - **🍬 Sweets & Garnish to Replenish**, sub-grouped by each item's existing Ingredients-page type, in shelf order: Sweets & Candy → Popping Boba → Dried, Tinned & Preserved → Desserts, Gelato & Biscuits → Edible Decorations → Sugar, Honey & Seasonings.
+  - **🦆 Garnish Props & Straws**, sub-grouped into **Straws** (Boba / Long / Short) and **Props** (umbrellas, mermaid tails, ducks, disco ball, tassel sticks, ping pong balls, blossom tree).
+- No data was changed. It reuses the types already set on the Ingredients page, so re-typing an item there moves it here too.
+- Headless test with the live types: every item lands under the right heading; 0 page errors. `app.js?v=51`, `style.css?v=48`.

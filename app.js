@@ -1508,6 +1508,27 @@
     return { fruitSyrup: fruitSyrup, sweetsGarnish: sweetsGarnish };
   }
 
+  // Edible garnish types in walk-the-shelf order; anything untyped lands last.
+  var GARNISH_TYPE_ORDER = ['Sweets & Candy', 'Popping Boba', 'Dried, Tinned & Preserved', 'Desserts, Gelato & Biscuits', 'Edible Decorations', 'Sugar, Honey & Seasonings'];
+  var PROPS_TYPE = 'Garnish Props & Straws';
+  function splitGarnish(names) {
+    var byType = {}, props = { Straws: [], Props: [] };
+    names.forEach(function (n) {
+      var p = state.ingredientPhotos[String(n).toLowerCase()];
+      var type = (p && p.category) || 'Other';
+      if (type === PROPS_TYPE) { (/^straw\b/i.test(n) ? props.Straws : props.Props).push(n); return; }
+      (byType[type] = byType[type] || []).push(n);
+    });
+    var types = Object.keys(byType).sort(function (a, b) {
+      var ia = GARNISH_TYPE_ORDER.indexOf(a), ib = GARNISH_TYPE_ORDER.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+    return {
+      edible: types.map(function (t) { return { title: t, items: byType[t] }; }),
+      props: ['Straws', 'Props'].filter(function (k) { return props[k].length; }).map(function (k) { return { title: k, items: props[k] }; })
+    };
+  }
+
   function setPrepState(rows) {
     state.prep = {};
     rows.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; });
@@ -1726,9 +1747,17 @@
       html += '<div class="section-label">🍓 Fruit &amp; Syrups to Portion</div>';
       html += '<div class="prep-list">' + (lists.fruitSyrup.length ? lists.fruitSyrup.map(prepRowHtml).join('') :
         '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
-      html += '<div class="section-label">🍬 Sweets Garnish Stock to Replenish</div>';
-      html += '<div class="prep-list">' + (lists.sweetsGarnish.length ? lists.sweetsGarnish.map(prepRowHtml).join('') :
-        '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>') + '</div>';
+      // Garnish split by each item's Ingredients-page type: edible garnish
+      // (sub-grouped by type) first, then props & straws in their own section.
+      var garnish = splitGarnish(lists.sweetsGarnish);
+      html += '<div class="section-label">🍬 Sweets &amp; Garnish to Replenish</div>';
+      html += garnish.edible.length ? garnish.edible.map(function (g) {
+        return '<div class="prep-subhead">' + escapeHtml(g.title) + '</div><div class="prep-list">' + g.items.map(prepRowHtml).join('') + '</div>';
+      }).join('') : '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>';
+      html += '<div class="section-label">🦆 Garnish Props &amp; Straws</div>';
+      html += garnish.props.length ? garnish.props.map(function (g) {
+        return '<div class="prep-subhead">' + escapeHtml(g.title) + '</div><div class="prep-list">' + g.items.map(prepRowHtml).join('') + '</div>';
+      }).join('') : '<p style="color:var(--muted)">Nothing on the menu needs this right now.</p>';
       main.innerHTML = html;
 
       function fail(e) { alert('Could not save: ' + e.message); renderFruitPrep(); }
