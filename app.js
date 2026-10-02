@@ -1529,6 +1529,62 @@
     };
   }
 
+  // Cocktail mixes batched at close (Alex, 2 Oct 2026): spirits/liqueurs/
+  // syrups pre-mixed each night; long mixers (lemonade, juice, soda,
+  // raspberry-ade) and pipette/float garnishes are added on shift. No label,
+  // no shelf life. Contents name the drink's own ingredient rows, so the
+  // per-serve amounts always come from the live spec.
+  var CLOSE_MIXES = [
+    { mix: 'Bathtub Mix', cocktail: 'Bathtub', items: ['Peach Schnapps', 'Dutch Barn Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Lime Juice'] },
+    { mix: 'Cherry Bomb Mix', cocktail: 'Cherry Bomb', items: ['Finest Call Grenadine', 'Amaretto', 'Lime Juice', 'ASUKI Cherry Blossom 17% Liquor', 'Monin Cherry Syrup'] },
+    { mix: 'Como Crush Mix', cocktail: 'Como Crush', items: ['Dutch Barn Citrus Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine'] },
+    { mix: 'Mad Scientist Mix', cocktail: 'Mad Scientist', items: ['Peach Schnapps', 'Dutch Barn Vanilla Vodka'] },
+    { mix: 'Pineapple Punch Mix', cocktail: 'Pineapple Punch', items: ['Bacardi', 'Amaretto', 'Peach Schnapps'] }
+  ];
+  function closeMixRecipe(m) {
+    var c = state.cocktails.filter(function (x) { return x.name === m.cocktail; })[0];
+    if (!c) return null;
+    var ings = state.ingredients[c.id] || [];
+    var rows = m.items.map(function (n) {
+      var ing = ings.filter(function (i) { return String(i.name).toLowerCase() === n.toLowerCase(); })[0];
+      return { name: n, amount: ing ? Number(ing.amount) : null, unit: ing ? ing.unit : '' };
+    });
+    var total = rows.every(function (r) { return r.unit === 'ml' && r.amount; })
+      ? rows.reduce(function (t, r) { return t + r.amount; }, 0) : null;
+    return { rows: rows, total: total };
+  }
+  // A bar night runs past midnight: tonight's close counts from 06:00.
+  function barDayStart() {
+    var d = new Date(); var x = new Date(d); x.setHours(6, 0, 0, 0);
+    if (d < x) x.setDate(x.getDate() - 1);
+    return x;
+  }
+  function closeMixMade(m) {
+    var r = state.prep[m.mix.toLowerCase()];
+    return !!(r && r.checked && r.checked_at && new Date(r.checked_at) >= barDayStart());
+  }
+  function setCloseMixMade(m, made) {
+    var row = { item_name: m.mix, category: 'close_mix', checked: made, checked_at: made ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+    return anonFetch('prep_checklist_state?on_conflict=item_name', 'POST', [row], 'resolution=merge-duplicates,return=representation')
+      .then(function (saved) { saved.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; }); });
+  }
+  function closeMixesHtml() {
+    var live = CLOSE_MIXES.map(function (m) { return { m: m, r: closeMixRecipe(m) }; }).filter(function (x) { return x.r; });
+    if (!live.length) return '';
+    var done = live.filter(function (x) { return closeMixMade(x.m); }).length;
+    return '<div class="section-label">🌙 Make at Close (' + done + '/' + live.length + ')</div><div class="close-mix-list">' +
+      live.map(function (x) {
+        var made = closeMixMade(x.m);
+        return '<div class="close-mix' + (made ? ' made' : '') + '" data-mix="' + escapeHtml(x.m.mix) + '">' +
+          '<label class="close-mix-head"><input type="checkbox" class="close-mix-tick"' + (made ? ' checked' : '') + '> ' +
+          '<span class="close-mix-name">' + escapeHtml(x.m.mix) + '</span>' +
+          (x.r.total ? '<span class="close-mix-total">' + fmtAmt(x.r.total) + 'ml per serve</span>' : '') + '</label>' +
+          '<ul class="close-mix-recipe">' + x.r.rows.map(function (r) {
+            return '<li>' + escapeHtml(r.name) + ' <span>' + (r.amount ? escapeHtml(fmtAmt(r.amount) + (r.unit || '')) : '–') + '</span></li>';
+          }).join('') + '</ul></div>';
+      }).join('') + '</div>';
+  }
+
   function setPrepState(rows) {
     state.prep = {};
     rows.forEach(function (r) { state.prep[String(r.item_name).toLowerCase()] = r; });
@@ -1761,6 +1817,8 @@
           }).join('') + '</div>'
         : '<p class="toss-empty">Nothing to throw out tonight.</p>';
 
+      html += closeMixesHtml();
+
       var topups = topUpList(lists.fruitSyrup.concat(lists.sweetsGarnish));
       html += '<div class="section-label">⬆ Top Up on Next Open</div>';
       html += topups.length
@@ -1840,6 +1898,12 @@
           });
           var edit = chip.querySelector('[data-edit-label]');
           if (edit) edit.addEventListener('click', function () { openBatchLabelEdit(chip, fail); });
+        });
+      });
+      Array.prototype.forEach.call(main.querySelectorAll('.close-mix'), function (el) {
+        var m = CLOSE_MIXES.filter(function (x) { return x.mix === el.getAttribute('data-mix'); })[0];
+        el.querySelector('.close-mix-tick').addEventListener('change', function (e) {
+          setCloseMixMade(m, e.target.checked).then(renderFruitPrep).catch(fail);
         });
       });
       Array.prototype.forEach.call(main.querySelectorAll('.toss-row:not(.topup-row)'), function (row) {

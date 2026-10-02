@@ -942,3 +942,11 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **Homemade Lemonade = 50/50** syrup and soda (Alex: "do 50 50", replacing 60/40). The Homemade Lemonade serve (150ml + 150ml soda) already matches, so nothing changed.
 - **Como Crush mix** (made at close) = citrus vodka 25 + yuzu 25 + grenadine 25 = 75ml. Raspberry-ade (125ml) is added on shift. The method is rewritten: grenadine is now in the mix, not squirted on top at the end (it had been step 5). The method is now 4 steps.
 - Next: proposed mix contents for Cherry Bomb, Pineapple Punch, Bathtub and Mad Scientist, waiting on Alex.
+- **Close-down mixes confirmed** (Alex: pineapple juice is NOT in the mix; Mad Scientist grenadine is pipette-only; lime juice IS in the mix). The methods for Cherry Bomb, Pineapple Punch, Bathtub and Mad Scientist are rewritten to use "Xml [Drink] Mix (made at close: …)".
+  - Cherry Bomb 112.5ml: grenadine, amaretto, lime, cherry blossom, Monin cherry.
+  - Pineapple Punch 50ml: Bacardi, amaretto, peach schnapps. Pineapple juice + lemonade are added on shift.
+  - Bathtub 112.5ml: peach schnapps, vodka, yuzu, lime.
+  - Mad Scientist 50ml: peach schnapps, vanilla vodka.
+- **New "🌙 Make at Close" section on Fruit Prep** (app.js v53 / style.css v50). It shows the 5 mixes with per-serve recipes, read from each drink's live spec (`CLOSE_MIXES` lists which ingredients go in each mix).
+  - Each mix has a tick that resets every bar day (at 06:00). Ticks are stored in `prep_checklist_state` with category `close_mix`. No labels and no shelf life.
+  - Headless test: all 5 render with the correct totals, the tick saves and shows as done (1/5), no horizontal scroll at 400px, and no JS errors.

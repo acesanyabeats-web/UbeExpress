@@ -1043,6 +1043,18 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 
 /* Fruit Prep: type sub-headings inside the garnish sections */
 .prep-subhead { margin: 14px 0 6px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.close-mix-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.close-mix { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.close-mix.made { opacity: 0.6; }
+.close-mix-head { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; }
+.close-mix-tick { width: 22px; height: 22px; accent-color: var(--accent); }
+.close-mix-name { font-weight: 700; }
+.close-mix.made .close-mix-name { text-decoration: line-through; }
+.close-mix-total { margin-left: auto; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.close-mix-recipe { list-style: none; margin: 8px 0 0 32px; padding: 0; font-size: 0.9rem; }
+.close-mix-recipe li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+.close-mix-recipe li:last-child { border-bottom: 0; }
+.close-mix-recipe span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Fruit Prep: per-container label time edit */
 .batch-chip.batch-editing { flex-wrap: wrap; gap: 8px; }
