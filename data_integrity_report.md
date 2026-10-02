@@ -897,3 +897,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - A new `Cold Foam` item is on Fruit Prep (Fruit & Syrups). Its label is Double Cream, marked correct. No shelf life is set yet.
   - In all 6 Cold Foam drinks, `Double Cream 50ml` is replaced by `Cold Foam 50ml`. The foam step now reads "Pour the cold foam on top without overfilling (cold foam is batch-prepped each morning: 750ml milk + 250ml double cream, whipped)".
   - **Not changed yet**: Witching Hour still says "Make cold foam: lemon sorbet + soda in the shaker" and lists Milk 25ml, Double Cream 50ml, Lemon Sorbet and Soda Water. Waiting on Alex for the correct version. The Finest Call/Real purée brands also stay as they are until Alex sends the brand list (the switch is a brand difference, not a Cheers Trav item).
+- **Cold Foam per drink = 100ml** (Alex: 75 milk + 25 double cream). All 6 Cold Foam drinks are updated from 50ml to 100ml.
