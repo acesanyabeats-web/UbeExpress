@@ -982,3 +982,7 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Malfy Arancia, Martini Fiero, Dried Blood Orange Slices
   - Monin Pumpkin Spice, Cinnamon Powder, Halloween Sprinkles
   - Food Colouring - Black / Red, Jacks Sour Snakes, Halloween Bathtub Ducks
+- **Bloody Bathtub method = Bathtub's method** (Alex: "same as bathtub, just with extra ingredients"). It has the same 10 steps, with two changes:
+  - Step 2 pours its own spirits instead of the Bathtub close-mix: cherry vodka 75, yuzu 25, grenadine 12.5, red colouring 5, then 400ml lemonade.
+  - The duck step uses the 2 Halloween ducks and hangs the sour snakes over the edge.
+  - Mint sprig, lemon and lime (used by the method's own garnish steps) were added as ingredients. The drink now has 14 ingredients.
