@@ -1061,3 +1061,17 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .batch-edit-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); flex: 1 1 200px; }
 .batch-edit-input { background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 0.9rem; }
 .batch-btn-save { border-color: var(--accent); color: var(--accent); }
+.upcoming-badge {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+.detail-hero .upcoming-badge { display: inline-block; margin: 2px 0 6px; }

@@ -1406,6 +1406,10 @@
     });
   }
 
+  // "Upcoming" = on the spec ahead of launch (e.g. the Halloween menu),
+  // set per cocktail (cocktails.is_upcoming) and cleared once it goes live.
+  function upcomingBadge(on) { return on ? '<span class="upcoming-badge">Upcoming</span>' : ''; }
+
   function cocktailRowHtml(item) {
     if (item.isGroup) {
       var anyNew = item.members.some(function (m) { return state.seen.indexOf(m.id) === -1; });
@@ -1417,12 +1421,14 @@
         var hay = (m.name + ' ' + (m.variant_label || '')).toLowerCase();
         return '<div class="cocktail-row variant-hit" data-id="' + m.id + '" data-group-of="' + escapeHtml(item.variant_group) + '" data-name="' + escapeHtml(hay) + '" style="display:none">' +
           '<div class="name">↳ ' + escapeHtml(m.name) + '</div>' +
+          upcomingBadge(m.is_upcoming) +
           (state.seen.indexOf(m.id) === -1 ? '<span class="new-badge">New</span>' : '') +
           '</div>';
       }).join('');
       return '<div class="cocktail-row" data-group="' + escapeHtml(item.variant_group) + '" data-name="' + escapeHtml(item.variant_group.toLowerCase()) + '">' +
         iconSvg(item.glass ? 'glass_' + item.glass : 'glass_rocks', 'glass-icon') +
         '<div class="name">' + escapeHtml(item.variant_group) + '<span class="variant-count">' + item.members.length + ' flavours</span></div>' +
+        upcomingBadge(item.members.some(function (m) { return m.is_upcoming; })) +
         (anyNew ? '<span class="new-badge">New</span>' : '') +
         '</div>' + memberRows;
     }
@@ -1430,6 +1436,7 @@
     return '<div class="cocktail-row" data-id="' + item.id + '" data-name="' + escapeHtml(item.name.toLowerCase()) + '">' +
       iconSvg(item.glass ? 'glass_' + item.glass : 'glass_rocks', 'glass-icon') +
       '<div class="name">' + escapeHtml(item.name) + '</div>' +
+      upcomingBadge(item.is_upcoming) +
       (isNew ? '<span class="new-badge">New</span>' : '') +
       '</div>';
   }
@@ -1450,6 +1457,7 @@
         return '<div class="cocktail-row" data-id="' + c.id + '">' +
           iconSvg(c.glass ? 'glass_' + c.glass : 'glass_rocks', 'glass-icon') +
           '<div class="name">' + escapeHtml(c.variant_label || c.name) + '</div>' +
+          upcomingBadge(c.is_upcoming) +
           (isNew ? '<span class="new-badge">New</span>' : '') +
           '</div>';
       }).join('');
@@ -2267,7 +2275,7 @@
 
     var html = '<div class="detail-hero">' +
       iconSvg(c.glass ? 'glass_' + c.glass : 'glass_rocks', 'glass-icon') +
-      '<h1>' + escapeHtml(c.name) + '</h1>' +
+      '<h1>' + escapeHtml(c.name) + '</h1>' + (c.is_upcoming ? '<div>' + upcomingBadge(true) + '</div>' : '') +
       '<div class="meta">' + escapeHtml(c.build_method || '') + (c.garnish ? ' &middot; garnish: ' + escapeHtml(c.garnish) : '') + '</div>' +
       '</div>' + cheersTravBannerHtml(id);
 
@@ -2628,6 +2636,7 @@
       '<div class="field-group"><label>Garnish</label><input type="text" id="f-garnish" value="' + escapeHtml(existing ? existing.garnish : '') + '"></div>' +
 
       '<div class="toggle-row"><label>Mocktail (no alcohol)</label><input type="checkbox" id="f-is-mocktail"' + (existing && existing.is_mocktail ? ' checked' : '') + '></div>' +
+      '<div class="toggle-row"><label>Upcoming (not launched yet)</label><input type="checkbox" id="f-is-upcoming"' + (existing && existing.is_upcoming ? ' checked' : '') + '></div>' +
 
       '<div class="section-label">Flavour family (optional)</div>' +
       '<div class="batch-input-row"><div class="field-group"><label>Group name</label><input type="text" id="f-variant-group" placeholder="e.g. Double Dutch" value="' + escapeHtml(existing && existing.variant_group ? existing.variant_group : '') + '"></div>' +
@@ -2858,6 +2867,7 @@
         build_method: document.getElementById('f-build-method').value.trim(),
         garnish: document.getElementById('f-garnish').value.trim(),
         is_mocktail: document.getElementById('f-is-mocktail').checked,
+        is_upcoming: document.getElementById('f-is-upcoming').checked,
         variant_group: document.getElementById('f-variant-group').value.trim() || null,
         variant_label: document.getElementById('f-variant-label').value.trim() || null,
         method_steps: stepRowsOut,

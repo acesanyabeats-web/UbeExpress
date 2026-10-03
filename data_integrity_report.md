@@ -950,3 +950,35 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - **New "🌙 Make at Close" section on Fruit Prep** (app.js v53 / style.css v50). It shows the 5 mixes with per-serve recipes, read from each drink's live spec (`CLOSE_MIXES` lists which ingredients go in each mix).
   - Each mix has a tick that resets every bar day (at 06:00). Ticks are stored in `prep_checklist_state` with category `close_mix`. No labels and no shelf life.
   - Headless test: all 5 render with the correct totals, the tick saves and shows as done (1/5), no horizontal scroll at 400px, and no JS errors.
+
+## 3 Oct 2026 — Halloween cocktails (upcoming)
+
+- **New `cocktails.is_upcoming` flag** (an added column, default false). It shows an outlined "Upcoming" badge on the menu row, the group row, the flavour picker, search sub-rows and the spec page. It can be toggled in the cocktail editor ("Upcoming (not launched yet)"), and `api/write.js` now saves it. app.js v54 / style.css v51.
+- **5 Halloween cocktails added from the Joiners Arms screenshots**, grouped as `Halloween` (one menu row with a picker), all `is_upcoming = true`: Witches Kiss, Blood Orange Negroni, Pumpkin Spiced Martini, Midnight Margarita, Bloody Bathtub.
+- **Applied house rules**:
+  - Midnight Margarita's "black straw" → 1 long straw.
+  - Bloody Bathtub gets 2 long + 4 short straws, same as Bathtub.
+  - Spec typo "couple glass" written as "coupe glass".
+- **To check with Alex** (not yet in Cheers Trav):
+  - Witches Kiss:
+    - The menu says "Belvoir blueberry and blackberry cordial", but the spec says "Blueberry n Blackcurrant".
+    - Homemade Lemonade is "0.5 serving(s)" with no ml, and the method never adds it.
+    - The Halloween cocktail stick is listed as "1 gram" (stored as 1 each).
+    - The spec lists 30g blackberries, but the method says to muddle 3.
+  - Blood Orange Negroni:
+    - The menu says "Malfy Arancia **Rose** gin", but the spec says "Malfy Arancia".
+    - The garnish is called "dried" on the menu, "Dried Blood Orange Slices" in the spec, and "freeze dried" in the method.
+    - The photo shows 2 black straws, but the spec lists none.
+  - Midnight Margarita:
+    - The method says margarita glass, but the app has no margarita glass (stored as coupe).
+    - Lime juice is 50ml, which is high next to 37.5ml tequila.
+  - Bloody Bathtub:
+    - The Method section is empty, so no method was added.
+    - The menu says **citrus** vodka, but the spec says **cherry** vodka 75ml.
+    - Lemon sorbet is 175ml (other drinks use scoops) and popping balls are 50ml (Bathtub uses 150g).
+    - The photo shows mint, but the spec lists none.
+- New ingredient names, not yet in Ingredients / Fruit Prep:
+  - Crème De Cassis - Marie Brizard, Belvoir Blueberry n Blackcurrant, Black Sugar, Halloween Cocktail Stick
+  - Malfy Arancia, Martini Fiero, Dried Blood Orange Slices
+  - Monin Pumpkin Spice, Cinnamon Powder, Halloween Sprinkles
+  - Food Colouring - Black / Red, Jacks Sour Snakes, Halloween Bathtub Ducks
