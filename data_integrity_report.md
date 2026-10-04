@@ -1042,3 +1042,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - No JS errors.
 - Bug caught in testing and fixed: re-entering a screen on Back overwrote its saved scroll with 0 before it could be restored.
 - **Limit**: the phone reloading the app after time in the background is the OS's decision and can't be prevented. This makes coming back land in the same place instead.
+- **Fix (v60)**: the scroll-restore retry on Back/resume kept pulling the page to the saved spot for up to 2s, which fought the user if they scrolled straight away and felt like lag. It now stops at the first touch or wheel, and it doesn't run at all when the saved spot is the top of the page.

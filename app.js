@@ -787,10 +787,20 @@
     entry.scroll = y;
     // Async screens (Fruit Prep, Label List) render after a fetch; retry the
     // scroll briefly so it lands once the content is tall enough.
-    var tries = 0;
+    // Stops the instant the user touches/scrolls, so it never fights them.
+    if (!y) return;
+    var tries = 0, stopped = false;
+    function stop() {
+      stopped = true;
+      window.removeEventListener('touchstart', stop);
+      window.removeEventListener('wheel', stop);
+    }
+    window.addEventListener('touchstart', stop, { passive: true });
+    window.addEventListener('wheel', stop, { passive: true });
     (function again() {
+      if (stopped) return;
       window.scrollTo(0, y);
-      if (Math.abs(window.scrollY - y) > 2 && ++tries < 20) setTimeout(again, 100);
+      if (Math.abs(window.scrollY - y) > 2 && ++tries < 15) setTimeout(again, 100); else stop();
     })();
   }
   function navBack() {
