@@ -1001,3 +1001,4 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - 3 menu_app: Witches Kiss cordial, Negroni "Rose", Bloody Bathtub citrus → cherry vodka.
   - 1 dyslexia: "couple" glass.
   - 4 nonsense: coffee grams, lime 50ml, Witches Kiss lemonade serving / stick grams, Bloody Bathtub sorbet ml + empty method.
+- **Bloody Bathtub sorbet (Alex's guess)**: 2 scoops. The first is squirted with soda and 5ml red food colouring, then stirred into a red "snow sludge". The second goes on as part of the garnish with the mint. The red colouring moved out of the close mix, which is now cherry vodka 75 + yuzu 25 + grenadine 12.5 = 112.5ml. Marked as a guess; confirm on shift.

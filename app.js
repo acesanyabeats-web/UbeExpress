@@ -1544,7 +1544,7 @@
   // per-serve amounts always come from the live spec.
   var CLOSE_MIXES = [
     { mix: 'Bathtub Mix', cocktail: 'Bathtub', items: ['Peach Schnapps', 'Dutch Barn Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Lime Juice'] },
-    { mix: 'Bloody Bathtub Mix', cocktail: 'Bloody Bathtub', items: ['Dutch Barn Cherry Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine', 'Food Colouring - Red'] },
+    { mix: 'Bloody Bathtub Mix', cocktail: 'Bloody Bathtub', items: ['Dutch Barn Cherry Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine'] },
     { mix: 'Cherry Bomb Mix', cocktail: 'Cherry Bomb', items: ['Finest Call Grenadine', 'Amaretto', 'Lime Juice', 'ASUKI Cherry Blossom 17% Liquor', 'Monin Cherry Syrup'] },
     { mix: 'Como Crush Mix', cocktail: 'Como Crush', items: ['Dutch Barn Citrus Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine'] },
     { mix: 'Mad Scientist Mix', cocktail: 'Mad Scientist', items: ['Peach Schnapps', 'Dutch Barn Vanilla Vodka'] },
