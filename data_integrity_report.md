@@ -1002,3 +1002,20 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - 1 dyslexia: "couple" glass.
   - 4 nonsense: coffee grams, lime 50ml, Witches Kiss lemonade serving / stick grams, Bloody Bathtub sorbet ml + empty method.
 - **Bloody Bathtub sorbet (Alex's guess)**: 2 scoops. The first is squirted with soda and 5ml red food colouring, then stirred into a red "snow sludge". The second goes on as part of the garnish with the mint. The red colouring moved out of the close mix, which is now cherry vodka 75 + yuzu 25 + grenadine 12.5 = 112.5ml. Marked as a guess; confirm on shift.
+- **Bloody Bathtub method condensed to 5 steps** (Alex):
+  - (1) ice
+  - (2) mix + 400ml lemonade
+  - (3) scoop lemon sorbet into the shaker with soda + 5ml red colouring, stir into **100ml** red snow sludge, pour on top (old steps 3-5)
+  - (4) popping balls, second sorbet scoop with mint, 2 ducks + sour snakes (old 6-8)
+  - (5) board, tea cups, straws, ice, lemon/lime (old 9-10)
+  - I read "100ml" as the size of the sludge.
+
+## 4 Oct 2026 — Suggest-a-photo not reaching review (bug)
+
+- **Evidence**: `photo_submissions` has 0 rows ever, and the storage bucket has no `candidate/` uploads, so no suggestion has ever been saved. The live server logs aren't reachable from this session (Ube Express isn't on the Vercel account connected here).
+- **Headless reproduction** of the staff flow (Build Mode → Suggest a photo → library → crop → Send): the client builds and sends the request correctly, so the failure is server-side or in the stored login token.
+- **Fixes shipped** (app.js v57):
+  1. **Stale send-permission token.** It is stored at login and was never refreshed, so a phone that logged in under an older secret got 401 on every send. Now a 401 clears it, asks for the bar password once, and retries. Tested: 401 → password prompt → resend with new token → "Thanks".
+  2. **Real error text.** The real server error is shown, including "photo too large" for a 413.
+  3. **Home review card refresh.** The admin's "Staff Photo Candidates" card only loaded at app start. It now re-checks every time home is shown. Tested: a new pending row appears with a count of 1.
+- **To confirm on a real phone**: send one suggested photo as staff, then open home as admin. The 📸 card should show 1. If sending still fails, the alert now shows the real server error; Alex to send a screenshot.

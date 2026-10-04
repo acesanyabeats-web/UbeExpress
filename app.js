@@ -1070,7 +1070,7 @@
       return res.submit_token;
     });
   }
-  function apiSubmitCandidate(c, stepIndex, base64, name) {
+  function apiSubmitCandidate(c, stepIndex, base64, name, retried) {
     return ensureSubmitToken().then(function (tok) {
       return fetch('/api/write', {
         method: 'POST',
@@ -1078,7 +1078,16 @@
         body: JSON.stringify({ action: 'submit_photo_candidate', payload: { cocktail_id: c.id, step_index: stepIndex, image_base64: base64, content_type: 'image/jpeg', submitted_by: name } })
       });
     }).then(function (r) {
-      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('send failed: ' + r.status)); });
+      // A send permission saved at an older login is refused (401) forever;
+      // drop it, ask for the bar password once, and try again.
+      if (r.status === 401 && !retried) {
+        localStorage.removeItem('bar_submit_token');
+        return apiSubmitCandidate(c, stepIndex, base64, name, true);
+      }
+      if (!r.ok) return r.text().then(function (t) {
+        var msg; try { msg = JSON.parse(t).error; } catch (e) { msg = null; }
+        throw new Error(msg || ('server said ' + r.status + (r.status === 413 ? ' (photo too large)' : '')));
+      });
       return r.json();
     });
   }
@@ -1317,6 +1326,17 @@
       }).catch(function (e) { alert('Could not save: ' + e.message); renderHome(); });
     });
     var candCard = document.getElementById('home-candidates');
+    // Candidates arrive from other phones; re-check on every visit to home
+    // so the count isn't stuck at whatever it was when the app opened.
+    if (candCard && !renderHome._refreshing) {
+      renderHome._refreshing = true;
+      sbSelect('photo_submissions', 'select=*&status=eq.pending&order=created_at.asc').then(function (rows) {
+        renderHome._refreshing = false;
+        var before = (state.photoSubmissions || []).length;
+        state.photoSubmissions = rows || [];
+        if (rows.length !== before && document.getElementById('home-candidates')) renderHome();
+      }).catch(function () { renderHome._refreshing = false; });
+    }
     if (candCard) candCard.addEventListener('click', function () {
       loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
     });
