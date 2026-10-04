@@ -986,3 +986,18 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Step 2 pours its own spirits instead of the Bathtub close-mix: cherry vodka 75, yuzu 25, grenadine 12.5, red colouring 5, then 400ml lemonade.
   - The duck step uses the 2 Halloween ducks and hangs the sour snakes over the edge.
   - Mint sprig, lemon and lime (used by the method's own garnish steps) were added as ingredients. The drink now has 14 ingredients.
+- **Halloween answers (Alex, 4 Oct)**:
+  - Witches Kiss: the cordial is blackcurrant (the menu's "blackberry" is wrong). Lemonade ml is still unknown.
+  - Blood Orange Negroni:
+    - The gin is Malfy Arancia (orange), not "Rose".
+    - Added 2 short straws (ingredient + garnish step).
+  - Pumpkin Spiced Martini: coffee 20g → **2 espresso shots** (Espresso 2 each). Step 1 reworded.
+  - Midnight Margarita: lime juice 50 → **25ml** (Alex thinks; to confirm).
+  - Bloody Bathtub:
+    - The vodka is cherry. It had its own premix last year, so step 2 now uses a **Bloody Bathtub Mix**: 75 cherry vodka + 25 yuzu + 12.5 grenadine + 5 red colouring = 117.5ml, with 400ml lemonade added on shift.
+    - Lemon sorbet 175ml → 2 scoops (the existing house rule for bathtubs).
+- **Make at Close now skips upcoming drinks**: the Bloody Bathtub Mix is defined, but it only joins the close list once the drink's Upcoming flag is cleared (app.js v55). Test: 5 mixes still listed, Bloody Bathtub hidden.
+- **8 Cheers Trav rows added**:
+  - 3 menu_app: Witches Kiss cordial, Negroni "Rose", Bloody Bathtub citrus → cherry vodka.
+  - 1 dyslexia: "couple" glass.
+  - 4 nonsense: coffee grams, lime 50ml, Witches Kiss lemonade serving / stick grams, Bloody Bathtub sorbet ml + empty method.

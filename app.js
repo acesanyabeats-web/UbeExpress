@@ -1544,6 +1544,7 @@
   // per-serve amounts always come from the live spec.
   var CLOSE_MIXES = [
     { mix: 'Bathtub Mix', cocktail: 'Bathtub', items: ['Peach Schnapps', 'Dutch Barn Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Lime Juice'] },
+    { mix: 'Bloody Bathtub Mix', cocktail: 'Bloody Bathtub', items: ['Dutch Barn Cherry Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine', 'Food Colouring - Red'] },
     { mix: 'Cherry Bomb Mix', cocktail: 'Cherry Bomb', items: ['Finest Call Grenadine', 'Amaretto', 'Lime Juice', 'ASUKI Cherry Blossom 17% Liquor', 'Monin Cherry Syrup'] },
     { mix: 'Como Crush Mix', cocktail: 'Como Crush', items: ['Dutch Barn Citrus Vodka', 'ASUKI Yuzu Citrus 17% Liquor', 'Finest Call Grenadine'] },
     { mix: 'Mad Scientist Mix', cocktail: 'Mad Scientist', items: ['Peach Schnapps', 'Dutch Barn Vanilla Vodka'] },
@@ -1551,7 +1552,8 @@
   ];
   function closeMixRecipe(m) {
     var c = state.cocktails.filter(function (x) { return x.name === m.cocktail; })[0];
-    if (!c) return null;
+    // An upcoming drink isn't served yet, so its mix isn't made at close yet.
+    if (!c || c.is_upcoming) return null;
     var ings = state.ingredients[c.id] || [];
     var rows = m.items.map(function (n) {
       var ing = ings.filter(function (i) { return String(i.name).toLowerCase() === n.toLowerCase(); })[0];
