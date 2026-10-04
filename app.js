@@ -689,6 +689,7 @@
     document.getElementById('admin-btn').textContent = '+';
     document.getElementById('admin-btn').addEventListener('click', function () { openAdminEditor(null); });
     document.getElementById('nav-back-btn').addEventListener('click', navBack);
+    document.getElementById('float-back-btn').addEventListener('click', navBack);
     navArmBackTrap();
     loadAllData().then(function () {
       var saved = navReadSaved();
@@ -713,6 +714,8 @@
     document.getElementById('app-main').classList.remove('is-home', 'is-wide');
     document.getElementById('app-title').textContent = title;
     document.getElementById('nav-back-btn').hidden = !showBack;
+    var fb = document.getElementById('float-back-btn');
+    if (fb) { fb.hidden = !showBack; navFloatBackUpdate(); }
     state.backTarget = backFn || goToMenu;
     var top = nav.stack[nav.stack.length - 1];
     if (top) { top.title = title; navSave(); }
@@ -850,6 +853,19 @@
     navTrapArmed = false;
     if (navSystemBack()) navArmBackTrap();
   });
+
+  // Thumb-reach Back: once the page is scrolled down (deep in a list), a
+  // Back button floats at the bottom so there's no reaching for the header.
+  function navFloatBackUpdate() {
+    var fb = document.getElementById('float-back-btn');
+    if (fb) fb.classList.toggle('shown', !fb.hidden && window.scrollY > 240);
+  }
+  var navFloatTick = false;
+  window.addEventListener('scroll', function () {
+    if (navFloatTick) return;
+    navFloatTick = true;
+    requestAnimationFrame(function () { navFloatTick = false; navFloatBackUpdate(); });
+  }, { passive: true });
 
   function navReadSaved() {
     try {

@@ -1043,3 +1043,9 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
 - Bug caught in testing and fixed: re-entering a screen on Back overwrote its saved scroll with 0 before it could be restored.
 - **Limit**: the phone reloading the app after time in the background is the OS's decision and can't be prevented. This makes coming back land in the same place instead.
 - **Fix (v60)**: the scroll-restore retry on Back/resume kept pulling the page to the saved spot for up to 2s, which fought the user if they scrolled straight away and felt like lag. It now stops at the first touch or wheel, and it doesn't run at all when the saved spot is the top of the page.
+- **Thumb-reach Back on every screen (v61 / css v53).** Once a screen is scrolled down past ~240px, a "← Back" pill floats at the bottom-left. It does the same as the header back (screen history) and is hidden on home, at the top of a page, and when printing. Page bottom padding is raised so the pill never covers the last row.
+- Tested on a 40-label Label List:
+  - The pill appears after scrolling down and is hidden at the top.
+  - After a reload, Continue returns to the same spot in the list (scroll 2200 → 2200).
+  - Tapping the pill goes to Fruit Prep; the phone's Back then goes to home.
+  - No JS errors.

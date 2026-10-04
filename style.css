@@ -95,7 +95,7 @@ body {
   z-index: 10;
 }
 #app-header h2 { margin: 0; font-size: 1.15rem; flex: 1; text-align: center; }
-#app-main { padding: 16px; max-width: 640px; margin: 0 auto; padding-bottom: 60px; }
+#app-main { padding: 16px; max-width: 640px; margin: 0 auto; padding-bottom: 88px; }
 
 /* ---- Cocktail/mocktail menu tabs ---- */
 .menu-tabs {
@@ -1079,3 +1079,26 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .resume-sheet { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
 .resume-sheet h3 { margin: 0; }
 .resume-where { margin: 0 0 6px; color: var(--accent); font-weight: 600; }
+/* Thumb-reach Back, shown once scrolled down (see navFloatBackUpdate). */
+.float-back {
+  position: fixed;
+  left: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 150;
+  padding: 12px 18px;
+  min-height: 48px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.float-back.shown { opacity: 1; transform: none; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .float-back { transition: none; } }
+@media print { .float-back { display: none !important; } }
