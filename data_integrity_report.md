@@ -1063,3 +1063,27 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - The manifest and all 4 icons are served (200).
   - No JS errors.
 - **Note**: a Home Screen copy on iPhone has its own storage, separate from Safari, so staff log in once more the first time they open it.
+
+## 4 Oct 2026 — Method audit
+
+- **9 drinks have no method at all** (of 97):
+  - Dr Popper
+  - Electric Reef
+  - Grapefruit Bliss
+  - Hugo Spritz
+  - The Purple One
+  - Cookie Monster Shake
+  - Minion
+  - Orange + Passionfruit Soda
+  - Peach Crumble
+
+  Only Dr Popper has all its amounts. Waiting on Alex for the methods.
+- **Methods that never used one of the drink's own ingredients — fixed** (Alex: "mention the garnish steps, salt rim include it"):
+  - Island Gold: new first step "Add a salt rim to the glass" (Salt Maldon).
+  - Pimms Original / Royale: garnish is now "a lime wedge, a mint sprig and a long straw".
+  - Passionfruit Cooler: garnish now includes a mint sprig.
+  - Sweet Shop: "Add a Vimto strip, bon bons and a mint sprig on top".
+- Left for later, by Alex's call:
+  - Mont Blanc Cold Foam (orange juice/oranges unused, spec looks broken).
+  - Witches Kiss (lemonade ml unknown).
+  - Witching Hour's leftover Soda Water row is still waiting on a manual delete.
