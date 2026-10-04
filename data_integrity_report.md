@@ -1019,3 +1019,26 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   2. **Real error text.** The real server error is shown, including "photo too large" for a 413.
   3. **Home review card refresh.** The admin's "Staff Photo Candidates" card only loaded at app start. It now re-checks every time home is shown. Tested: a new pending row appears with a count of 1.
 - **To confirm on a real phone**: send one suggested photo as staff, then open home as admin. The 📸 card should show 1. If sending still fails, the alert now shows the real server error; Alex to send a screenshot.
+
+## 4 Oct 2026 — Back button + "pick up where you left off" (app.js v59, style.css v52)
+
+- **Back goes to what was last on screen.**
+  - Every screen opened is kept in a stack (home, menu, flavour picker, drink, Fruit Prep, Label List, Cheers Trav + report, Ingredients, Data Report, Batch, Editor). The header's Back pops it and restores that screen's scroll position.
+  - Home resets the stack.
+  - Reopening a screen that's already further back returns to it instead of looping (e.g. drink → edit → save → drink).
+  - Filter/tab changes on the same screen don't add Back steps.
+  - The editor and Label List are dropped when you move forward past them, so Back never lands in a half-filled form.
+- **Android back button / back gesture now works inside the app.** It used to leave the site. A spare history entry is kept armed; the system Back closes the top pop-up (crop, photo menu, send sheet, prep question, photo viewer, frame editor, photo review), steps back one step in Build Mode (or closes it on step 1), or goes to the previous screen. At home it lets the next Back leave the app as normal.
+- **Resume after the phone reloads the app.**
+  - The stack, scroll position, menu tab and current Build Mode drink + step are saved to the phone as you go, and again when the app goes to the background.
+  - On the next open within 12 hours, a sheet asks "Pick up where you left off? — [screen / drink, Build Mode step N]" with **Continue** or **Start fresh**.
+  - No prompt if you were just at the top of the menu.
+- Headless tests:
+  - Back sequence: menu → home → Fruit Prep → home → drink → Build step 2.
+  - Reload → resume sheet "Como Crush — Build Mode, step 2" → Continue restores step 2.
+  - Phone Back: step 1 → drink → menu → home, still inside the app.
+  - Scroll restored on Back.
+  - Start fresh → menu.
+  - No JS errors.
+- Bug caught in testing and fixed: re-entering a screen on Back overwrote its saved scroll with 0 before it could be restored.
+- **Limit**: the phone reloading the app after time in the background is the OS's decision and can't be prevented. This makes coming back land in the same place instead.

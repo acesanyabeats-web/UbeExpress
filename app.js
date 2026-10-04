@@ -688,8 +688,15 @@
     document.getElementById('admin-btn').hidden = (state.role !== 'admin');
     document.getElementById('admin-btn').textContent = '+';
     document.getElementById('admin-btn').addEventListener('click', function () { openAdminEditor(null); });
-    document.getElementById('nav-back-btn').addEventListener('click', function () { state.backTarget(); });
-    loadAllData().then(renderMenu).catch(function (e) {
+    document.getElementById('nav-back-btn').addEventListener('click', navBack);
+    navArmBackTrap();
+    loadAllData().then(function () {
+      var saved = navReadSaved();
+      renderMenu();
+      // Nothing to offer if they were just on the menu with no drink being built.
+      var top = saved && saved.stack[saved.stack.length - 1];
+      if (saved && (saved.build || !(top.name === 'menu' && !top.scroll))) navOfferResume(saved);
+    }).catch(function (e) {
       document.getElementById('app-main').innerHTML = '<p>Could not load cocktails: ' + escapeHtml(e.message) + '</p>';
     });
   }
@@ -707,6 +714,170 @@
     document.getElementById('app-title').textContent = title;
     document.getElementById('nav-back-btn').hidden = !showBack;
     state.backTarget = backFn || goToMenu;
+    var top = nav.stack[nav.stack.length - 1];
+    if (top) { top.title = title; navSave(); }
+  }
+
+  // ---------- Navigation memory ----------
+  // Every screen the user opens is kept in a stack, so the header's Back
+  // goes to whatever was actually on screen before, not a fixed parent.
+  // The stack (plus scroll and Build Mode step) is saved to this phone, so
+  // when the OS reloads the app after it's been in the background, it can
+  // offer to put the user back exactly where they were.
+  var NAV_KEY = 'ube_nav_v1';
+  var NAV_RESUME_HOURS = 12;
+  var nav = { stack: [], going: false };
+  // Screens that only make sense as a step on the way somewhere: leaving
+  // them forward drops them, so Back never lands in a half-filled form.
+  var NAV_TRANSIENT = { editor: true, labels: true };
+  function navSave() {
+    try {
+      localStorage.setItem(NAV_KEY, JSON.stringify({
+        at: Date.now(), menuTab: state.menuTab || 'cocktail', build: state.navBuild || null,
+        stack: nav.stack.map(function (e) { return { name: e.name, args: e.args, scroll: e.scroll || 0, title: e.title || '' }; })
+      }));
+    } catch (e) {}
+  }
+  function navArgsKey(e) { return e.name + '|' + JSON.stringify(e.args || []); }
+  function navEnter(name, args) {
+    var top = nav.stack[nav.stack.length - 1];
+    if (top && !nav.going) top.scroll = window.scrollY;
+    var entry = { name: name, args: args || [], scroll: 0 };
+    if (name === 'home') { nav.stack = [entry]; return; }
+    if (nav.going) { if (top && top.name === name) top.args = entry.args; return; }
+    // Already open further back (e.g. returning to the drink after saving
+    // an edit): go back to it rather than piling up a loop.
+    for (var i = nav.stack.length - 1; i >= 0; i--) {
+      if (navArgsKey(nav.stack[i]) === navArgsKey(entry)) { nav.stack.length = i + 1; return; }
+    }
+    if (top && top.name === name) { top.args = entry.args; return; } // filter/tab change on the same screen
+    if (top && NAV_TRANSIENT[top.name]) nav.stack.pop();
+    nav.stack.push(entry);
+    navArmBackTrap();
+    if (nav.stack.length > 30) nav.stack.splice(1, nav.stack.length - 30);
+  }
+  function navTrack(name, fn, toArgs) {
+    return function () {
+      navEnter(name, toArgs ? toArgs.apply(null, arguments) : Array.prototype.slice.call(arguments));
+      var out = fn.apply(this, arguments);
+      navSave();
+      return out;
+    };
+  }
+  function cocktailById(id) { return state.cocktails.filter(function (x) { return x.id === id; })[0] || null; }
+  var NAV_ROUTES = {
+    home: function () { renderHome(); },
+    menu: function () { renderMenu(); },
+    variant: function (g) { openVariantPicker(g); },
+    detail: function (id) { openDetail(id); },
+    fruitprep: function () { renderFruitPrep(); },
+    labels: function () { renderLabelList(labelQueue()); },
+    cheers: function (f) { renderCheersTrav(f); },
+    cheersReport: function (f) { renderCheersTravReport(f); },
+    ingredients: function () { renderIngredientsTable(); },
+    report: function () { renderReport(); },
+    batch: function (id) { var c = cocktailById(id); if (c) openBatchCalc(c, state.ingredients[id] || []); else renderMenu(); },
+    editor: function (id) { openAdminEditor(id ? cocktailById(id) : null); }
+  };
+  function navOpen(entry) {
+    var fn = NAV_ROUTES[entry.name] || NAV_ROUTES.menu;
+    var y = entry.scroll || 0; // read first: re-entering the screen must not overwrite it
+    nav.going = true;
+    try { fn.apply(null, entry.args || []); } finally { nav.going = false; }
+    entry.scroll = y;
+    // Async screens (Fruit Prep, Label List) render after a fetch; retry the
+    // scroll briefly so it lands once the content is tall enough.
+    var tries = 0;
+    (function again() {
+      window.scrollTo(0, y);
+      if (Math.abs(window.scrollY - y) > 2 && ++tries < 20) setTimeout(again, 100);
+    })();
+  }
+  function navBack() {
+    var top = nav.stack[nav.stack.length - 1];
+    if (top) top.scroll = window.scrollY;
+    if (nav.stack.length <= 1) { state.backTarget(); return; }
+    nav.stack.pop();
+    navOpen(nav.stack[nav.stack.length - 1]);
+    navSave();
+  }
+  // ---------- Phone back button / back gesture ----------
+  // The app is one page, so the browser's own Back used to leave it. A spare
+  // history entry is kept armed; when Back fires, the app handles it the
+  // same way as on screen (close the top pop-up, step back in Build Mode, or
+  // go to the previous screen), then re-arms. With nothing left to go back
+  // to, it's not re-armed, so the next Back leaves the app as normal.
+  var navTrapArmed = false;
+  function navArmBackTrap() {
+    if (navTrapArmed) return;
+    try { history.pushState({ ubeTrap: true }, ''); navTrapArmed = true; } catch (e) {}
+  }
+  // Topmost pop-up first, with the control that closes it the normal way
+  // (so each pop-up's own cleanup still runs).
+  var NAV_OVERLAY_CLOSERS = [
+    ['crop-modal-overlay', '.crop-cancel-btn'],
+    ['photo-menu-overlay', '[data-action="cancel"]'],
+    ['candidate-sheet-overlay', '#candidate-cancel'],
+    ['prep-ask-overlay', '.prep-ask-cancel'],
+    ['photo-modal-overlay', '.close-btn'],
+    ['frame-editor-overlay', '.frame-editor-done-btn'],
+    ['photo-review-overlay', '#review-done'],
+    ['build-overlay', '#build-back, #build-close']
+  ];
+  function navSystemBack() {
+    for (var i = 0; i < NAV_OVERLAY_CLOSERS.length; i++) {
+      var ov = document.getElementById(NAV_OVERLAY_CLOSERS[i][0]);
+      if (!ov) continue;
+      var btn = ov.querySelector(NAV_OVERLAY_CLOSERS[i][1]);
+      if (btn) btn.click(); else ov.remove();
+      return true;
+    }
+    if (document.getElementById('resume-overlay')) return true; // make them choose
+    if (!document.getElementById('nav-back-btn').hidden) { navBack(); return true; }
+    return false;
+  }
+  window.addEventListener('popstate', function () {
+    navTrapArmed = false;
+    if (navSystemBack()) navArmBackTrap();
+  });
+
+  function navReadSaved() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(NAV_KEY) || 'null');
+      if (!saved || !saved.stack || !saved.stack.length) return null;
+      if (Date.now() - saved.at > NAV_RESUME_HOURS * 3600 * 1000) return null;
+      return saved;
+    } catch (e) { return null; }
+  }
+  // Coming back after the OS reloaded the app: offer to carry on.
+  function navOfferResume(saved) {
+    var top = saved.stack[saved.stack.length - 1];
+    var b = saved.build;
+    var c = b && cocktailById(b.id);
+    var where = c ? c.name + ' — Build Mode, step ' + (b.idx + 1) : (top.title || 'where you were');
+    var sheet = document.createElement('div');
+    sheet.id = 'resume-overlay';
+    sheet.innerHTML = '<div class="resume-sheet">' +
+      '<h3>Pick up where you left off?</h3>' +
+      '<p class="resume-where">' + escapeHtml(where) + '</p>' +
+      '<button type="button" class="btn btn-primary" id="resume-continue">Continue</button>' +
+      '<button type="button" class="btn btn-secondary" id="resume-fresh">Start fresh</button></div>';
+    document.body.appendChild(sheet);
+    sheet.querySelector('#resume-continue').addEventListener('click', function () {
+      sheet.remove();
+      state.menuTab = saved.menuTab || state.menuTab;
+      nav.stack = saved.stack.filter(function (e) { return NAV_ROUTES[e.name]; });
+      if (!nav.stack.length) { renderMenu(); return; }
+      navOpen(nav.stack[nav.stack.length - 1]);
+      if (c) openBuildMode(c, state.ingredients[c.id] || [], b.idx);
+      navSave();
+    });
+    sheet.querySelector('#resume-fresh').addEventListener('click', function () {
+      sheet.remove();
+      state.navBuild = null;
+      nav.stack = [];
+      renderMenu();
+    });
   }
 
   function escapeHtml(s) {
@@ -2432,10 +2603,10 @@
   }
 
   // ---------- LIVE BUILD MODE ----------
-  function openBuildMode(c, ings) {
+  function openBuildMode(c, ings, startIdx) {
     var steps = Array.isArray(c.method_steps) ? c.method_steps : [];
     if (!steps.length) return;
-    var idx = 0;
+    var idx = Math.max(0, Math.min(steps.length - 1, startIdx || 0));
     var overlay = document.createElement('div');
     overlay.id = 'build-overlay';
     document.body.appendChild(overlay);
@@ -2467,6 +2638,9 @@
     }
 
     function render() {
+      state.navBuild = { id: c.id, idx: idx };
+      navArmBackTrap();
+      navSave();
       var s = steps[idx];
       var dots = steps.map(function (_, i) { return '<div class="dot' + (i <= idx ? ' done' : '') + '"></div>'; }).join('');
       // Build Mode always fills one big fixed card (Alex's call): every step's
@@ -2575,7 +2749,7 @@
       });
     }
 
-    function close() { overlay.remove(); }
+    function close() { overlay.remove(); state.navBuild = null; navSave(); }
     render();
   }
 
@@ -2913,6 +3087,27 @@
       return null;
     };
   }
+
+  renderHome = navTrack('home', renderHome, function () { return []; });
+  renderMenu = navTrack('menu', renderMenu, function () { return []; });
+  openVariantPicker = navTrack('variant', openVariantPicker, function (x) { return typeof x === 'string' ? [x] : []; });
+  openDetail = navTrack('detail', openDetail, function (x) { return typeof x === 'string' ? [x] : []; });
+  renderFruitPrep = navTrack('fruitprep', renderFruitPrep, function () { return []; });
+  renderLabelList = navTrack('labels', renderLabelList, function () { return []; });
+  renderCheersTrav = navTrack('cheers', renderCheersTrav, function (x) { return typeof x === 'string' ? [x] : []; });
+  renderCheersTravReport = navTrack('cheersReport', renderCheersTravReport, function (x) { return typeof x === 'string' ? [x] : []; });
+  renderIngredientsTable = navTrack('ingredients', renderIngredientsTable, function () { return []; });
+  renderReport = navTrack('report', renderReport, function () { return []; });
+  openBatchCalc = navTrack('batch', openBatchCalc, function (c) { return [c.id]; });
+  openAdminEditor = navTrack('editor', openAdminEditor, function (ex) { return [ex && ex.id ? ex.id : null]; });
+  // Leaving the app is when the OS may later reload it — save scroll then.
+  function navSnapshot() {
+    var top = nav.stack[nav.stack.length - 1];
+    if (top) top.scroll = window.scrollY;
+    navSave();
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') navSnapshot(); });
+  window.addEventListener('pagehide', navSnapshot);
 
   document.addEventListener('DOMContentLoaded', boot);
 })();
