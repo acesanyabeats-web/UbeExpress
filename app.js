@@ -1467,10 +1467,27 @@
     });
   }
 
+  // iPhones never offer to install a web app; Safari users have to know to
+  // use Share → Add to Home Screen. Show that once on the home screen, only
+  // in iOS Safari and only when not already opened from the home screen.
+  function iosInstallHintHtml() {
+    var ua = navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    var dismissed = false;
+    try { dismissed = localStorage.getItem('ube_ios_hint_dismissed') === '1'; } catch (e) {}
+    if (!isIOS || standalone || dismissed) return '';
+    return '<div class="ios-hint" id="ios-hint"><div class="ios-hint-text"><strong>Add Ube Express to your Home Screen</strong>' +
+      'Tap <span class="ios-share" aria-label="Share">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</span> Share in Safari, then <strong>Add to Home Screen</strong>. It opens full screen like an app.</div>' +
+      '<button type="button" class="ios-hint-close" id="ios-hint-close" aria-label="Dismiss">✕</button></div>';
+  }
+
   function renderHome() {
     setHeader('🍸 Ube Express', false);
     var main = document.getElementById('app-main');
-    main.innerHTML =
+    main.innerHTML = iosInstallHintHtml() +
       '<div class="home-card" id="home-cocktail-spec">' +
         '<div class="home-card-emoji">🍸</div>' +
         '<div class="home-card-text"><h3>Cocktail Spec</h3><p>Browse the full menu, ingredients and build steps</p></div>' +
@@ -1541,6 +1558,11 @@
     if (reportCard) reportCard.addEventListener('click', renderReport);
     var ingCard = document.getElementById('home-ingredients');
     if (ingCard) ingCard.addEventListener('click', renderIngredientsTable);
+    var iosClose = document.getElementById('ios-hint-close');
+    if (iosClose) iosClose.addEventListener('click', function () {
+      try { localStorage.setItem('ube_ios_hint_dismissed', '1'); } catch (e) {}
+      var h = document.getElementById('ios-hint'); if (h) h.remove();
+    });
     document.getElementById('logout-btn').addEventListener('click', function () {
       if (!confirm('Log out of Ube Express?')) return;
       localStorage.removeItem('bar_role');

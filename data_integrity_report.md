@@ -1049,3 +1049,17 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - After a reload, Continue returns to the same spot in the list (scroll 2200 → 2200).
   - Tapping the pill goes to Fruit Prep; the phone's Back then goes to home.
   - No JS errors.
+
+## 4 Oct 2026 — Installable on iPhone (and Android) (app.js v62 / style.css v54)
+
+- **App icon + manifest added**:
+  - Icon: gold coupe glass with an ube-purple drink on the app's dark ground.
+  - Files: `apple-touch-icon.png` 180, `icon-192.png`, `icon-512.png`, maskable `icon-maskable-512.png`.
+  - `manifest.webmanifest`: name/short name "Ube Express", standalone display, dark theme colour.
+- **iPhone home-screen tags**: `apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-title`, status bar "black", and `theme-color`. Added to the Home Screen, it opens full screen with its own icon and name.
+- **iPhone install hint**: iOS never offers to install a web app, so the home screen shows a one-off card in iOS Safari only: "Add Ube Express to your Home Screen — tap Share, then Add to Home Screen". It's hidden once opened from the Home Screen or after ✕ (remembered per phone). Android Chrome gets its own install option from the manifest.
+- Headless tests:
+  - The card shows with an iPhone UA, stays dismissed after ✕, and doesn't show on Android.
+  - The manifest and all 4 icons are served (200).
+  - No JS errors.
+- **Note**: a Home Screen copy on iPhone has its own storage, separate from Safari, so staff log in once more the first time they open it.

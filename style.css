@@ -1102,3 +1102,9 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .float-back.shown { opacity: 1; transform: none; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) { .float-back { transition: none; } }
 @media print { .float-back { display: none !important; } }
+/* iOS "Add to Home Screen" hint (home screen, iOS Safari only, dismissible). */
+.ios-hint { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--accent); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.ios-hint-text { flex: 1; font-size: 0.92rem; line-height: 1.45; }
+.ios-hint-text strong:first-child { display: block; margin-bottom: 2px; color: var(--accent); }
+.ios-share { display: inline-flex; vertical-align: -3px; color: #3d8bfd; margin: 0 2px; }
+.ios-hint-close { background: none; border: 0; color: var(--muted); font-size: 1.1rem; min-width: 32px; min-height: 32px; cursor: pointer; }
