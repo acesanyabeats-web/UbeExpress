@@ -1087,3 +1087,30 @@ Alex: ticked off what he had left, but couldn't set the label to the real date.
   - Mont Blanc Cold Foam (orange juice/oranges unused, spec looks broken).
   - Witches Kiss (lemonade ml unknown).
   - Witching Hour's leftover Soda Water row is still waiting on a manual delete.
+
+## 5 Oct 2026 — 7 missing methods filled from the Joiners Arms specs (Alex's screenshots)
+
+All 7 now have a full method and every amount. House rules applied:
+- the striped paper straw → 1 long straw
+- mint 5g → 1 sprig
+- gelato/sorbet in ml → scoops
+- garnish grams → counts
+- 501ml lemonade → 50ml (the same typo as Key Lime Pie / Mango Smooth)
+
+| Drink | Steps | What's notable |
+|---|---|---|
+| Electric Reef | 4 | Built (was "shaken"). The sorbet + 25ml soda white foam goes on top. Garnish: lemon wheel, orange wedge, 2 pineapple leaves (Pineapple added). |
+| Grapefruit Bliss | 3 | Built. Generic names replaced with the spec's: **Malfy Rosa** 37.5 (was "Grapefruit Gin"), **Blend Elderflower Liquor** 12.5 (was St Germaine), Fever-Tree Pink Grapefruit 100. Added: fake flowers, mini cherry blossom tree, mint sprig, freeze-dried raspberries. |
+| The Purple One | 5 | Glass → wine. Shaken. Lemonade "5.6963ml" → 1 splash. The spec has no soda, so the unused Soda Water row became Lavender Sprigs ×2. Glitter is "to taste". |
+| Cookie Monster Shake | 4 | Milk 100, double cream 50, bubblegum flavour 12.5, curaçao 25, squirty cream 25, 2 eyeballs, 1 cookie, long straw. |
+| Peach Crumble | 3 | Lemonade 50ml, purée 25, vanilla 12.5, 1 scoop gelato, peach ¼, shortbread, long straw. |
+| Minion | 5 | Glass → wine (stemless). Banana cold foam = the house **75ml Cold Foam** + yellow colouring (the spec's milk 100 / cream 50 rows were reused for these). Lemonade is "to taste" (fill to halfway). Foam bananas ×3, googly eyes, electrical tape, long straw. |
+| Orange + Passionfruit Soda | 7 | OJ 50, passionfruit 25, curaçao 25, soda 200, dried orange 1, long straw. |
+
+**To check with Alex**:
+- Grapefruit Bliss: the freeze-dried raspberries are in the spec (0.5g) but not in its method. The glass is "crystal stem" (kept as coupe).
+- Cookie Monster: "small fish bowl" glass (kept as coupe). Bubblegum flavour is in grams in the spec (stored as 12.5ml).
+- Minion: confirm the foam is house cold foam + yellow, and whether the banana syrup also goes in the foam.
+- Peach Crumble: confirm 50ml lemonade (501 in the spec).
+
+**Still no method**: Dr Popper (all amounts known) and Hugo Spritz (no amounts either).
