@@ -3140,9 +3140,10 @@
   // fridge 1 -> 4, each fridge shelf top -> bottom, each shelf left -> right.
   // Items live in stock_items (fridge/shelf/position); a finished count is
   // one stock_counts row holding every item's qty plus a name snapshot.
+  // Each item has a bar count and a cellar count, typed in a per-item popup.
   // Typed counts are kept on this phone until saved, so a reload or a phone
   // call mid-count loses nothing.
-  var STOCK_DRAFT_KEY = 'ube_stock_draft_v1';
+  var STOCK_DRAFT_KEY = 'ube_stock_draft_v2';
   var STOCK_NAME_KEY = 'ube_stock_counter';
   var stock = { items: [], counts: [], edit: false };
   function stockDraft() { try { return JSON.parse(localStorage.getItem(STOCK_DRAFT_KEY) || '{}') || {}; } catch (e) { return {}; } }
@@ -3160,7 +3161,10 @@
   }
   function stockQtyMap(countRow) {
     var m = {};
-    ((countRow && countRow.counts) || []).forEach(function (l) { m[l.item_id] = l.qty; });
+    ((countRow && countRow.counts) || []).forEach(function (l) {
+      var bar = l.bar !== undefined ? l.bar : l.qty, cellar = l.cellar !== undefined ? l.cellar : null;
+      m[l.item_id] = { bar: bar, cellar: cellar, total: (bar === null && cellar === null) ? null : (Number(bar) || 0) + (Number(cellar) || 0) };
+    });
     return m;
   }
   // Groups the walk order into fridges -> shelves -> items.
@@ -3183,11 +3187,19 @@
     stockLoad().then(drawStockCount).catch(function (e) { main.innerHTML = '<p>Could not load stock: ' + escapeHtml(e.message) + '</p>'; });
   }
 
+  // One item's bar/cellar pair as typed so far ('' = not typed).
+  function stockEntry(d, id) { var e = (d.items || {})[id] || {}; return { bar: e.bar === undefined ? '' : e.bar, cellar: e.cellar === undefined ? '' : e.cellar }; }
+  function stockPairText(bar, cellar) {
+    var b = bar === '' || bar === null || bar === undefined ? '–' : bar;
+    var c = cellar === '' || cellar === null || cellar === undefined ? '–' : cellar;
+    return 'Bar ' + b + ' · Cellar ' + c;
+  }
+
   function drawStockCount() {
     var main = document.getElementById('app-main');
     var draft = stockDraft();
     var last = stock.counts[0] || null;
-    var lastQty = stockQtyMap(last);
+    var lastMap = stockQtyMap(last);
     var name = draft.counted_by || (function () { try { return localStorage.getItem(STOCK_NAME_KEY) || ''; } catch (e) { return ''; } })();
     var num = 0;
     var html = '<div class="stock-top">' +
@@ -3197,7 +3209,9 @@
         '<button type="button" class="btn btn-secondary" id="stock-history">Past counts' + (stock.counts.length ? ' (' + stock.counts.length + ')' : '') + '</button>' +
         '<button type="button" class="btn btn-secondary" id="stock-edit">' + (stock.edit ? 'Done editing' : 'Edit list') + '</button>' +
       '</div>' +
-      (stock.edit ? '<p class="stock-hint">↑ ↓ move an item; at the top or bottom of a shelf it moves onto the next shelf. ✎ renames, 🗑 removes (old counts keep it).</p>' : '') +
+      (stock.edit
+        ? '<p class="stock-hint">↑ ↓ move an item; at the top or bottom of a shelf it moves onto the next shelf. ✎ renames, 🗑 removes (old counts keep it).</p>'
+        : '<p class="stock-hint">Tap an item to count it: bar stock and cellar stock.</p>') +
     '</div>';
     stockGroups(stock.items).forEach(function (f) {
       html += '<h2 class="stock-fridge">Fridge ' + f.n + '</h2>';
@@ -3205,20 +3219,24 @@
         html += '<div class="stock-shelf"><div class="stock-shelf-label">Shelf ' + s.n + '</div>';
         s.items.forEach(function (it) {
           num++;
-          var v = draft.qty && draft.qty[it.id] !== undefined ? draft.qty[it.id] : '';
-          var prev = lastQty[it.id];
-          html += '<div class="stock-row' + (v !== '' ? ' is-done' : '') + '" data-id="' + it.id + '">' +
-            '<span class="stock-num">' + num + '</span>' +
-            '<span class="stock-name">' + escapeHtml(it.name) + (prev !== undefined && prev !== null ? '<span class="stock-prev">last ' + prev + '</span>' : '') + '</span>' +
-            (stock.edit
-              ? '<span class="stock-edit-btns">' +
-                  '<button type="button" class="prep-btn" data-act="up" aria-label="Move up">↑</button>' +
-                  '<button type="button" class="prep-btn" data-act="down" aria-label="Move down">↓</button>' +
-                  '<button type="button" class="prep-btn" data-act="rename" aria-label="Rename">✎</button>' +
-                  '<button type="button" class="prep-btn" data-act="remove" aria-label="Remove">🗑</button>' +
-                '</span>'
-              : '<input class="stock-qty" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" aria-label="Count for ' + escapeHtml(it.name) + '" value="' + escapeHtml(String(v)) + '">') +
-          '</div>';
+          var e = stockEntry(draft, it.id);
+          var state = e.bar !== '' && e.cellar !== '' ? ' is-done' : (e.bar !== '' || e.cellar !== '' ? ' is-part' : '');
+          var prev = lastMap[it.id];
+          var nameHtml = '<span class="stock-name">' + escapeHtml(it.name) + (prev && prev.total !== null ? '<span class="stock-prev">last: ' + escapeHtml(stockPairText(prev.bar, prev.cellar)) + '</span>' : '') + '</span>';
+          if (stock.edit) {
+            html += '<div class="stock-row" data-id="' + it.id + '"><span class="stock-num">' + num + '</span>' + nameHtml +
+              '<span class="stock-edit-btns">' +
+                '<button type="button" class="prep-btn" data-act="up" aria-label="Move up">↑</button>' +
+                '<button type="button" class="prep-btn" data-act="down" aria-label="Move down">↓</button>' +
+                '<button type="button" class="prep-btn" data-act="rename" aria-label="Rename">✎</button>' +
+                '<button type="button" class="prep-btn" data-act="remove" aria-label="Remove">🗑</button>' +
+              '</span></div>';
+          } else {
+            html += '<button type="button" class="stock-row stock-tap' + state + '" data-id="' + it.id + '" data-idx="' + (num - 1) + '"><span class="stock-num">' + num + '</span>' + nameHtml +
+              '<span class="stock-vals">' + (e.bar === '' && e.cellar === '' ? '<span class="stock-tapme">Count</span>' :
+                '<span><em>Bar</em>' + (e.bar === '' ? '–' : escapeHtml(String(e.bar))) + '</span><span><em>Cellar</em>' + (e.cellar === '' ? '–' : escapeHtml(String(e.cellar))) + '</span>') +
+              '</span></button>';
+          }
         });
         if (stock.edit) html += '<button type="button" class="stock-add" data-fridge="' + f.n + '" data-shelf="' + s.n + '">+ Add item to Fridge ' + f.n + ', Shelf ' + s.n + '</button>';
         html += '</div>';
@@ -3241,28 +3259,11 @@
 
     if (stock.edit) { wireStockEdit(main); return; }
 
-    function progress() {
-      var d = stockDraft(), q = d.qty || {};
-      var done = stock.items.filter(function (it) { return q[it.id] !== undefined && q[it.id] !== ''; }).length;
-      document.getElementById('stock-progress').textContent = done + ' of ' + stock.items.length + ' counted';
-    }
-    progress();
-    var inputs = Array.prototype.slice.call(main.querySelectorAll('.stock-qty'));
-    inputs.forEach(function (inp, i) {
-      inp.addEventListener('input', function () {
-        var row = inp.closest('.stock-row');
-        var d = stockDraft(); d.qty = d.qty || {};
-        if (inp.value === '') delete d.qty[row.getAttribute('data-id')]; else d.qty[row.getAttribute('data-id')] = inp.value;
-        stockSaveDraft(d);
-        row.classList.toggle('is-done', inp.value !== '');
-        progress();
-      });
-      inp.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        var next = inputs[i + 1];
-        if (next) { next.focus(); next.select(); } else inp.blur();
-      });
+    var d0 = stockDraft();
+    var done = stock.items.filter(function (it) { var e = stockEntry(d0, it.id); return e.bar !== '' && e.cellar !== ''; }).length;
+    document.getElementById('stock-progress').textContent = done + ' of ' + stock.items.length + ' counted';
+    main.querySelectorAll('.stock-tap').forEach(function (btn) {
+      btn.addEventListener('click', function () { openStockSheet(parseInt(btn.getAttribute('data-idx'), 10)); });
     });
     var note = document.getElementById('stock-note');
     note.addEventListener('input', function () { var d = stockDraft(); d.note = note.value; stockSaveDraft(d); });
@@ -3272,18 +3273,21 @@
     });
     var saveBtn = document.getElementById('stock-save');
     saveBtn.addEventListener('click', function () {
-      var d = stockDraft(), q = d.qty || {};
+      var d = stockDraft();
       var who = by.value.trim();
       if (!who) { alert('Put your name in "Counted by" first.'); by.focus(); return; }
-      var blank = stock.items.filter(function (it) { return q[it.id] === undefined || q[it.id] === ''; });
-      if (blank.length === stock.items.length) { alert('Nothing counted yet.'); return; }
-      if (blank.length && !confirm(blank.length + ' item' + (blank.length === 1 ? ' is' : 's are') + ' still blank (first: ' + blank[0].name + '). Save anyway?')) return;
+      var entries = stock.items.map(function (it) { return stockEntry(d, it.id); });
+      var untouched = entries.filter(function (e) { return e.bar === '' && e.cellar === ''; }).length;
+      if (untouched === stock.items.length) { alert('Nothing counted yet.'); return; }
+      var missing = stock.items.filter(function (it, i) { return entries[i].bar === '' || entries[i].cellar === ''; });
+      if (missing.length && !confirm(missing.length + ' item' + (missing.length === 1 ? ' is' : 's are') + ' missing a bar or cellar number (first: ' + missing[0].name + '). Save anyway?')) return;
       saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
       apiWrite('save_stock_count', {
         counted_by: who,
         note: note.value,
-        counts: stock.items.map(function (it) {
-          return { item_id: it.id, name: it.name, fridge: it.fridge, shelf: it.shelf, qty: q[it.id] === undefined || q[it.id] === '' ? null : Number(q[it.id]) };
+        counts: stock.items.map(function (it, i) {
+          var e = entries[i];
+          return { item_id: it.id, name: it.name, fridge: it.fridge, shelf: it.shelf, bar: e.bar === '' ? null : Number(e.bar), cellar: e.cellar === '' ? null : Number(e.cellar) };
         })
       }).then(function (r) {
         try { localStorage.setItem(STOCK_NAME_KEY, who); } catch (e) {}
@@ -3294,6 +3298,49 @@
         alert('Could not save the count: ' + e.message + '\nYour numbers are still here.');
       });
     });
+  }
+
+  // The per-item popup: Bar row and Cellar row. Enter on Bar goes to Cellar;
+  // Enter on Cellar (or "Next") saves to the phone and opens the next item,
+  // so a manager can walk the whole bar without closing it.
+  function openStockSheet(idx) {
+    var it = stock.items[idx];
+    if (!it) return;
+    var old = document.getElementById('stock-sheet'); if (old) old.remove();
+    var e = stockEntry(stockDraft(), it.id);
+    var prev = stockQtyMap(stock.counts[0])[it.id];
+    var ov = document.createElement('div');
+    ov.id = 'stock-sheet';
+    ov.className = 'stock-sheet-overlay';
+    ov.innerHTML = '<div class="stock-sheet" role="dialog" aria-modal="true" aria-labelledby="stock-sheet-title">' +
+      '<div class="stock-sheet-head"><span class="stock-sheet-pos">' + (idx + 1) + ' of ' + stock.items.length + ' · Fridge ' + it.fridge + ', Shelf ' + it.shelf + '</span>' +
+        '<button type="button" class="stock-sheet-x" aria-label="Close">✕</button></div>' +
+      '<h3 id="stock-sheet-title">' + escapeHtml(it.name) + '</h3>' +
+      (prev && prev.total !== null ? '<p class="stock-sheet-prev">Last count: ' + escapeHtml(stockPairText(prev.bar, prev.cellar)) + '</p>' : '') +
+      '<label class="stock-sheet-row" for="ss-bar"><span>Bar stock</span><input id="ss-bar" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" value="' + escapeHtml(String(e.bar)) + '"></label>' +
+      '<label class="stock-sheet-row" for="ss-cellar"><span>Cellar stock</span><input id="ss-cellar" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" value="' + escapeHtml(String(e.cellar)) + '"></label>' +
+      '<div class="stock-sheet-nav">' +
+        '<button type="button" class="btn btn-secondary" id="ss-prev"' + (idx === 0 ? ' disabled' : '') + '>← Previous</button>' +
+        '<button type="button" class="btn btn-primary" id="ss-next">' + (idx === stock.items.length - 1 ? 'Done' : 'Next →') + '</button>' +
+      '</div></div>';
+    document.body.appendChild(ov);
+    var bar = ov.querySelector('#ss-bar'), cellar = ov.querySelector('#ss-cellar');
+    function keep() {
+      var d = stockDraft(); d.items = d.items || {};
+      if (bar.value === '' && cellar.value === '') delete d.items[it.id];
+      else d.items[it.id] = { bar: bar.value, cellar: cellar.value };
+      stockSaveDraft(d);
+    }
+    function close() { keep(); ov.remove(); drawStockCount(); var row = document.querySelector('.stock-tap[data-idx="' + idx + '"]'); if (row) row.scrollIntoView({ block: 'center' }); }
+    function go(to) { keep(); if (to < 0) return; if (to >= stock.items.length) { close(); return; } openStockSheet(to); }
+    bar.addEventListener('input', keep); cellar.addEventListener('input', keep);
+    bar.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cellar.focus(); cellar.select(); } });
+    cellar.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); go(idx + 1); } });
+    ov.querySelector('#ss-next').addEventListener('click', function () { go(idx + 1); });
+    ov.querySelector('#ss-prev').addEventListener('click', function () { go(idx - 1); });
+    ov.querySelector('.stock-sheet-x').addEventListener('click', close);
+    ov.addEventListener('click', function (ev) { if (ev.target === ov) close(); });
+    setTimeout(function () { bar.focus(); bar.select(); }, 30);
   }
 
   function wireStockEdit(main) {
@@ -3376,7 +3423,7 @@
       if (!countId) {
         main.innerHTML = stock.counts.length
           ? '<div class="stock-hist">' + stock.counts.map(function (c) {
-              var n = (c.counts || []).filter(function (l) { return l.qty !== null; }).length;
+              var cm = stockQtyMap(c), n = Object.keys(cm).filter(function (k) { return cm[k].total !== null; }).length;
               return '<button type="button" class="stock-hist-row" data-id="' + c.id + '"><strong>' + escapeHtml(stockWhen(c.counted_at)) + '</strong>' +
                 '<span>' + (c.counted_by ? escapeHtml(c.counted_by) + ' · ' : '') + n + ' of ' + (c.counts || []).length + ' counted</span></button>';
             }).join('') + '</div>'
@@ -3392,15 +3439,17 @@
       var prev = stockQtyMap(stock.counts[idx + 1]);
       var html = '<p class="stock-last"><strong>' + escapeHtml(stockWhen(c.counted_at)) + '</strong>' + (c.counted_by ? ' · ' + escapeHtml(c.counted_by) : '') + '</p>' +
         (c.note ? '<p class="stock-hist-note">' + escapeHtml(c.note) + '</p>' : '');
+      var cm = stockQtyMap(c);
       var fr = null, sh = null, num = 0;
       (c.counts || []).forEach(function (l) {
         if (l.fridge !== fr) { if (sh !== null) html += '</div>'; fr = l.fridge; sh = null; html += '<h2 class="stock-fridge">Fridge ' + fr + '</h2>'; }
         if (l.shelf !== sh) { if (sh !== null) html += '</div>'; sh = l.shelf; html += '<div class="stock-shelf"><div class="stock-shelf-label">Shelf ' + sh + '</div>'; }
         num++;
-        var p = prev[l.item_id], diff = (l.qty !== null && p !== undefined && p !== null) ? l.qty - p : null;
+        var cur = cm[l.item_id], p = prev[l.item_id];
+        var diff = (cur.total !== null && p && p.total !== null) ? cur.total - p.total : null;
         html += '<div class="stock-row"><span class="stock-num">' + num + '</span><span class="stock-name">' + escapeHtml(l.name) +
-          (diff ? '<span class="stock-prev ' + (diff < 0 ? 'is-down' : 'is-up') + '">' + (diff > 0 ? '+' : '') + diff + ' since last</span>' : '') +
-          '</span><span class="stock-qty-read">' + (l.qty === null ? '—' : l.qty) + '</span></div>';
+          (diff ? '<span class="stock-prev ' + (diff < 0 ? 'is-down' : 'is-up') + '">' + (diff > 0 ? '+' : '') + diff + ' total since last</span>' : '') +
+          '</span><span class="stock-vals stock-vals-read"><span><em>Bar</em>' + (cur.bar === null ? '–' : cur.bar) + '</span><span><em>Cellar</em>' + (cur.cellar === null ? '–' : cur.cellar) + '</span></span></div>';
       });
       if (sh !== null) html += '</div>';
       main.innerHTML = html;

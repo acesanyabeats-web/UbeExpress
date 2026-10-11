@@ -580,14 +580,14 @@ module.exports = async function handler(req, res) {
 
     // ---------- Stock count (main bar fridges) ----------
     // stock_items is the walk order: fridge -> shelf -> position (left to
-    // right). stock_counts keeps each finished count with a name snapshot of
-    // every item, so history still reads right after items are renamed or
+    // right). stock_counts keeps each finished count (bar + cellar per item) with a
+    // name snapshot of every item, so history still reads right after items are renamed or
     // removed. Removing an item only hides it (active=false).
     if (action === 'save_stock_count') {
       var lines = Array.isArray(payload.counts) ? payload.counts : [];
       lines = lines.filter(function (l) { return l && l.item_id && l.name; }).map(function (l) {
-        var q = l.qty === null || l.qty === undefined || l.qty === '' ? null : Number(l.qty);
-        return { item_id: String(l.item_id), name: String(l.name).slice(0, 120), fridge: Number(l.fridge) || 0, shelf: Number(l.shelf) || 0, qty: (q === null || isNaN(q)) ? null : q };
+        var num = function (v) { if (v === null || v === undefined || v === '') return null; var n = Number(v); return isNaN(n) ? null : n; };
+        return { item_id: String(l.item_id), name: String(l.name).slice(0, 120), fridge: Number(l.fridge) || 0, shelf: Number(l.shelf) || 0, bar: num(l.bar), cellar: num(l.cellar) };
       });
       if (!lines.length) { res.status(400).json({ error: 'Nothing to save' }); return; }
       var countRes = await sbFetch('stock_counts', {
