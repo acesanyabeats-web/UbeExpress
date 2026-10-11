@@ -1108,3 +1108,39 @@ svg.equip-icon.table-frame { padding: 16px; border: 1px dashed var(--border); bo
 .ios-hint-text strong:first-child { display: block; margin-bottom: 2px; color: var(--accent); }
 .ios-share { display: inline-flex; vertical-align: -3px; color: #3d8bfd; margin: 0 2px; }
 .ios-hint-close { background: none; border: 0; color: var(--muted); font-size: 1.1rem; min-width: 32px; min-height: 32px; cursor: pointer; }
+
+/* ---- Stock Count (admin) ---- */
+.stock-top { margin-bottom: 8px; }
+.stock-who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.stock-who input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.stock-last { color: var(--muted); font-size: 0.9rem; margin: 10px 0; }
+.stock-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.stock-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+.stock-fridge { font-size: 1.15rem; margin: 22px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); }
+.stock-shelf { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 12px; margin-bottom: 10px; }
+.stock-shelf-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; padding: 6px 0 2px; }
+.stock-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.stock-shelf-label + .stock-row { border-top: none; }
+.stock-num { width: 26px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.85rem; text-align: right; }
+.stock-name { flex: 1; min-width: 0; font-size: 1rem; }
+.stock-prev { display: block; color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
+.stock-prev.is-down { color: var(--danger); }
+.stock-prev.is-up { color: var(--accent2); }
+.stock-qty { width: 76px; flex: none; min-height: 44px; padding: 8px; font-size: 1.15rem; text-align: center; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-variant-numeric: tabular-nums; }
+.stock-qty:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stock-row.is-done .stock-qty { border-color: var(--accent2); }
+.stock-qty-read { width: 60px; flex: none; text-align: right; font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stock-edit-btns { display: flex; gap: 4px; flex: none; }
+.stock-edit-btns .prep-btn { min-width: 40px; min-height: 40px; font-size: 0.95rem; }
+.stock-add { display: block; width: 100%; margin: 4px 0 10px; padding: 10px; border: 1px dashed var(--border); border-radius: 10px; background: none; color: var(--accent); font-size: 0.92rem; cursor: pointer; }
+.stock-note-label { display: block; margin: 18px 0 6px; font-weight: 600; }
+#stock-note { width: 100%; padding: 10px 12px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; }
+.stock-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+#stock-progress { flex: 1 1 100%; color: var(--muted); font-size: 0.9rem; }
+.stock-bar .btn-primary { flex: 1; min-height: 48px; }
+.stock-hist { display: grid; gap: 8px; }
+.stock-hist-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 1rem; cursor: pointer; }
+.stock-hist-row span { color: var(--muted); font-size: 0.88rem; }
+.stock-hist-note { background: var(--card); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 6px; }
+#app-main.is-busy { opacity: 0.6; pointer-events: none; }
+.stock-tools .btn { flex: 1 1 0; width: auto; min-width: 0; margin: 0; }

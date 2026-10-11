@@ -578,6 +578,68 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    // ---------- Stock count (main bar fridges) ----------
+    // stock_items is the walk order: fridge -> shelf -> position (left to
+    // right). stock_counts keeps each finished count with a name snapshot of
+    // every item, so history still reads right after items are renamed or
+    // removed. Removing an item only hides it (active=false).
+    if (action === 'save_stock_count') {
+      var lines = Array.isArray(payload.counts) ? payload.counts : [];
+      lines = lines.filter(function (l) { return l && l.item_id && l.name; }).map(function (l) {
+        var q = l.qty === null || l.qty === undefined || l.qty === '' ? null : Number(l.qty);
+        return { item_id: String(l.item_id), name: String(l.name).slice(0, 120), fridge: Number(l.fridge) || 0, shelf: Number(l.shelf) || 0, qty: (q === null || isNaN(q)) ? null : q };
+      });
+      if (!lines.length) { res.status(400).json({ error: 'Nothing to save' }); return; }
+      var countRes = await sbFetch('stock_counts', {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }),
+        body: JSON.stringify({
+          area: 'Main bar',
+          counted_by: String(payload.counted_by || '').trim().slice(0, 60) || null,
+          note: String(payload.note || '').trim().slice(0, 600) || null,
+          counts: lines
+        })
+      });
+      res.status(200).json({ ok: true, row: (await countRes.json())[0] || null });
+      return;
+    }
+    if (action === 'save_stock_item') {
+      var nm = String(payload.name || '').trim().slice(0, 120);
+      if (!nm) { res.status(400).json({ error: 'Name needed' }); return; }
+      var si = { name: nm, fridge: parseInt(payload.fridge, 10) || 1, shelf: parseInt(payload.shelf, 10) || 1, updated_at: new Date().toISOString() };
+      if (payload.position !== undefined) si.position = parseInt(payload.position, 10) || 1;
+      var siOut;
+      if (payload.id) {
+        siOut = await sbFetch('stock_items?id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }), body: JSON.stringify(si) });
+      } else {
+        si.area = 'Main bar';
+        if (si.position === undefined) si.position = 999;
+        siOut = await sbFetch('stock_items', { method: 'POST', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }), body: JSON.stringify(si) });
+      }
+      res.status(200).json({ ok: true, row: (await siOut.json())[0] || null });
+      return;
+    }
+    if (action === 'order_stock_items') {
+      // [{id, fridge, shelf, position}] — rewrites positions after a move.
+      var order = Array.isArray(payload.items) ? payload.items : [];
+      for (var oi = 0; oi < order.length; oi++) {
+        var o = order[oi];
+        if (!o || !o.id) continue;
+        await sbFetch('stock_items?id=eq.' + encodeURIComponent(o.id), {
+          method: 'PATCH', headers: sbHeaders(),
+          body: JSON.stringify({ fridge: parseInt(o.fridge, 10) || 1, shelf: parseInt(o.shelf, 10) || 1, position: parseInt(o.position, 10) || 1, updated_at: new Date().toISOString() })
+        });
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
+    if (action === 'remove_stock_item') {
+      if (!payload.id) { res.status(400).json({ error: 'id needed' }); return; }
+      await sbFetch('stock_items?id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ active: false, updated_at: new Date().toISOString() }) });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(500).json({ error: e.message });

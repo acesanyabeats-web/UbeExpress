@@ -779,6 +779,8 @@
     cheersReport: function (f) { renderCheersTravReport(f); },
     ingredients: function () { renderIngredientsTable(); },
     report: function () { renderReport(); },
+    stock: function () { renderStockCount(); },
+    stockHistory: function (id) { renderStockHistory(id); },
     batch: function (id) { var c = cocktailById(id); if (c) openBatchCalc(c, state.ingredients[id] || []); else renderMenu(); },
     editor: function (id) { openAdminEditor(id ? cocktailById(id) : null); }
   };
@@ -1514,6 +1516,10 @@
           '<div class="home-card-emoji">📸</div>' +
           '<div class="home-card-text"><h3>Staff Photo Candidates' + (state.photoSubmissions.length ? ' <span class="pending-count">' + state.photoSubmissions.length + '</span>' : '') + '</h3><p>Compare photos sent from the bar with the current ones</p></div>' +
         '</div>' +
+        '<div class="home-card" id="home-stock">' +
+          '<div class="home-card-emoji">📦</div>' +
+          '<div class="home-card-text"><h3>Stock Count</h3><p>Main bar fridges, in walk order — count, save, compare with last time</p></div>' +
+        '</div>' +
         '<div class="home-card" id="home-report">' +
           '<div class="home-card-emoji">📋</div>' +
           '<div class="home-card-text"><h3>Data Integrity Report</h3><p>Every inconsistency found so far — resolved and still open</p></div>' +
@@ -1554,6 +1560,8 @@
     if (candCard) candCard.addEventListener('click', function () {
       loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
     });
+    var stockCard = document.getElementById('home-stock');
+    if (stockCard) stockCard.addEventListener('click', renderStockCount);
     var reportCard = document.getElementById('home-report');
     if (reportCard) reportCard.addEventListener('click', renderReport);
     var ingCard = document.getElementById('home-ingredients');
@@ -3127,6 +3135,279 @@
     });
   }
 
+  // ---------- Stock Count (admin) ----------
+  // Main bar fridges, walked in the same order a manager counts them:
+  // fridge 1 -> 4, each fridge shelf top -> bottom, each shelf left -> right.
+  // Items live in stock_items (fridge/shelf/position); a finished count is
+  // one stock_counts row holding every item's qty plus a name snapshot.
+  // Typed counts are kept on this phone until saved, so a reload or a phone
+  // call mid-count loses nothing.
+  var STOCK_DRAFT_KEY = 'ube_stock_draft_v1';
+  var STOCK_NAME_KEY = 'ube_stock_counter';
+  var stock = { items: [], counts: [], edit: false };
+  function stockDraft() { try { return JSON.parse(localStorage.getItem(STOCK_DRAFT_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function stockSaveDraft(d) { try { localStorage.setItem(STOCK_DRAFT_KEY, JSON.stringify(d)); } catch (e) {} }
+  function stockLoad() {
+    return Promise.all([
+      sbSelect('stock_items', 'select=*&active=eq.true&area=eq.Main%20bar&order=fridge.asc,shelf.asc,position.asc'),
+      sbSelect('stock_counts', 'select=*&area=eq.Main%20bar&order=counted_at.desc&limit=30')
+    ]).then(function (r) { stock.items = r[0] || []; stock.counts = r[1] || []; });
+  }
+  function stockWhen(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' +
+      d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+  function stockQtyMap(countRow) {
+    var m = {};
+    ((countRow && countRow.counts) || []).forEach(function (l) { m[l.item_id] = l.qty; });
+    return m;
+  }
+  // Groups the walk order into fridges -> shelves -> items.
+  function stockGroups(items) {
+    var fridges = [];
+    items.forEach(function (it) {
+      var f = fridges.filter(function (x) { return x.n === it.fridge; })[0];
+      if (!f) { f = { n: it.fridge, shelves: [] }; fridges.push(f); }
+      var s = f.shelves.filter(function (x) { return x.n === it.shelf; })[0];
+      if (!s) { s = { n: it.shelf, items: [] }; f.shelves.push(s); }
+      s.items.push(it);
+    });
+    return fridges;
+  }
+
+  function renderStockCount() {
+    setHeader('📦 Stock Count', true, renderHome);
+    var main = document.getElementById('app-main');
+    main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    stockLoad().then(drawStockCount).catch(function (e) { main.innerHTML = '<p>Could not load stock: ' + escapeHtml(e.message) + '</p>'; });
+  }
+
+  function drawStockCount() {
+    var main = document.getElementById('app-main');
+    var draft = stockDraft();
+    var last = stock.counts[0] || null;
+    var lastQty = stockQtyMap(last);
+    var name = draft.counted_by || (function () { try { return localStorage.getItem(STOCK_NAME_KEY) || ''; } catch (e) { return ''; } })();
+    var num = 0;
+    var html = '<div class="stock-top">' +
+      '<label class="stock-who" for="stock-by">Counted by <input id="stock-by" type="text" autocomplete="name" maxlength="60" value="' + escapeHtml(name) + '" placeholder="Your name"></label>' +
+      '<p class="stock-last">' + (last ? 'Last count: ' + escapeHtml(stockWhen(last.counted_at)) + (last.counted_by ? ' by ' + escapeHtml(last.counted_by) : '') : 'No counts saved yet.') + '</p>' +
+      '<div class="stock-tools">' +
+        '<button type="button" class="btn btn-secondary" id="stock-history">Past counts' + (stock.counts.length ? ' (' + stock.counts.length + ')' : '') + '</button>' +
+        '<button type="button" class="btn btn-secondary" id="stock-edit">' + (stock.edit ? 'Done editing' : 'Edit list') + '</button>' +
+      '</div>' +
+      (stock.edit ? '<p class="stock-hint">↑ ↓ move an item; at the top or bottom of a shelf it moves onto the next shelf. ✎ renames, 🗑 removes (old counts keep it).</p>' : '') +
+    '</div>';
+    stockGroups(stock.items).forEach(function (f) {
+      html += '<h2 class="stock-fridge">Fridge ' + f.n + '</h2>';
+      f.shelves.forEach(function (s) {
+        html += '<div class="stock-shelf"><div class="stock-shelf-label">Shelf ' + s.n + '</div>';
+        s.items.forEach(function (it) {
+          num++;
+          var v = draft.qty && draft.qty[it.id] !== undefined ? draft.qty[it.id] : '';
+          var prev = lastQty[it.id];
+          html += '<div class="stock-row' + (v !== '' ? ' is-done' : '') + '" data-id="' + it.id + '">' +
+            '<span class="stock-num">' + num + '</span>' +
+            '<span class="stock-name">' + escapeHtml(it.name) + (prev !== undefined && prev !== null ? '<span class="stock-prev">last ' + prev + '</span>' : '') + '</span>' +
+            (stock.edit
+              ? '<span class="stock-edit-btns">' +
+                  '<button type="button" class="prep-btn" data-act="up" aria-label="Move up">↑</button>' +
+                  '<button type="button" class="prep-btn" data-act="down" aria-label="Move down">↓</button>' +
+                  '<button type="button" class="prep-btn" data-act="rename" aria-label="Rename">✎</button>' +
+                  '<button type="button" class="prep-btn" data-act="remove" aria-label="Remove">🗑</button>' +
+                '</span>'
+              : '<input class="stock-qty" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" aria-label="Count for ' + escapeHtml(it.name) + '" value="' + escapeHtml(String(v)) + '">') +
+          '</div>';
+        });
+        if (stock.edit) html += '<button type="button" class="stock-add" data-fridge="' + f.n + '" data-shelf="' + s.n + '">+ Add item to Fridge ' + f.n + ', Shelf ' + s.n + '</button>';
+        html += '</div>';
+      });
+      if (stock.edit) html += '<button type="button" class="stock-add" data-fridge="' + f.n + '" data-shelf="' + (f.shelves[f.shelves.length - 1].n + 1) + '">+ New shelf in Fridge ' + f.n + '</button>';
+    });
+    if (stock.edit) {
+      var maxF = stock.items.reduce(function (m, it) { return Math.max(m, it.fridge); }, 0);
+      html += '<button type="button" class="stock-add" data-fridge="' + (maxF + 1) + '" data-shelf="1">+ New fridge</button>';
+    } else {
+      html += '<label class="stock-note-label" for="stock-note">Note (optional)</label><textarea id="stock-note" rows="2" maxlength="600" placeholder="e.g. Fridge 3 door not sealing">' + escapeHtml(draft.note || '') + '</textarea>' +
+        '<div class="stock-bar"><span id="stock-progress"></span><button type="button" class="btn btn-secondary" id="stock-clear">Clear</button><button type="button" class="btn btn-primary" id="stock-save">Save count</button></div>';
+    }
+    main.innerHTML = html;
+
+    var by = document.getElementById('stock-by');
+    by.addEventListener('input', function () { var d = stockDraft(); d.counted_by = by.value; stockSaveDraft(d); });
+    document.getElementById('stock-history').addEventListener('click', function () { renderStockHistory(); });
+    document.getElementById('stock-edit').addEventListener('click', function () { stock.edit = !stock.edit; drawStockCount(); });
+
+    if (stock.edit) { wireStockEdit(main); return; }
+
+    function progress() {
+      var d = stockDraft(), q = d.qty || {};
+      var done = stock.items.filter(function (it) { return q[it.id] !== undefined && q[it.id] !== ''; }).length;
+      document.getElementById('stock-progress').textContent = done + ' of ' + stock.items.length + ' counted';
+    }
+    progress();
+    var inputs = Array.prototype.slice.call(main.querySelectorAll('.stock-qty'));
+    inputs.forEach(function (inp, i) {
+      inp.addEventListener('input', function () {
+        var row = inp.closest('.stock-row');
+        var d = stockDraft(); d.qty = d.qty || {};
+        if (inp.value === '') delete d.qty[row.getAttribute('data-id')]; else d.qty[row.getAttribute('data-id')] = inp.value;
+        stockSaveDraft(d);
+        row.classList.toggle('is-done', inp.value !== '');
+        progress();
+      });
+      inp.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var next = inputs[i + 1];
+        if (next) { next.focus(); next.select(); } else inp.blur();
+      });
+    });
+    var note = document.getElementById('stock-note');
+    note.addEventListener('input', function () { var d = stockDraft(); d.note = note.value; stockSaveDraft(d); });
+    document.getElementById('stock-clear').addEventListener('click', function () {
+      if (!confirm('Clear every count typed so far?')) return;
+      var d = stockDraft(); stockSaveDraft({ counted_by: d.counted_by }); drawStockCount();
+    });
+    var saveBtn = document.getElementById('stock-save');
+    saveBtn.addEventListener('click', function () {
+      var d = stockDraft(), q = d.qty || {};
+      var who = by.value.trim();
+      if (!who) { alert('Put your name in "Counted by" first.'); by.focus(); return; }
+      var blank = stock.items.filter(function (it) { return q[it.id] === undefined || q[it.id] === ''; });
+      if (blank.length === stock.items.length) { alert('Nothing counted yet.'); return; }
+      if (blank.length && !confirm(blank.length + ' item' + (blank.length === 1 ? ' is' : 's are') + ' still blank (first: ' + blank[0].name + '). Save anyway?')) return;
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+      apiWrite('save_stock_count', {
+        counted_by: who,
+        note: note.value,
+        counts: stock.items.map(function (it) {
+          return { item_id: it.id, name: it.name, fridge: it.fridge, shelf: it.shelf, qty: q[it.id] === undefined || q[it.id] === '' ? null : Number(q[it.id]) };
+        })
+      }).then(function (r) {
+        try { localStorage.setItem(STOCK_NAME_KEY, who); } catch (e) {}
+        stockSaveDraft({ counted_by: who });
+        return stockLoad().then(function () { renderStockHistory(r.row ? r.row.id : null); });
+      }).catch(function (e) {
+        saveBtn.disabled = false; saveBtn.textContent = 'Save count';
+        alert('Could not save the count: ' + e.message + '\nYour numbers are still here.');
+      });
+    });
+  }
+
+  function wireStockEdit(main) {
+    // Renumber positions and send only the rows whose place changed.
+    function commit(list) {
+      var changed = [];
+      var pos = {};
+      list.forEach(function (it) {
+        var k = it.fridge + '/' + it.shelf;
+        pos[k] = (pos[k] || 0) + 1;
+        var before = stock.items.filter(function (x) { return x.id === it.id; })[0];
+        if (!before || before.fridge !== it.fridge || before.shelf !== it.shelf || before.position !== pos[k]) {
+          changed.push({ id: it.id, fridge: it.fridge, shelf: it.shelf, position: pos[k] });
+        }
+        it.position = pos[k];
+      });
+      if (!changed.length) return;
+      main.classList.add('is-busy');
+      apiWrite('order_stock_items', { items: changed }).then(stockLoad).then(function () {
+        main.classList.remove('is-busy'); drawStockCount();
+      }).catch(function (e) { main.classList.remove('is-busy'); alert('Could not move it: ' + e.message); renderStockCount(); });
+    }
+    main.querySelectorAll('.stock-row').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      row.querySelectorAll('[data-act]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var act = btn.getAttribute('data-act');
+          var list = stock.items.map(function (x) { return Object.assign({}, x); });
+          var i = list.map(function (x) { return x.id; }).indexOf(id);
+          var it = list[i];
+          if (act === 'up' || act === 'down') {
+            var j = act === 'up' ? i - 1 : i + 1;
+            if (j < 0 || j >= list.length) return;
+            var other = list[j];
+            if (other.fridge === it.fridge && other.shelf === it.shelf) {
+              list[i] = other; list[j] = it;
+            } else {
+              // Crossing a shelf edge: stay in the same place in the walk but
+              // join the neighbouring shelf, so ↑ lands at the right-hand end
+              // of the shelf above and ↓ at the left-hand start of the one below.
+              it.fridge = other.fridge; it.shelf = other.shelf;
+            }
+            commit(list);
+          } else if (act === 'rename') {
+            var nn = prompt('Rename', it.name);
+            if (!nn || !nn.trim() || nn.trim() === it.name) return;
+            apiWrite('save_stock_item', { id: id, name: nn.trim(), fridge: it.fridge, shelf: it.shelf }).then(stockLoad).then(drawStockCount)
+              .catch(function (e) { alert('Could not rename: ' + e.message); });
+          } else if (act === 'remove') {
+            if (btn.getAttribute('data-armed') !== '1') {
+              btn.setAttribute('data-armed', '1'); btn.textContent = 'Sure?';
+              setTimeout(function () { if (btn.isConnected) { btn.removeAttribute('data-armed'); btn.textContent = '🗑'; } }, 3000);
+              return;
+            }
+            apiWrite('remove_stock_item', { id: id }).then(stockLoad).then(drawStockCount)
+              .catch(function (e) { alert('Could not remove: ' + e.message); });
+          }
+        });
+      });
+    });
+    main.querySelectorAll('.stock-add').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var f = parseInt(btn.getAttribute('data-fridge'), 10), s = parseInt(btn.getAttribute('data-shelf'), 10);
+        var nn = prompt('New item for Fridge ' + f + ', Shelf ' + s + ' (goes at the right-hand end)');
+        if (!nn || !nn.trim()) return;
+        var onShelf = stock.items.filter(function (x) { return x.fridge === f && x.shelf === s; });
+        var p = onShelf.reduce(function (m, x) { return Math.max(m, x.position); }, 0) + 1;
+        apiWrite('save_stock_item', { name: nn.trim(), fridge: f, shelf: s, position: p }).then(stockLoad).then(drawStockCount)
+          .catch(function (e) { alert('Could not add: ' + e.message); });
+      });
+    });
+  }
+
+  // Past counts list, or one count in full (with the change since the count
+  // before it).
+  function renderStockHistory(countId) {
+    setHeader('📦 Past Counts', true, renderStockCount);
+    var main = document.getElementById('app-main');
+    function draw() {
+      if (!countId) {
+        main.innerHTML = stock.counts.length
+          ? '<div class="stock-hist">' + stock.counts.map(function (c) {
+              var n = (c.counts || []).filter(function (l) { return l.qty !== null; }).length;
+              return '<button type="button" class="stock-hist-row" data-id="' + c.id + '"><strong>' + escapeHtml(stockWhen(c.counted_at)) + '</strong>' +
+                '<span>' + (c.counted_by ? escapeHtml(c.counted_by) + ' · ' : '') + n + ' of ' + (c.counts || []).length + ' counted</span></button>';
+            }).join('') + '</div>'
+          : '<p style="color:var(--muted)">No counts saved yet.</p>';
+        main.querySelectorAll('.stock-hist-row').forEach(function (b) {
+          b.addEventListener('click', function () { renderStockHistory(b.getAttribute('data-id')); });
+        });
+        return;
+      }
+      var idx = stock.counts.map(function (c) { return c.id; }).indexOf(countId);
+      var c = stock.counts[idx];
+      if (!c) { countId = null; draw(); return; }
+      var prev = stockQtyMap(stock.counts[idx + 1]);
+      var html = '<p class="stock-last"><strong>' + escapeHtml(stockWhen(c.counted_at)) + '</strong>' + (c.counted_by ? ' · ' + escapeHtml(c.counted_by) : '') + '</p>' +
+        (c.note ? '<p class="stock-hist-note">' + escapeHtml(c.note) + '</p>' : '');
+      var fr = null, sh = null, num = 0;
+      (c.counts || []).forEach(function (l) {
+        if (l.fridge !== fr) { if (sh !== null) html += '</div>'; fr = l.fridge; sh = null; html += '<h2 class="stock-fridge">Fridge ' + fr + '</h2>'; }
+        if (l.shelf !== sh) { if (sh !== null) html += '</div>'; sh = l.shelf; html += '<div class="stock-shelf"><div class="stock-shelf-label">Shelf ' + sh + '</div>'; }
+        num++;
+        var p = prev[l.item_id], diff = (l.qty !== null && p !== undefined && p !== null) ? l.qty - p : null;
+        html += '<div class="stock-row"><span class="stock-num">' + num + '</span><span class="stock-name">' + escapeHtml(l.name) +
+          (diff ? '<span class="stock-prev ' + (diff < 0 ? 'is-down' : 'is-up') + '">' + (diff > 0 ? '+' : '') + diff + ' since last</span>' : '') +
+          '</span><span class="stock-qty-read">' + (l.qty === null ? '—' : l.qty) + '</span></div>';
+      });
+      if (sh !== null) html += '</div>';
+      main.innerHTML = html;
+    }
+    if (stock.counts.length) draw(); else stockLoad().then(draw).catch(function (e) { main.innerHTML = '<p>' + escapeHtml(e.message) + '</p>'; });
+  }
+
   // Element.closest polyfill guard (older WebViews on bar tablets)
   if (!Element.prototype.closest) {
     Element.prototype.closest = function (selector) {
@@ -3146,6 +3427,8 @@
   renderCheersTravReport = navTrack('cheersReport', renderCheersTravReport, function (x) { return typeof x === 'string' ? [x] : []; });
   renderIngredientsTable = navTrack('ingredients', renderIngredientsTable, function () { return []; });
   renderReport = navTrack('report', renderReport, function () { return []; });
+  renderStockCount = navTrack('stock', renderStockCount, function () { return []; });
+  renderStockHistory = navTrack('stockHistory', renderStockHistory, function (id) { return typeof id === 'string' ? [id] : []; });
   openBatchCalc = navTrack('batch', openBatchCalc, function (c) { return [c.id]; });
   openAdminEditor = navTrack('editor', openAdminEditor, function (ex) { return [ex && ex.id ? ex.id : null]; });
   // Leaving the app is when the OS may later reload it — save scroll then.

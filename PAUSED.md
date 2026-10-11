@@ -17,6 +17,9 @@
   - Method audit + 7 methods filled from the Joiners Arms specs
 - Full change log: `data_integrity_report.md`.
 
+## Shipped after the pause (11 Oct 2026, Alex's ask)
+- **📦 Stock Count** (admin home card): the 77 main-bar beers/wines/ciders in walk order (Fridge 1→4, shelf top→bottom, left→right). Count boxes, Enter jumps to the next item, typed counts kept on the phone until saved, "last N" from the previous count, Past counts with change since last, Edit list (↑↓ move incl. across shelves, rename, add, remove). Tables `stock_items` / `stock_counts`, writes via `api/write.js` (admin secret).
+
 ## Open when resuming
 **Specs to get:**
 - Dr Popper method
