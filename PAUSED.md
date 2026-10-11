@@ -19,6 +19,7 @@
 
 ## Shipped after the pause (11 Oct 2026, Alex's ask)
 - **📦 Stock Count** (admin home card): the 77 main-bar beers/wines/ciders in walk order (Fridge 1→4, shelf top→bottom, left→right). Tap an item for a popup with Bar stock + Cellar stock (Enter: Bar → Cellar → next item; ← Previous / Next →), typed counts kept on the phone until saved, "last N" from the previous count, Past counts with change since last, Edit list (↑↓ move incl. across shelves, rename, add, remove). Tables `stock_items` / `stock_counts`, writes via `api/write.js` (admin secret).
+- **🚨 Stock Check** (staff + admin home card): staff tap Low / Out on any of the 77 main-bar items or any cocktail ingredient (grouped by type, searchable); name asked once. Managers see the flags as badges in Stock Count, and Out pre-fills Bar 0 (once per flag). **🧾 Till List**: everything Out, tick once blocked on the tills, "Back in stock" clears it; a saved stock count with bar stock > 0 also clears a main-bar flag. Table `stock_flags`; staff can only do flag/clear/till-tick (api/write.js `STAFF_ACTIONS`). Alex's answers: `notes_staff_stock_flags_2026-10-11.md`.
 
 ## Open when resuming
 **Specs to get:**

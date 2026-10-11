@@ -77,7 +77,10 @@ module.exports = async function handler(req, res) {
   var secret = req.headers['x-bar-secret'];
   var isAdmin = !!secret && secret === process.env.BAR_ADMIN_SECRET;
   var staffToken = req.headers['x-bar-staff'];
-  var isStaffSubmit = action === 'submit_photo_candidate' && !!staffToken && staffToken === staffSubmitToken();
+  // Staff may also raise/clear Low/Out stock flags and tick the till list —
+  // never counts, items or recipes.
+  var STAFF_ACTIONS = { submit_photo_candidate: 1, flag_stock: 1, clear_stock_flag: 1, till_block: 1 };
+  var isStaffSubmit = !!STAFF_ACTIONS[action] && !!staffToken && staffToken === staffSubmitToken();
   if (!isAdmin && !isStaffSubmit) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
@@ -600,6 +603,14 @@ module.exports = async function handler(req, res) {
           counts: lines
         })
       });
+      // A count that finds stock on the bar clears that item's staff flag.
+      var restocked = lines.filter(function (l) { return l.bar !== null && l.bar > 0; }).map(function (l) { return encodeURIComponent(l.item_id); });
+      if (restocked.length) {
+        await sbFetch('stock_flags?item_kind=eq.bar&cleared_at=is.null&item_key=in.(' + restocked.join(',') + ')', {
+          method: 'PATCH', headers: sbHeaders(),
+          body: JSON.stringify({ cleared_at: new Date().toISOString(), cleared_by: String(payload.counted_by || '').slice(0, 60) || null, cleared_reason: 'count' })
+        });
+      }
       res.status(200).json({ ok: true, row: (await countRes.json())[0] || null });
       return;
     }
@@ -636,6 +647,44 @@ module.exports = async function handler(req, res) {
     if (action === 'remove_stock_item') {
       if (!payload.id) { res.status(400).json({ error: 'id needed' }); return; }
       await sbFetch('stock_items?id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ active: false, updated_at: new Date().toISOString() }) });
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    // ---------- Staff stock flags (Low / Out) ----------
+    // One active flag per item (unique index on kind+key where not cleared).
+    if (action === 'flag_stock') {
+      var kind = payload.kind === 'ingredient' ? 'ingredient' : 'bar';
+      var key = String(payload.key || '').trim().slice(0, 160);
+      var lvl = payload.level === 'out' ? 'out' : 'low';
+      var who = String(payload.by || '').trim().slice(0, 60) || null;
+      if (!key || !payload.name) { res.status(400).json({ error: 'Item needed' }); return; }
+      var now = new Date().toISOString();
+      var act = await (await sbFetch('stock_flags?select=id,level&cleared_at=is.null&item_kind=eq.' + kind + '&item_key=eq.' + encodeURIComponent(key), { headers: sbHeaders() })).json();
+      var fOut;
+      if (act.length) {
+        var patch = { level: lvl, flagged_by: who, flagged_at: now };
+        if (lvl === 'low') { patch.till_blocked = false; patch.till_blocked_by = null; patch.till_blocked_at = null; }
+        fOut = await sbFetch('stock_flags?id=eq.' + act[0].id, { method: 'PATCH', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }), body: JSON.stringify(patch) });
+      } else {
+        fOut = await sbFetch('stock_flags', { method: 'POST', headers: Object.assign(sbHeaders(), { Prefer: 'return=representation' }),
+          body: JSON.stringify({ item_kind: kind, item_key: key, item_name: String(payload.name).slice(0, 160), level: lvl, flagged_by: who, flagged_at: now }) });
+      }
+      res.status(200).json({ ok: true, row: (await fOut.json())[0] || null });
+      return;
+    }
+    if (action === 'clear_stock_flag') {
+      if (!payload.id) { res.status(400).json({ error: 'id needed' }); return; }
+      await sbFetch('stock_flags?cleared_at=is.null&id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: sbHeaders(),
+        body: JSON.stringify({ cleared_at: new Date().toISOString(), cleared_by: String(payload.by || '').trim().slice(0, 60) || null, cleared_reason: 'back' }) });
+      res.status(200).json({ ok: true });
+      return;
+    }
+    if (action === 'till_block') {
+      if (!payload.id) { res.status(400).json({ error: 'id needed' }); return; }
+      var on = !!payload.blocked;
+      await sbFetch('stock_flags?cleared_at=is.null&id=eq.' + encodeURIComponent(payload.id), { method: 'PATCH', headers: sbHeaders(),
+        body: JSON.stringify({ till_blocked: on, till_blocked_by: on ? (String(payload.by || '').trim().slice(0, 60) || null) : null, till_blocked_at: on ? new Date().toISOString() : null }) });
       res.status(200).json({ ok: true });
       return;
     }

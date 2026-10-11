@@ -780,6 +780,8 @@
     ingredients: function () { renderIngredientsTable(); },
     report: function () { renderReport(); },
     stock: function () { renderStockCount(); },
+    stockCheck: function (t) { renderStockCheck(t); },
+    tillList: function () { renderTillList(); },
     stockHistory: function (id) { renderStockHistory(id); },
     batch: function (id) { var c = cocktailById(id); if (c) openBatchCalc(c, state.ingredients[id] || []); else renderMenu(); },
     editor: function (id) { openAdminEditor(id ? cocktailById(id) : null); }
@@ -1498,6 +1500,10 @@
         '<div class="home-card-emoji">🍋</div>' +
         '<div class="home-card-text"><h3>Fruit Prep</h3><p>Fruit &amp; syrups to portion, sweets garnish stock to replenish</p></div>' +
       '</div>' +
+      '<div class="home-card' + (flags.rows.some(function (f) { return f.level === 'out' && !f.till_blocked; }) ? ' has-pending' : '') + '" id="home-stock-check">' +
+        '<div class="home-card-emoji">🚨</div>' +
+        '<div class="home-card-text"><h3>Stock Check' + (flags.rows.length ? ' <span class="pending-count">' + flags.rows.length + '</span>' : '') + '</h3><p>Mark what\'s low or out, and see what to block on the tills</p></div>' +
+      '</div>' +
       (function () {
         if (!cheersTravVisible()) return '';
         var open = travTotal();
@@ -1560,6 +1566,16 @@
     if (candCard) candCard.addEventListener('click', function () {
       loadAllData().then(function () { openPhotoReview(null, function () { renderHome(); }); });
     });
+    document.getElementById('home-stock-check').addEventListener('click', function () { renderStockCheck(); });
+    // Flags come from other phones; refresh the count on each visit to home.
+    if (!renderHome._flagsLoading) {
+      renderHome._flagsLoading = true;
+      var beforeSig = JSON.stringify(flags.rows.map(function (f) { return f.id + f.level + f.till_blocked; }));
+      flagsLoad().then(function () {
+        renderHome._flagsLoading = false;
+        if (JSON.stringify(flags.rows.map(function (f) { return f.id + f.level + f.till_blocked; })) !== beforeSig && document.getElementById('home-stock-check')) renderHome();
+      }).catch(function () { renderHome._flagsLoading = false; });
+    }
     var stockCard = document.getElementById('home-stock');
     if (stockCard) stockCard.addEventListener('click', renderStockCount);
     var reportCard = document.getElementById('home-report');
@@ -3151,8 +3167,9 @@
   function stockLoad() {
     return Promise.all([
       sbSelect('stock_items', 'select=*&active=eq.true&area=eq.Main%20bar&order=fridge.asc,shelf.asc,position.asc'),
-      sbSelect('stock_counts', 'select=*&area=eq.Main%20bar&order=counted_at.desc&limit=30')
-    ]).then(function (r) { stock.items = r[0] || []; stock.counts = r[1] || []; });
+      sbSelect('stock_counts', 'select=*&area=eq.Main%20bar&order=counted_at.desc&limit=30'),
+      sbSelect('stock_flags', 'select=*&cleared_at=is.null&order=flagged_at.desc').catch(function () { return []; })
+    ]).then(function (r) { stock.items = r[0] || []; stock.counts = r[1] || []; flags.rows = r[2] || []; });
   }
   function stockWhen(iso) {
     var d = new Date(iso);
@@ -3197,6 +3214,18 @@
 
   function drawStockCount() {
     var main = document.getElementById('app-main');
+    // Staff flagged Out = nothing on the bar: fill Bar 0 once per flag (the
+    // manager still counts the cellar, and can change it).
+    var draft0 = stockDraft(); draft0.items = draft0.items || {}; draft0.prefilled = draft0.prefilled || {};
+    var filled = false;
+    stock.items.forEach(function (it) {
+      var f = flagFor('bar', it.id);
+      if (!f || f.level !== 'out' || draft0.prefilled[f.id]) return;
+      var e = draft0.items[it.id] || { bar: '', cellar: '' };
+      if (e.bar === '' || e.bar === undefined) { e.bar = '0'; if (e.cellar === undefined) e.cellar = ''; draft0.items[it.id] = e; }
+      draft0.prefilled[f.id] = 1; filled = true;
+    });
+    if (filled) stockSaveDraft(draft0);
     var draft = stockDraft();
     var last = stock.counts[0] || null;
     var lastMap = stockQtyMap(last);
@@ -3222,7 +3251,8 @@
           var e = stockEntry(draft, it.id);
           var state = e.bar !== '' && e.cellar !== '' ? ' is-done' : (e.bar !== '' || e.cellar !== '' ? ' is-part' : '');
           var prev = lastMap[it.id];
-          var nameHtml = '<span class="stock-name">' + escapeHtml(it.name) + (prev && prev.total !== null ? '<span class="stock-prev">last: ' + escapeHtml(stockPairText(prev.bar, prev.cellar)) + '</span>' : '') + '</span>';
+          var fl = flagFor('bar', it.id);
+          var nameHtml = '<span class="stock-name">' + escapeHtml(it.name) + (fl ? '<span class="flag-badge ' + fl.level + '">' + flagMeta(fl) + '</span>' : '') + (prev && prev.total !== null ? '<span class="stock-prev">last: ' + escapeHtml(stockPairText(prev.bar, prev.cellar)) + '</span>' : '') + '</span>';
           if (stock.edit) {
             html += '<div class="stock-row" data-id="' + it.id + '"><span class="stock-num">' + num + '</span>' + nameHtml +
               '<span class="stock-edit-btns">' +
@@ -3269,7 +3299,7 @@
     note.addEventListener('input', function () { var d = stockDraft(); d.note = note.value; stockSaveDraft(d); });
     document.getElementById('stock-clear').addEventListener('click', function () {
       if (!confirm('Clear every count typed so far?')) return;
-      var d = stockDraft(); stockSaveDraft({ counted_by: d.counted_by }); drawStockCount();
+      var d = stockDraft(); stockSaveDraft({ counted_by: d.counted_by, prefilled: d.prefilled }); drawStockCount();
     });
     var saveBtn = document.getElementById('stock-save');
     saveBtn.addEventListener('click', function () {
@@ -3291,7 +3321,7 @@
         })
       }).then(function (r) {
         try { localStorage.setItem(STOCK_NAME_KEY, who); } catch (e) {}
-        stockSaveDraft({ counted_by: who });
+        stockSaveDraft({ counted_by: who, prefilled: stockDraft().prefilled });
         return stockLoad().then(function () { renderStockHistory(r.row ? r.row.id : null); });
       }).catch(function (e) {
         saveBtn.disabled = false; saveBtn.textContent = 'Save count';
@@ -3316,6 +3346,7 @@
       '<div class="stock-sheet-head"><span class="stock-sheet-pos">' + (idx + 1) + ' of ' + stock.items.length + ' · Fridge ' + it.fridge + ', Shelf ' + it.shelf + '</span>' +
         '<button type="button" class="stock-sheet-x" aria-label="Close">✕</button></div>' +
       '<h3 id="stock-sheet-title">' + escapeHtml(it.name) + '</h3>' +
+      (function () { var fl = flagFor('bar', it.id); return fl ? '<p class="flag-badge ' + fl.level + '">Staff flagged: ' + flagMeta(fl) + (fl.level === 'out' ? ' — Bar filled in as 0, check the cellar' : '') + '</p>' : ''; })() +
       (prev && prev.total !== null ? '<p class="stock-sheet-prev">Last count: ' + escapeHtml(stockPairText(prev.bar, prev.cellar)) + '</p>' : '') +
       '<label class="stock-sheet-row" for="ss-bar"><span>Bar stock</span><input id="ss-bar" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" value="' + escapeHtml(String(e.bar)) + '"></label>' +
       '<label class="stock-sheet-row" for="ss-cellar"><span>Cellar stock</span><input id="ss-cellar" type="number" inputmode="decimal" min="0" step="any" enterkeyhint="next" value="' + escapeHtml(String(e.cellar)) + '"></label>' +
@@ -3457,6 +3488,184 @@
     if (stock.counts.length) draw(); else stockLoad().then(draw).catch(function (e) { main.innerHTML = '<p>' + escapeHtml(e.message) + '</p>'; });
   }
 
+  // ---------- Stock check (staff Low / Out flags) + Till list ----------
+  // Staff tap Low or Out on any main-bar item or cocktail ingredient. Managers
+  // see the flags in Stock Count (Out pre-fills Bar 0), and everything Out
+  // lands on the Till list to block off. A flag clears when someone taps
+  // "Back in stock", or when a saved stock count finds that item on the bar.
+  var flags = { rows: [] };
+  function flagsLoad() {
+    return sbSelect('stock_flags', 'select=*&cleared_at=is.null&order=flagged_at.desc').then(function (r) { flags.rows = r || []; return flags.rows; });
+  }
+  function flagFor(kind, key) {
+    key = String(key).toLowerCase();
+    return flags.rows.filter(function (f) { return f.item_kind === kind && String(f.item_key).toLowerCase() === key; })[0] || null;
+  }
+  function flagTime(iso) { return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (new Date(iso).toDateString() === new Date().toDateString() ? '' : ' ' + new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })); }
+  function flagMeta(f) { return (f.level === 'out' ? 'Out' : 'Low') + (f.flagged_by ? ' · ' + escapeHtml(f.flagged_by) : '') + ' · ' + escapeHtml(flagTime(f.flagged_at)); }
+  function staffName(ask) {
+    var n = ''; try { n = localStorage.getItem(STOCK_NAME_KEY) || ''; } catch (e) {}
+    if (n || !ask) return n;
+    n = (prompt('Your name (so managers know who flagged it):') || '').trim();
+    if (n) { try { localStorage.setItem(STOCK_NAME_KEY, n); } catch (e) {} }
+    return n;
+  }
+  // Staff-allowed writes go with the staff send-permission (admins carry it too).
+  function apiStaff(action, payload, retried) {
+    return ensureSubmitToken().then(function (tok) {
+      return fetch('/api/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bar-staff': tok, 'x-bar-secret': localStorage.getItem('bar_admin_secret') || '' },
+        body: JSON.stringify({ action: action, payload: payload })
+      });
+    }).then(function (r) {
+      if (r.status === 401 && !retried) { localStorage.removeItem('bar_submit_token'); return apiStaff(action, payload, true); }
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || ('server said ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function renderStockCheck(tab) {
+    tab = tab === 'ingredients' ? 'ingredients' : 'bar';
+    setHeader('🚨 Stock Check', true, renderHome);
+    var main = document.getElementById('app-main');
+    main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    Promise.all([stockLoad(), flagsLoad()]).then(function () { drawStockCheck(tab); })
+      .catch(function (e) { main.innerHTML = '<p>Could not load: ' + escapeHtml(e.message) + '</p>'; });
+  }
+
+  function flagButtonsHtml(f) {
+    return '<span class="flag-btns">' +
+      '<button type="button" class="flag-btn flag-low' + (f && f.level === 'low' ? ' on' : '') + '" data-level="low" aria-pressed="' + !!(f && f.level === 'low') + '">Low</button>' +
+      '<button type="button" class="flag-btn flag-out' + (f && f.level === 'out' ? ' on' : '') + '" data-level="out" aria-pressed="' + !!(f && f.level === 'out') + '">Out</button>' +
+    '</span>';
+  }
+
+  function drawStockCheck(tab) {
+    var main = document.getElementById('app-main');
+    var q = (document.getElementById('flag-filter') || {}).value || '';
+    var outN = flags.rows.filter(function (f) { return f.level === 'out'; }).length;
+    var lowN = flags.rows.length - outN;
+    var html = '<p class="flag-intro">Tap <strong>Low</strong> or <strong>Out</strong> when something\'s running short. Tap it again when it\'s back.</p>' +
+      '<div class="flag-summary"><span><b class="flag-n out">' + outN + '</b> out</span><span><b class="flag-n low">' + lowN + '</b> low</span>' +
+      '<button type="button" class="btn btn-primary" id="till-list-btn">🧾 Till list' + (outN ? ' (' + outN + ')' : '') + '</button></div>' +
+      '<div class="menu-tabs"><button type="button" class="menu-tab' + (tab === 'bar' ? ' active' : '') + '" data-tab="bar">Main bar</button>' +
+      '<button type="button" class="menu-tab' + (tab === 'ingredients' ? ' active' : '') + '" data-tab="ingredients">Cocktail ingredients</button></div>' +
+      '<input type="search" id="flag-filter" placeholder="Find an item…" value="' + escapeHtml(q) + '">';
+    var ql = q.trim().toLowerCase();
+    var match = function (n) { return !ql || String(n).toLowerCase().indexOf(ql) !== -1; };
+    var any = false;
+    if (tab === 'bar') {
+      stockGroups(stock.items).forEach(function (fr) {
+        var body = '';
+        fr.shelves.forEach(function (s) {
+          var rows = s.items.filter(function (it) { return match(it.name); });
+          if (!rows.length) return;
+          body += '<div class="stock-shelf"><div class="stock-shelf-label">Shelf ' + s.n + '</div>' + rows.map(function (it) {
+            var f = flagFor('bar', it.id);
+            return '<div class="flag-row' + (f ? ' is-' + f.level : '') + '" data-kind="bar" data-key="' + it.id + '" data-name="' + escapeHtml(it.name) + '">' +
+              '<span class="stock-name">' + escapeHtml(it.name) + (f ? '<span class="stock-prev">' + flagMeta(f) + '</span>' : '') + '</span>' + flagButtonsHtml(f) + '</div>';
+          }).join('') + '</div>';
+        });
+        if (body) { any = true; html += '<h2 class="stock-fridge">Fridge ' + fr.n + '</h2>' + body; }
+      });
+    } else {
+      var groups = {};
+      allIngredientNames().forEach(function (n) {
+        if (!match(n)) return;
+        var p = state.ingredientPhotos[n.toLowerCase()];
+        var type = (p && p.category) || 'Other';
+        (groups[type] = groups[type] || []).push(n);
+      });
+      Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (type) {
+        any = true;
+        html += '<h2 class="stock-fridge">' + escapeHtml(type) + '</h2><div class="stock-shelf">' + groups[type].map(function (n) {
+          var f = flagFor('ingredient', n);
+          return '<div class="flag-row' + (f ? ' is-' + f.level : '') + '" data-kind="ingredient" data-key="' + escapeHtml(n.toLowerCase()) + '" data-name="' + escapeHtml(n) + '">' +
+            '<span class="stock-name">' + escapeHtml(n) + (f ? '<span class="stock-prev">' + flagMeta(f) + '</span>' : '') + '</span>' + flagButtonsHtml(f) + '</div>';
+        }).join('') + '</div>';
+      });
+    }
+    if (!any) html += '<p style="color:var(--muted)">Nothing matches.</p>';
+    main.innerHTML = html;
+    var filter = document.getElementById('flag-filter');
+    filter.addEventListener('input', function () {
+      var pos = filter.selectionStart; drawStockCheck(tab);
+      var f2 = document.getElementById('flag-filter'); f2.focus(); try { f2.setSelectionRange(pos, pos); } catch (e) {}
+    });
+    main.querySelectorAll('.menu-tab').forEach(function (b) { b.addEventListener('click', function () { renderStockCheck(b.getAttribute('data-tab')); }); });
+    document.getElementById('till-list-btn').addEventListener('click', function () { renderTillList(); });
+    main.querySelectorAll('.flag-row').forEach(function (row) {
+      row.querySelectorAll('.flag-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var kind = row.getAttribute('data-kind'), key = row.getAttribute('data-key'), name = row.getAttribute('data-name');
+          var level = btn.getAttribute('data-level');
+          var f = flagFor(kind, key);
+          var by = staffName(true);
+          var req;
+          if (f && f.level === level) {
+            if (!confirm(name + ' — back in stock?')) return;
+            req = apiStaff('clear_stock_flag', { id: f.id, by: by });
+          } else {
+            req = apiStaff('flag_stock', { kind: kind, key: key, name: name, level: level, by: by });
+          }
+          row.classList.add('is-busy');
+          req.then(flagsLoad).then(function () { drawStockCheck(tab); })
+            .catch(function (e) { row.classList.remove('is-busy'); if (e.message !== 'cancelled') alert('Could not save: ' + e.message); });
+        });
+      });
+    });
+  }
+
+  // Everything Out, to block off on the tills. Anyone ticks it once done.
+  function renderTillList() {
+    setHeader('🧾 Till List', true, function () { renderStockCheck(); });
+    var main = document.getElementById('app-main');
+    main.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+    flagsLoad().then(drawTillList).catch(function (e) { main.innerHTML = '<p>Could not load: ' + escapeHtml(e.message) + '</p>'; });
+  }
+  function drawTillList() {
+    var main = document.getElementById('app-main');
+    var outs = flags.rows.filter(function (f) { return f.level === 'out'; });
+    var lows = flags.rows.filter(function (f) { return f.level === 'low'; });
+    var todo = outs.filter(function (f) { return !f.till_blocked; }).length;
+    var byName = function (a, b) { return a.item_name.localeCompare(b.item_name); };
+    var html = '<p class="flag-intro">' + (outs.length ? (todo ? '<strong>' + todo + ' to block</strong> on the tills. Tick each one once it\'s blocked.' : 'All blocked on the tills. ✓') : 'Nothing is out. Nothing to block.') + '</p>';
+    if (outs.length) {
+      html += '<div class="stock-shelf">' + outs.sort(byName).map(function (f) {
+        return '<div class="till-row' + (f.till_blocked ? ' is-blocked' : '') + '" data-id="' + f.id + '">' +
+          '<label class="till-check"><input type="checkbox"' + (f.till_blocked ? ' checked' : '') + '>' +
+            '<span class="stock-name">' + escapeHtml(f.item_name) +
+              '<span class="stock-prev">' + (f.item_kind === 'ingredient' ? 'Cocktail ingredient · ' : '') + flagMeta(f) +
+              (f.till_blocked ? ' · blocked' + (f.till_blocked_by ? ' by ' + escapeHtml(f.till_blocked_by) : '') : '') + '</span></span></label>' +
+          '<button type="button" class="prep-btn till-back">Back in stock</button></div>';
+      }).join('') + '</div>';
+    }
+    if (lows.length) {
+      html += '<h2 class="stock-fridge">Running low <span class="ing-group-count">' + lows.length + '</span></h2><p class="flag-intro">Still selling, no need to block yet.</p>' +
+        '<div class="stock-shelf">' + lows.sort(byName).map(function (f) {
+          return '<div class="till-row" data-id="' + f.id + '"><span class="stock-name">' + escapeHtml(f.item_name) + '<span class="stock-prev">' + flagMeta(f) + '</span></span>' +
+            '<button type="button" class="prep-btn till-back">Back in stock</button></div>';
+        }).join('') + '</div>';
+    }
+    main.innerHTML = html;
+    main.querySelectorAll('.till-row').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      var cb = row.querySelector('input[type=checkbox]');
+      if (cb) cb.addEventListener('change', function () {
+        cb.disabled = true;
+        apiStaff('till_block', { id: id, blocked: cb.checked, by: staffName(true) }).then(flagsLoad).then(drawTillList)
+          .catch(function (e) { cb.disabled = false; cb.checked = !cb.checked; if (e.message !== 'cancelled') alert('Could not save: ' + e.message); });
+      });
+      row.querySelector('.till-back').addEventListener('click', function () {
+        var f = flags.rows.filter(function (x) { return x.id === id; })[0];
+        if (!confirm((f ? f.item_name : 'This') + ' — back in stock? It comes off this list (unblock it on the tills).')) return;
+        apiStaff('clear_stock_flag', { id: id, by: staffName(true) }).then(flagsLoad).then(drawTillList)
+          .catch(function (e) { if (e.message !== 'cancelled') alert('Could not save: ' + e.message); });
+      });
+    });
+  }
+
   // Element.closest polyfill guard (older WebViews on bar tablets)
   if (!Element.prototype.closest) {
     Element.prototype.closest = function (selector) {
@@ -3477,6 +3686,8 @@
   renderIngredientsTable = navTrack('ingredients', renderIngredientsTable, function () { return []; });
   renderReport = navTrack('report', renderReport, function () { return []; });
   renderStockCount = navTrack('stock', renderStockCount, function () { return []; });
+  renderStockCheck = navTrack('stockCheck', renderStockCheck, function (t) { return typeof t === 'string' ? [t] : []; });
+  renderTillList = navTrack('tillList', renderTillList, function () { return []; });
   renderStockHistory = navTrack('stockHistory', renderStockHistory, function (id) { return typeof id === 'string' ? [id] : []; });
   openBatchCalc = navTrack('batch', openBatchCalc, function (c) { return [c.id]; });
   openAdminEditor = navTrack('editor', openAdminEditor, function (ex) { return [ex && ex.id ? ex.id : null]; });

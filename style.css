@@ -1167,3 +1167,30 @@ button.stock-row { width: 100%; background: none; color: var(--text); border: no
 .stock-sheet-nav .btn { flex: 1 1 0; width: auto; margin: 0; min-height: 50px; }
 .stock-sheet-nav .btn[disabled] { opacity: 0.4; }
 .stock-sheet-row input::-webkit-outer-spin-button, .stock-sheet-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Stock Check (staff Low/Out flags) + Till List */
+.flag-intro { color: var(--muted); font-size: 0.92rem; margin: 0 0 12px; }
+.flag-intro strong { color: var(--text); }
+.flag-summary { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.flag-summary > span { color: var(--muted); font-size: 0.95rem; }
+.flag-n { font-size: 1.3rem; color: var(--text); margin-right: 2px; font-variant-numeric: tabular-nums; }
+.flag-n.out { color: var(--danger); }
+.flag-n.low { color: var(--accent); }
+.flag-summary .btn { width: auto; margin: 0 0 0 auto; min-height: 44px; }
+#flag-filter { width: 100%; padding: 10px 12px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); margin: 4px 0 4px; }
+.flag-row, .till-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); min-height: 52px; }
+.stock-shelf-label + .flag-row, .stock-shelf > .flag-row:first-child, .stock-shelf > .till-row:first-child { border-top: none; }
+.flag-row.is-out .stock-name, .till-row:not(.is-blocked) .stock-name { font-weight: 600; }
+.flag-row.is-busy, .till-row.is-busy { opacity: 0.5; pointer-events: none; }
+.flag-btns { display: flex; gap: 6px; flex: none; }
+.flag-btn { min-width: 56px; min-height: 44px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+.flag-btn.flag-low.on { background: var(--accent); border-color: var(--accent); color: #1a1410; }
+.flag-btn.flag-out.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+.flag-badge { display: inline-block; margin: 3px 0 0; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; }
+.stock-name .flag-badge { display: table; }
+.flag-badge.out { background: rgba(201, 86, 79, 0.18); color: #f0a39d; border: 1px solid var(--danger); }
+.flag-badge.low { background: rgba(216, 163, 77, 0.16); color: var(--accent); border: 1px solid var(--accent); }
+.stock-sheet .flag-badge { display: block; border-radius: 10px; padding: 6px 10px; margin: 0 0 8px; font-size: 0.85rem; }
+.till-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.till-check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent2); }
+.till-row.is-blocked .stock-name { color: var(--muted); text-decoration: line-through; }
+.till-back { flex: none; min-height: 40px; }
